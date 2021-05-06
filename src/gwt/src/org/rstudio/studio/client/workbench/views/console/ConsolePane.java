@@ -1,7 +1,7 @@
 /*
  * ConsolePane.java
  *
- * Copyright (C) 2009-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -16,6 +16,7 @@ package org.rstudio.studio.client.workbench.views.console;
 
 import com.google.gwt.aria.client.Roles;
 import com.google.gwt.core.client.Scheduler;
+import com.google.gwt.user.client.ui.HTML;
 import com.google.gwt.user.client.ui.Image;
 import com.google.gwt.user.client.ui.IsWidget;
 import com.google.gwt.user.client.ui.Label;
@@ -128,10 +129,20 @@ public class ConsolePane extends WorkbenchPane
    protected Toolbar createMainToolbar()
    {
       Toolbar toolbar = new Toolbar("Console Tab");
+      
+      consoleInterpreterVersion_ = new ConsoleInterpreterVersion(true);
+      toolbar.addLeftWidget(consoleInterpreterVersion_);
+      
+      HTML separator = new HTML("&centerdot;");
+      separator.addStyleName(ThemeStyles.INSTANCE.toolbarDotSeparator());
+      toolbar.addLeftWidget(separator);
+      
       workingDir_ = new Label();
       workingDir_.setStyleName(ThemeStyles.INSTANCE.subtitle());
       toolbar.addLeftWidget(workingDir_);
+      
       toolbar.addLeftWidget(commands_.goToWorkingDir().createToolbarButton());
+      
       consoleInterruptButton_ = commands_.interruptR().createToolbarButton();
       consoleClearButton_ = commands_.consoleClear().createToolbarButton();
       consoleClearButton_.addStyleName(ThemeStyles.INSTANCE.consoleClearButton());
@@ -139,6 +150,7 @@ public class ConsolePane extends WorkbenchPane
 
       profilerInterruptButton_ = ConsoleInterruptProfilerButton.CreateProfilerButton();
       profilerInterruptButton_.setVisible(false);
+      
 
       toolbar.addRightWidget(profilerInterruptButton_);
       toolbar.addRightWidget(consoleInterruptButton_);
@@ -184,6 +196,12 @@ public class ConsolePane extends WorkbenchPane
    public void onSelected()
    {
       shell_.onSelected();
+   }
+
+   @Override
+   public void setFocus()
+   {
+      focus();
    }
 
    @Override
@@ -323,6 +341,7 @@ public class ConsolePane extends WorkbenchPane
    private Label workingDir_;
    private ToolbarButton consoleInterruptButton_;
    private ToolbarButton consoleClearButton_;
+   private ConsoleInterpreterVersion consoleInterpreterVersion_;
    private Image profilerInterruptButton_;
    private Stack<ConsoleMode> mode_;
    private SecondaryToolbar secondaryToolbar_;

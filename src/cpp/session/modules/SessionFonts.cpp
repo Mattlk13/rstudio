@@ -1,7 +1,7 @@
 /*
  * SessionFonts.cpp
  *
- * Copyright (C) 2020 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -186,7 +186,9 @@ void handleFontFileRequest(const http::Request& request,
       fontFile = systemFontFolder().completeChildPath(fileName);
    }
 
-   pResponse->setCacheableFile(fontFile, request);
+   // Allow the browser to cache these (implies that a reload may be required when replacing font
+   // files with new files that have the same name)
+   pResponse->setIndefiniteCacheableFile(fontFile, request);
    return;
 }
 

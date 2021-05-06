@@ -1,7 +1,7 @@
 #
 # test-environment.R
 #
-# Copyright (C) 2009-20 by RStudio, PBC
+# Copyright (C) 2021 by RStudio, PBC
 #
 # Unless you have received this program directly from RStudio pursuant
 # to the terms of a commercial license agreement with RStudio, then
@@ -16,6 +16,12 @@
 context("environment")
 
 test_that("environment object listings are correct", {
+
+   # temporarily disable showing the .Last.value so we don't have to account for it in test results
+   lastValue <- .rs.api.readRStudioPreference("show_last_dot_value")
+   on.exit(.rs.api.writeRStudioPreference("show_last_dot_value", lastValue))
+   .rs.api.writeRStudioPreference("show_last_dot_value", FALSE)
+
    # our test-runner sets runAllTests function in the global environment, so initial
    # length is one
    .rs.invokeRpc("set_environment", "R_GlobalEnv")
@@ -48,6 +54,12 @@ test_that("flag must be specified when removing objects", {
 })
 
 test_that("all objects are removed when requested", {
+
+   # temporarily disable showing the .Last.value so we don't have to account for it in test results
+   lastValue <- .rs.api.readRStudioPreference("show_last_dot_value")
+   on.exit(.rs.api.writeRStudioPreference("show_last_dot_value", lastValue))
+   .rs.api.writeRStudioPreference("show_last_dot_value", FALSE)
+
    contents <- .rs.invokeRpc("list_environment")
    expect_true(length(contents) > 0)
 
@@ -55,4 +67,29 @@ test_that("all objects are removed when requested", {
 
    contents <- .rs.invokeRpc("list_environment")
    expect_equal(length(contents), 0)
+})
+
+test_that("functions with backslashes deparse correctly", {
+   # character vector with code for a simple function
+   code <- "function() { \"first line\\nsecond line\" }"
+
+   # parse and evaluate the expression (yielding a function f)
+   eval(parse(text = paste0("f <- ", code)))
+
+   # immediately deparse f back into a string
+   output <- .rs.deparseFunction(f, TRUE, TRUE)
+
+   expect_equal(output, code)
+})
+
+test_that("memory usage stats are reasonable", {
+   report <- .rs.invokeRpc("get_memory_usage_report")
+
+   # ensure that we get values from R
+   expect_true(report$r$cons > 0)
+   expect_true(report$r$vector > 0)
+
+   # ensure that the memory used by R is less than the memory used by the process
+   r_total <- report$r$cons + report$r$vector
+   expect_true(report$system$process$kb > r_total)
 })

@@ -1,7 +1,7 @@
 /*
  * PythonCompletionManager.java
  *
- * Copyright (C) 2009-18 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -24,8 +24,13 @@ import org.rstudio.studio.client.common.codetools.CodeToolsServerOperations;
 import org.rstudio.studio.client.server.ServerError;
 import org.rstudio.studio.client.server.ServerRequestCallback;
 import org.rstudio.studio.client.workbench.views.source.editors.text.DocDisplay;
+import org.rstudio.studio.client.workbench.views.source.editors.text.ace.Position;
 import org.rstudio.studio.client.workbench.views.source.editors.text.ace.Token;
 import org.rstudio.studio.client.workbench.views.source.editors.text.ace.TokenIterator;
+
+import com.google.gwt.core.client.JsArray;
+
+import org.rstudio.studio.client.workbench.views.console.shell.assist.CompletionRequester.QualifiedName;
 import org.rstudio.studio.client.workbench.views.source.editors.text.CompletionContext;
 
 public class PythonCompletionManager extends CompletionManagerBase
@@ -39,6 +44,68 @@ public class PythonCompletionManager extends CompletionManagerBase
       super(popup, docDisplay, server, context);
    }
    
+   // Helper class for determining the appropriate line + cursor
+   // position to send down to the session when requesting completions
+   private static class PythonEditorContext
+   {
+      public PythonEditorContext(DocDisplay docDisplay)
+      {
+         Position cursorPos = docDisplay.getCursorPosition();
+         
+         String line = docDisplay.getLine(cursorPos.getRow());
+         
+         int position = cursorPos.getColumn();
+         
+         // record position as offset from end of line
+         int endOffset = line.length() - position;
+         
+         for (int row = cursorPos.getRow() - 1;
+              row >= 0;
+              row--)
+         {
+            JsArray<Token> tokens = docDisplay.getTokens(row);
+            if (tokens.length() == 0)
+               continue;
+            
+            Token token = tokens.get(tokens.length() - 1);
+            
+            boolean isContinuation =
+                  token.hasType("text") &&
+                  token.getValue().endsWith("\\");
+            
+            if (!isContinuation)
+               break;
+            
+            String prevLine = docDisplay.getLine(row);
+            
+            // we need to add the previous line sans the ending '\',
+            // and also trim off any leading whitespace on the current line
+            line =
+                  prevLine.replaceAll("\\s*\\\\$", "") +
+                  line.replaceAll("^\\s*", "");
+         }
+         
+         // update line
+         line_ = line;
+         
+         // update cursor position, using end offset to recompute
+         position_ = line.length() - endOffset;
+      }
+      
+      public String getLine()
+      {
+         return line_;
+      }
+      
+      public int getPosition()
+      {
+         return position_;
+      }
+      
+      private String line_;
+      private int position_;
+   }
+   
    @Override
    public void goToHelp()
    {
@@ -47,9 +114,11 @@ public class PythonCompletionManager extends CompletionManagerBase
             1000,
             "Opening help...");
       
+      PythonEditorContext context = new PythonEditorContext(docDisplay_);
+      
       server_.pythonGoToHelp(
-            docDisplay_.getCurrentLine(),
-            docDisplay_.getCursorPosition().getColumn(),
+            context.getLine(),
+            context.getPosition(),
             new ServerRequestCallback<Boolean>()
             {
                @Override
@@ -75,9 +144,11 @@ public class PythonCompletionManager extends CompletionManagerBase
             1000,
             "Finding definition...");
       
+      PythonEditorContext context = new PythonEditorContext(docDisplay_);
+      
       server_.pythonGoToDefinition(
-            docDisplay_.getCurrentLine(),
-            docDisplay_.getCursorPosition().getColumn(),
+            context.getLine(),
+            context.getPosition(),
             new ServerRequestCallback<Boolean>()
             {
                @Override
@@ -93,6 +164,45 @@ public class PythonCompletionManager extends CompletionManagerBase
                   Debug.logError(error);
                }
             });
+   }
+   
+   @Override
+   public void showAdditionalHelp(QualifiedName completion)
+   {
+      final GlobalProgressDelayer progress = new GlobalProgressDelayer(
+            RStudioGinjector.INSTANCE.getGlobalDisplay(),
+            1000,
+            "Opening help...");
+      
+      String line;
+      int position;
+      
+      if (StringUtil.isNullOrEmpty(completion.source))
+      {
+         line = completion.name;
+         position = 0;
+      }
+      else
+      {
+         line = completion.source + "." + completion.name;
+         position = completion.source.length() + 2;
+      }
+      
+      server_.pythonGoToHelp(line, position, new ServerRequestCallback<Boolean>()
+      {
+         @Override
+         public void onResponseReceived(Boolean response)
+         {
+            progress.dismiss();
+         }
+
+         @Override
+         public void onError(ServerError error)
+         {
+            progress.dismiss();
+            Debug.logError(error);
+         }
+      });
    }
 
    @Override
@@ -155,6 +265,15 @@ public class PythonCompletionManager extends CompletionManagerBase
       }
    }
    
+   private String singleLineCompletion()
+   {
+      PythonEditorContext context = new PythonEditorContext(docDisplay_);
+      
+      String line = context.getLine();
+      int position = context.getPosition();
+      return line.substring(0, position);
+   }
+   
    // this routine is primarily used to provide some extra context
    // for argument completions and import completions; e.g. when
    // the document contains:
@@ -176,14 +295,14 @@ public class PythonCompletionManager extends CompletionManagerBase
       TokenIterator it = docDisplay_.createTokenIterator();
       Token token = it.moveToPosition(docDisplay_.getCursorPosition());
       if (token == null)
-         return docDisplay_.getCurrentLineUpToCursor();
+         return singleLineCompletion();
       
       // move off of comments, text
       while (token.hasType("text", "comment"))
       {
          token = it.stepBackward();
          if (token == null)
-            return docDisplay_.getCurrentLineUpToCursor();
+            return singleLineCompletion();
       }
       
       // if we're on a ',' or a '(', assume that we may be
@@ -199,13 +318,13 @@ public class PythonCompletionManager extends CompletionManagerBase
          
          Token peek = clone.stepBackward();
          if (peek == null)
-            return docDisplay_.getCurrentLineUpToCursor();
+            return singleLineCompletion();
          
          while (peek.hasType("text", "comment"))
          {
             peek = clone.stepBackward();
             if (peek == null)
-               return docDisplay_.getCurrentLineUpToCursor();
+               return singleLineCompletion();
          }
          
          maybeArgument =
@@ -213,7 +332,7 @@ public class PythonCompletionManager extends CompletionManagerBase
                peek.valueEquals(",");
          
          if (!maybeArgument)
-            return docDisplay_.getCurrentLineUpToCursor();
+            return singleLineCompletion();
       }
       
       // start walking backwards until we see an 'anchor'

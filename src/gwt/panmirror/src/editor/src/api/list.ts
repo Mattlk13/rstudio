@@ -1,7 +1,7 @@
 /*
  * list.ts
  *
- * Copyright (C) 2019-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -18,6 +18,11 @@ import { Transaction, Selection } from 'prosemirror-state';
 
 import { findParentNodeOfType, setTextSelection } from 'prosemirror-utils';
 
+export enum ListType {
+  Ordered = 'OrderedList',
+  Bullet = 'BulletList',
+}
+
 export interface ListCapabilities {
   tasks: boolean;
   fancy: boolean;
@@ -25,19 +30,32 @@ export interface ListCapabilities {
   order: boolean;
 }
 
-export function precedingListItemInsertPos(doc: ProsemirrorNode, selection: Selection, matchText = '') {
+export function isList(node: ProsemirrorNode | null | undefined) {
+  if (node) {
+    const schema = node.type.schema;
+    return node.type === schema.nodes.bullet_list || node.type === schema.nodes.ordered_list;
+  } else {
+    return false;
+  }
+}
+
+export function precedingListItemInsertPos(doc: ProsemirrorNode, selection: Selection) {
   // selection just be empty
   if (!selection.empty) {
     return null;
   }
 
-  // check for insert position in preceding list item
+  // check for insert position in preceding list item (only trigger when
+  // the user is at the very beginning of a new bullet)
   const schema = doc.type.schema;
+  const $head = selection.$head;
   const parentListItem = findParentNodeOfType(schema.nodes.list_item)(selection);
-  if (parentListItem && parentListItem.node.textContent === matchText) {
+  if (parentListItem) {
     const $liPos = doc.resolve(parentListItem.pos);
     const listIndex = $liPos.index();
-    if (listIndex > 0) {
+    const parentIndex = $head.index($head.depth - 1);
+    const parentOffset = $head.parentOffset;
+    if (listIndex > 0 && parentIndex === 0 && parentOffset === 0) {
       const pos = $liPos.pos - 1;
       return pos;
     } else {

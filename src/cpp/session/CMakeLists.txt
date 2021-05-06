@@ -1,7 +1,7 @@
 #
 # CMakeLists.txt
 #
-# Copyright (C) 2009-20 by RStudio, PBC
+# Copyright (C) 2021 by RStudio, PBC
 #
 # Unless you have received this program directly from RStudio pursuant
 # to the terms of a commercial license agreement with RStudio, then
@@ -13,21 +13,48 @@
 #
 #
 
-project (SESSION)
+project(SESSION)
 
 add_subdirectory(workers)
 
 # verify that install-dictionaries, install-mathjax, install-pandoc,
 # and install-rmarkdown have been run as required
-if(NOT EXISTS "${RSTUDIO_DEPENDENCIES_DIR}/common/dictionaries")
-  message(FATAL_ERROR "Dictionaries not found (re-run install-dependencies script to install)")
+set(PANDOC_VERSION "2.11.4" CACHE INTERNAL "Pandoc version")
+
+if(WIN32)
+   set(RSTUDIO_DEPENDENCIES_DICTIONARIES_DIR "${RSTUDIO_DEPENDENCIES_DIR}/common/dictionaries")
+   set(RSTUDIO_DEPENDENCIES_MATHJAX_DIR      "${RSTUDIO_DEPENDENCIES_DIR}/common/mathjax-27")
+   set(RSTUDIO_DEPENDENCIES_PANDOC_DIR       "${RSTUDIO_DEPENDENCIES_DIR}/common/pandoc/${PANDOC_VERSION}")
+else()
+
+   # indirection to help build machine find these libraries?
+   if(EXISTS "${RSTUDIO_TOOLS_ROOT}/dictionaries")
+      set(RSTUDIO_DEPENDENCIES_DICTIONARIES_DIR "${RSTUDIO_TOOLS_ROOT}/dictionaries")
+   else()
+      set(RSTUDIO_DEPENDENCIES_DICTIONARIES_DIR "${RSTUDIO_DEPENDENCIES_DIR}/dictionaries")
+   endif()
+   
+   if(EXISTS "${RSTUDIO_TOOLS_ROOT}/mathjax-27")
+      set(RSTUDIO_DEPENDENCIES_MATHJAX_DIR "${RSTUDIO_TOOLS_ROOT}/mathjax-27")
+   else()
+      set(RSTUDIO_DEPENDENCIES_MATHJAX_DIR "${RSTUDIO_DEPENDENCIES_DIR}/mathjax-27")
+   endif()
+
+   if(EXISTS "${RSTUDIO_TOOLS_ROOT}/pandoc/${PANDOC_VERSION}")
+      set(RSTUDIO_DEPENDENCIES_PANDOC_DIR "${RSTUDIO_TOOLS_ROOT}/pandoc/${PANDOC_VERSION}")
+   else()
+      set(RSTUDIO_DEPENDENCIES_PANDOC_DIR "${RSTUDIO_DEPENDENCIES_DIR}/pandoc/${PANDOC_VERSION}")
+   endif()
+
 endif()
-if(NOT EXISTS "${RSTUDIO_DEPENDENCIES_DIR}/common/mathjax-27")
-  message(FATAL_ERROR "Mathjax 2.7 not found (re-run install-dependencies script to install)")
-endif()
-if(NOT EXISTS "${RSTUDIO_DEPENDENCIES_DIR}/common/pandoc")
-  message(FATAL_ERROR "pandoc not found (re-run install-dependencies script to install)")
-endif()
+
+foreach(DEP "${RSTUDIO_DEPENDENCIES_DICTIONARIES_DIR}"
+            "${RSTUDIO_DEPENDENCIES_MATHJAX_DIR}"
+            "${RSTUDIO_DEPENDENCIES_PANDOC_DIR}")
+   if(NOT EXISTS "${DEP}")
+      message(FATAL_ERROR "${DEP} not found (re-run install-dependencies script to install")
+   endif()
+endforeach()
 
 # verify embedded packages are available
 foreach(PKG ${RSTUDIO_EMBEDDED_PACKAGES})
@@ -56,8 +83,9 @@ file(GLOB_RECURSE SESSION_HEADER_FILES "*.h*")
 
 
 # source files
-set (SESSION_SOURCE_FILES
+set(SESSION_SOURCE_FILES
    SessionAsyncRProcess.cpp
+   SessionAsyncDownloadFile.cpp
    SessionClientEvent.cpp
    SessionClientEventQueue.cpp
    SessionClientEventService.cpp
@@ -81,6 +109,7 @@ set (SESSION_SOURCE_FILES
    SessionModuleContext.cpp
    SessionOptions.cpp
    SessionOptionsOverlay.cpp
+   SessionPandoc.cpp
    SessionPasswordManager.cpp
    SessionPersistentState.cpp
    SessionPostback.cpp
@@ -137,6 +166,7 @@ set (SESSION_SOURCE_FILES
    modules/SessionPlumberViewer.cpp
    modules/SessionProfiler.cpp
    modules/SessionProjectTemplate.cpp
+   modules/SessionPythonEnvironments.cpp
    modules/SessionRAddins.cpp
    modules/SessionRCompletions.cpp
    modules/SessionRenv.cpp
@@ -157,6 +187,7 @@ set (SESSION_SOURCE_FILES
    modules/SessionThemes.cpp
    modules/SessionTutorial.cpp
    modules/SessionSVN.cpp
+   modules/SessionSystemResources.cpp
    modules/SessionUpdates.cpp
    modules/SessionVCS.cpp
    modules/SessionWorkbench.cpp
@@ -192,6 +223,13 @@ set (SESSION_SOURCE_FILES
    modules/jobs/JobsApi.cpp
    modules/mathjax/SessionMathJax.cpp
    modules/panmirror/SessionPanmirror.cpp
+   modules/panmirror/SessionPanmirrorBibliography.cpp
+   modules/panmirror/SessionPanmirrorCrossref.cpp
+   modules/panmirror/SessionPanmirrorDataCite.cpp
+   modules/panmirror/SessionPanmirrorDOI.cpp
+   modules/panmirror/SessionPanmirrorPandoc.cpp
+   modules/panmirror/SessionPanmirrorPubMed.cpp
+   modules/panmirror/SessionPanmirrorUtils.cpp
    modules/overlay/SessionOverlay.cpp
    modules/plumber/SessionPlumber.cpp
    modules/presentation/SessionPresentation.cpp
@@ -205,6 +243,8 @@ set (SESSION_SOURCE_FILES
    modules/presentation/SlideRequestHandler.cpp
    modules/preview/SessionPreview.cpp
    modules/rmarkdown/SessionBlogdown.cpp
+   modules/rmarkdown/SessionBookdown.cpp
+   modules/rmarkdown/SessionBookdownXRefs.cpp
    modules/rmarkdown/SessionRMarkdown.cpp
    modules/rmarkdown/SessionRmdNotebook.cpp
    modules/rmarkdown/SessionExecuteChunkOperation.cpp
@@ -244,6 +284,13 @@ set (SESSION_SOURCE_FILES
    modules/vcs/SessionVCSUtils.cpp
    modules/viewer/SessionViewer.cpp
    modules/viewer/ViewerHistory.cpp
+   modules/zotero/ZoteroBetterBibTeX.cpp
+   modules/zotero/ZoteroCollections.cpp
+   modules/zotero/ZoteroCollectionsWeb.cpp
+   modules/zotero/ZoteroCollectionsLocal.cpp
+   modules/zotero/ZoteroCSL.cpp
+   modules/zotero/ZoteroUtil.cpp
+   modules/zotero/SessionZotero.cpp
    prefs/PrefLayer.cpp
    prefs/Preferences.cpp
    prefs/UserPrefValues.cpp
@@ -392,7 +439,10 @@ if(WIN32)
 endif()
 
 # define executable
-add_stripped_executable(rsession ${SESSION_SOURCE_FILES} ${SESSION_HEADER_FILES})
+add_stripped_executable(
+   rsession
+   ${SESSION_SOURCE_FILES}
+   ${SESSION_HEADER_FILES})
 
 # skip libR RPATH at development time
 if(RSTUDIO_DEVELOPMENT OR RSTUDIO_RUN_IN_PLACE)
@@ -424,16 +474,14 @@ target_link_libraries(rsession
    ${CRASHPAD_LIBRARIES}
 )
 
-if(RSTUDIO_PACKAGE_BUILD AND APPLE)
+if(APPLE)
    target_link_libraries(rsession "-undefined dynamic_lookup")
 else()
    target_link_libraries(rsession "${LIBR_LIBRARIES}")
 endif()
 
-if (RSTUDIO_SERVER)
-   target_link_libraries(rsession
-      rstudio-server-core
-   )
+if(RSTUDIO_SERVER)
+   target_link_libraries(rsession rstudio-server-core)
 endif()
 
 # configure and install r-ldpaths script
@@ -453,10 +501,10 @@ if(UNIX)
 endif()
 
 # install binary
-install(TARGETS rsession DESTINATION ${RSTUDIO_INSTALL_BIN})
+install(TARGETS rsession DESTINATION "${RSTUDIO_INSTALL_BIN}")
 
 # include resources, R scripts and binaries if this isn't a session 32-bit build
-if (NOT RSTUDIO_SESSION_WIN32)
+if(NOT RSTUDIO_SESSION_WIN32 AND NOT RSESSION_ALTERNATE_BUILD)
 
    # postback
    add_subdirectory(postback)
@@ -475,6 +523,14 @@ if (NOT RSTUDIO_SESSION_WIN32)
    # JS resources
    file(GLOB JS_RESOURCE_FILES "resources/*.js")
    install(FILES ${JS_RESOURCE_FILES}
+           DESTINATION ${RSTUDIO_INSTALL_SUPPORTING}/resources)
+   # Lua resources
+   file(GLOB LUA_RESOURCE_FILES "resources/*.lua")
+   install(FILES ${LUA_RESOURCE_FILES}
+           DESTINATION ${RSTUDIO_INSTALL_SUPPORTING}/resources)
+   # CSL resources
+   file(GLOB CSL_RESOURCE_FILES "resources/*.csl")
+   install(FILES ${CSL_RESOURCE_FILES}
            DESTINATION ${RSTUDIO_INSTALL_SUPPORTING}/resources)
    # presentation
    install(DIRECTORY "resources/presentation"
@@ -502,14 +558,6 @@ if (NOT RSTUDIO_SESSION_WIN32)
    install(FILES ${R_MODULE_SRC_FILES}
            DESTINATION ${RSTUDIO_INSTALL_SUPPORTING}/R/modules)
 
-   # install hunspell dictionaries
-   install(DIRECTORY "${RSTUDIO_DEPENDENCIES_DIR}/common/dictionaries"
-           DESTINATION "${RSTUDIO_INSTALL_SUPPORTING}/resources")
-
-   # install mathjax for local html preview
-   install(DIRECTORY "${RSTUDIO_DEPENDENCIES_DIR}/common/mathjax-27"
-           DESTINATION "${RSTUDIO_INSTALL_SUPPORTING}/resources")
-
    # icons for database connections
    install(DIRECTORY "resources/connections"
            DESTINATION ${RSTUDIO_INSTALL_SUPPORTING}/resources)
@@ -522,14 +570,19 @@ if (NOT RSTUDIO_SESSION_WIN32)
    install(DIRECTORY "resources/dependencies"
            DESTINATION ${RSTUDIO_INSTALL_SUPPORTING}/resources)
 
-   # install pandoc
-   set(PANDOC_VERSION "2.9.2.1" CACHE INTERNAL "Pandoc version")
+   # install hunspell dictionaries
+   install(DIRECTORY "${RSTUDIO_DEPENDENCIES_DICTIONARIES_DIR}"
+           DESTINATION "${RSTUDIO_INSTALL_SUPPORTING}/resources")
 
-   set(PANDOC_BIN "${RSTUDIO_DEPENDENCIES_DIR}/common/pandoc/${PANDOC_VERSION}")
-   file(GLOB PANDOC_FILES "${PANDOC_BIN}/pandoc*")
+   # install mathjax for local html preview
+   install(DIRECTORY "${RSTUDIO_DEPENDENCIES_MATHJAX_DIR}"
+           DESTINATION "${RSTUDIO_INSTALL_SUPPORTING}/resources")
+
+   # install pandoc
+   file(GLOB PANDOC_FILES "${RSTUDIO_DEPENDENCIES_PANDOC_DIR}/pandoc*")
    install(FILES ${PANDOC_FILES}
            PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE
-           DESTINATION  ${RSTUDIO_INSTALL_BIN}/pandoc)
+           DESTINATION "${RSTUDIO_INSTALL_BIN}/pandoc")
 
    # install embedded packages
    foreach(PKG ${RSTUDIO_EMBEDDED_PACKAGES})
@@ -562,6 +615,11 @@ if (NOT RSTUDIO_SESSION_WIN32)
    # install tutorials
    install(DIRECTORY "resources/tutorial_resources"
            DESTINATION ${RSTUDIO_INSTALL_SUPPORTING}/resources)
+
+   # install terminal resources
+   install(
+      DIRECTORY "resources/terminal"
+      DESTINATION ${RSTUDIO_INSTALL_SUPPORTING}/resources)
 
    # install libclang
    if(WIN32)
@@ -632,33 +690,10 @@ endif()
 
 if(APPLE)
 
-   # if doing a package build on MacOS, reroute dependent libraries to our
-   # bundled copies
-   if (RSTUDIO_PACKAGE_BUILD)
-      find_package(OpenSSL REQUIRED QUIET)
-      foreach(lib ${OPENSSL_CRYPTO_LIBRARY} ${OPENSSL_SSL_LIBRARY})
-         # get the real path to the library (with all symlinks resolved) and filename
-         get_filename_component(LIB_PATH "${lib}" REALPATH)
-         get_filename_component(LIB_FILE "${LIB_PATH}" NAME)
-         # this command does the following:
-         # 1. runs otool -L to find the path at which the OpenSSL library is
-         #    linked into the executable (this path is unfortunately not canonical
-         #    and includes layers of both resolved and unresolved symlinks)
-         # 2. extracts the path from the output using grep and awk
-         # 3. runs install_name_tool and tells it to replace the path with one that
-         #    points to a bundled copy of the same file
-         add_custom_command (TARGET rsession POST_BUILD
-            COMMAND install_name_tool -change `otool -L ${CMAKE_CURRENT_BINARY_DIR}/rsession | grep ${LIB_FILE} | awk '{ print $$1 }'` @executable_path/../Frameworks/${LIB_FILE} ${CMAKE_CURRENT_BINARY_DIR}/rsession)
-      endforeach()
-
-      # do something similar to the above to fix paths to SOCI libraries
-      foreach(lib ${SOCI_SYMLINK_LIBRARIES})
-         get_filename_component(LIB_PATH "${lib}" ABSOLUTE)
-         get_filename_component(LIB_FILE "${LIB_PATH}" NAME)
-         add_custom_command (TARGET rsession POST_BUILD
-            COMMAND install_name_tool -change `otool -L ${CMAKE_CURRENT_BINARY_DIR}/rsession | grep ${LIB_FILE} | awk '{ print $$1 }'` @executable_path/../Frameworks/${LIB_FILE} ${CMAKE_CURRENT_BINARY_DIR}/rsession)
-      endforeach()
-
+   if(RSESSION_ALTERNATE_BUILD)
+      set(RSESSION_DYLIB_PREFIX "@executable_path/../Frameworks/arm64")
+   else()
+      set(RSESSION_DYLIB_PREFIX "@executable_path/../Frameworks")
    endif()
 
 endif()

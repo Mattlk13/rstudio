@@ -1,7 +1,7 @@
 #
 # CMakeLists.txt
 #
-# Copyright (C) 2009-19 by RStudio, PBC
+# Copyright (C) 2021 by RStudio, PBC
 #
 # Unless you have received this program directly from RStudio pursuant
 # to the terms of a commercial license agreement with RStudio, then
@@ -58,38 +58,8 @@ add_stripped_executable(diagnostics
 target_link_libraries(diagnostics
    rstudio-core
 )
+
 if(NOT RSTUDIO_SESSION_WIN32)
    install(TARGETS diagnostics DESTINATION ${RSTUDIO_INSTALL_BIN})
 endif()
-
-# if doing a package build on MacOS, reroute depdendent libraries to our bundled copies
-if(APPLE AND RSTUDIO_PACKAGE_BUILD)
-
-   find_package(OpenSSL REQUIRED QUIET)
-   foreach(lib ${OPENSSL_CRYPTO_LIBRARY} ${OPENSSL_SSL_LIBRARY})
-      # get the real path to the library (with all symlinks resolved) and filename
-      get_filename_component(LIB_PATH "${lib}" REALPATH)
-      get_filename_component(LIB_FILE "${LIB_PATH}" NAME)
-      # this command does the following:
-      # 1. runs otool -L to find the path at which the OpenSSL library is
-      #    linked into the executable (this path is unfortunately not canonical
-      #    and includes layers of both resolved and unresolved symlinks)
-      # 2. extracts the path from the output using grep and awk
-      # 3. runs install_name_tool and tells it to replace the path with one that
-      #    points to a bundled copy of the same file
-      add_custom_command (TARGET diagnostics POST_BUILD
-         COMMAND install_name_tool -change `otool -L ${CMAKE_CURRENT_BINARY_DIR}/diagnostics | grep ${LIB_FILE} | awk '{ print $$1 }'` @executable_path/../Frameworks/${LIB_FILE} ${CMAKE_CURRENT_BINARY_DIR}/diagnostics)
-   endforeach()
-
-   # do something similar to the above to fix paths to SOCI libraries
-   foreach(lib ${SOCI_SYMLINK_LIBRARIES})
-      get_filename_component(LIB_PATH "${lib}" ABSOLUTE)
-      get_filename_component(LIB_FILE "${LIB_PATH}" NAME)
-      add_custom_command (TARGET diagnostics POST_BUILD
-         COMMAND install_name_tool -change `otool -L ${CMAKE_CURRENT_BINARY_DIR}/diagnostics | grep ${LIB_FILE} | awk '{ print $$1 }'` @executable_path/../Frameworks/${LIB_FILE} ${CMAKE_CURRENT_BINARY_DIR}/diagnostics)
-   endforeach()
-
-endif()
-
-
 

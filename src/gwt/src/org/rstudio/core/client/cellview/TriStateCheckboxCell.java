@@ -1,7 +1,7 @@
 /*
  * TriStateCheckboxCell.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -51,7 +51,7 @@ public class TriStateCheckboxCell<TKey> implements Cell<Boolean>
    public TriStateCheckboxCell(SelectionModel<TKey> selectionModel)
    {
       selectionModel_ = selectionModel;
-      consumedEvents_ = new HashSet<String>();
+      consumedEvents_ = new HashSet<>();
       consumedEvents_.add("click");
       consumedEvents_.add("keydown");
       consumedEvents_.add("mouseover");

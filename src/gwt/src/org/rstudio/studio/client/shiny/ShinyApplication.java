@@ -1,7 +1,7 @@
 /*
  * ShinyApplication.java
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -90,7 +90,7 @@ public class ShinyApplication implements ShinyApplicationStatusEvent.Handler,
       currentViewType_ = UserPrefs.SHINY_VIEWER_TYPE_NONE;
       dependencyManager_ = dependencyManager;
       interrupt_ = interrupt;
-      params_ = new ArrayList<ShinyApplicationParams>();
+      params_ = new ArrayList<>();
       
       eventBus_.addHandler(ShinyApplicationStatusEvent.TYPE, this);
       eventBus_.addHandler(LaunchShinyApplicationEvent.TYPE, this);
@@ -264,7 +264,7 @@ public class ShinyApplication implements ShinyApplicationStatusEvent.Handler,
             {
                satelliteManager_.dispatchCommand(commands_.reloadShinyApp(), 
                      ShinyApplicationSatellite.getNameFromId(params.getId()));
-               activateWindow();
+               activateWindow(params);
             } 
             else if (params.getViewerType() == UserPrefs.SHINY_VIEWER_TYPE_PANE &&
                      commands_.viewerRefresh().isEnabled())
@@ -500,15 +500,14 @@ public class ShinyApplication implements ShinyApplicationStatusEvent.Handler,
       }
    }
    
-   private void activateWindow()
-   {
-      activateWindow(null);
-   }
-   
    private void activateWindow(ShinyApplicationParams params)
    {
-      WindowEx win = satelliteManager_.getSatelliteWindowObject(
+      WindowEx win = null;
+      if (params != null)
+      {
+         win = satelliteManager_.getSatelliteWindowObject(
             ShinyApplicationSatellite.getNameFromId(params.getId()));
+      }
 
       boolean isChrome = !Desktop.isDesktop() && BrowseCap.isChrome();
       

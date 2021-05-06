@@ -1,7 +1,7 @@
 /*
  * DesktopProgressActivator.hpp
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -13,8 +13,8 @@
  *
  */
 
-#ifndef DESKTOP_PROGRESS_ACTIVATOR
-#define DESKTOP_PROGRESS_ACTIVATOR
+#ifndef DESKTOP_PROGRESS_ACTIVATOR_HPP
+#define DESKTOP_PROGRESS_ACTIVATOR_HPP
 
 #include <boost/noncopyable.hpp>
 #include <boost/scoped_ptr.hpp>
@@ -56,4 +56,4 @@ inline ProgressActivator::~ProgressActivator()
 } // namespace desktop
 } // namespace rstudio
 
-#endif // DESKTOP_PROGRESS_ACTIVATOR
+#endif // DESKTOP_PROGRESS_ACTIVATOR_HPP

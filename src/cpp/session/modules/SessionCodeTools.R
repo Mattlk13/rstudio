@@ -1,7 +1,7 @@
 #
 # SessionCodeTools.R
 #
-# Copyright (C) 2009-20 by RStudio, PBC
+# Copyright (C) 2021 by RStudio, PBC
 #
 # Unless you have received this program directly from RStudio pursuant
 # to the terms of a commercial license agreement with RStudio, then
@@ -19,6 +19,12 @@
    ready <- !is.null(available$value)
    packages <- .rs.discoverPackageDependencies(docId, fileType)
    list(ready = .rs.scalar(ready), packages = packages)
+})
+
+.rs.addFunction("stopf", function(fmt, ..., call. = FALSE)
+{
+   msg <- sprintf(fmt, ...)
+   stop(msg, call. = call.)
 })
 
 .rs.addFunction("error", function(...)
@@ -141,33 +147,37 @@
    }
 })
 
-.rs.addFunction("getFunction", function(name, namespaceName)
+.rs.addFunction("getFunction", function(name, envir = globalenv())
 {
-   # resolve "namespace:" environments
-   envir <- if (identical(substring(namespaceName, 1, nchar("namespace:")), 
-                          "namespace:"))
-   {
-     asNamespace(substring(namespaceName, nchar("namespace:") + 1))
-   }
-   else if (identical(namespaceName, ".GlobalEnv"))
-   {
-      .GlobalEnv
-   }
-   else
-   {
-     asNamespace(namespaceName)
-   }
+   tryCatch(
+      .rs.getFunctionImpl(name, envir),
+      error = function(e) NULL
+   )
+})
 
-   tryCatch(eval(parse(text = name),
-                 envir = envir,
-                 enclos = NULL),
-            error = function(e) NULL)
+.rs.addFunction("getFunctionImpl", function(name, envir = globalenv())
+{
+   envir <- .rs.resolveEnvironment(envir)
+   parsed <- parse(text = name)[[1L]]
+   
+   # for plain symbols, we can attempt lookup of a function object
+   # directly; for more complex calls, we try to evaluate it in
+   # the requested environment and hope we got a function
+   fn <- if (is.symbol(parsed))
+      get(name, envir = envir, mode = "function")
+   else
+      eval(parsed, envir = envir)
+   
+   if (!is.function(fn))
+      return(NULL)
+   
+   fn
 })
 
 
 .rs.addFunction("functionHasSrcRef", function(func)
 {
-   return (!is.null(attr(func, "srcref")))
+   !is.null(attr(func, "srcref"))
 })
 
 # Returns a function's code as a string. Arguments:
@@ -176,6 +186,23 @@
 #             (otherwise a character vector of lines is returned)
 .rs.addFunction("deparseFunction", function(func, useSource, asString)
 {
+   # If we're being asked to return the source references as-is, read the source
+   # references directly instead of going through deparse (which has a known
+   # issue that corrupts output with backslashes in R 4.0.0 and perhaps other
+   # versions; see R bug 17800).
+   if (useSource)
+   {
+      srcref <- attr(func, "srcref", exact = TRUE)
+      if (!is.null(srcref))
+      {
+         code <- as.character(srcref, useSource = TRUE)
+         if (asString)
+           return(paste(code, collapse = "\n"))
+         else
+           return(code)
+      }
+   }
+
    control <- c("keepInteger", "keepNA")
    if (useSource)
      control <- append(control, "useSource")
@@ -904,28 +931,36 @@
 
 .rs.addFunction("getDollarNamesMethod", function(object,
                                                  excludeBaseClasses = FALSE,
-                                                 envir = parent.frame())
+                                                 envir = globalenv())
 {
    classAndSuper <- function(cl)
    {
-      # selectSuperClasses throws and error if the class is unknown
-      super <- tryCatch(methods::selectSuperClasses(cl),
-                        error = function(e) NULL)
+      # selectSuperClasses throws an error if the class is unknown
+      super <- tryCatch(
+         methods::selectSuperClasses(cl),
+         error = function(e) NULL
+      )
+      
       c(cl, super)
    }
    
    # interleave super classes after the corresponding original classes
    classes <- unlist(lapply(class(object), classAndSuper), recursive = TRUE)
    # either remove or add an explicit (=non-mode) list/environment class
-   classes <-
-      if (excludeBaseClasses)
-         setdiff(classes, c("list", "environment"))
-      else
-         c(classes, mode(object))
+   classes <- if (excludeBaseClasses)
+      setdiff(classes, c("list", "environment"))
+   else
+      c(classes, mode(object))
    
    for (class in classes)
    {
-      method <- utils::getS3method(".DollarNames", class, optional = TRUE)
+      method <- utils::getS3method(
+         f = ".DollarNames",
+         class = class,
+         envir = envir,
+         optional = TRUE
+      )
+      
       if (!is.null(method))
          return(method)
    }
@@ -937,13 +972,26 @@
 {
    # call custom help handler if provided
    if (nzchar(helpHandler)) {
-      helpHandlerFunc <- tryCatch(eval(parse(text = helpHandler)),
-                                  error = function(e) NULL)
+      
+      # resolve help handler
+      helpHandlerFunc <- tryCatch(
+         eval(parse(text = helpHandler)),
+         error = function(e) NULL
+      )
+      
       if (!is.function(helpHandlerFunc))
          return(NULL)
-      help <- helpHandlerFunc("completion", name, src)
+      
+      # invoke handler function
+      help <- tryCatch(
+         helpHandlerFunc("completion", name, src),
+         error = function(e) NULL
+      )
+      
       if (is.null(help))
          return(NULL)
+      
+      # attempt to retrieve signature
       signature <- help$signature
       if (!is.null(signature)) {
          paren <- regexpr("\\(", signature)[[1]]
@@ -967,13 +1015,52 @@
          name <- "write.table"
       }
    }
-      
-   if (identical(src, ""))
-      src <- .GlobalEnv
    
-   result <- .rs.getSignature(.rs.getAnywhere(name, src))
-   result <- sub("function ", "", result)
-   .rs.scalar(result)
+   # NOTE: 'src' can refer either to a package for usages of the form
+   # 'utils::alarm()', or an object for usages of the form 'object$method()'.
+   # We need to be careful to handle both types.
+   
+   # first, try to resolve as environment
+   envir <- .rs.tryCatch(.rs.resolveEnvironment(src))
+   if (is.environment(envir))
+   {
+      method <- .rs.tryCatch(get(name, envir = envir, mode = "function"))
+      if (is.function(method))
+      {
+         signature <- .rs.getSignature(method)
+         result <- sub("function ", "", signature)
+         return(.rs.scalar(result))
+      }
+   }
+   
+   # next, try to resolve as regular R object
+   envir <- .rs.getActiveFrame()
+   object <- .rs.getAnywhere(src, envir = envir)
+   if (!is.null(object))
+   {
+      # if the user is calling 'R6$new', try inferring objects from the
+      # initialize method instead
+      method <- if (inherits(object, "R6ClassGenerator") &&
+                    identical(name, "new"))
+      {
+         object$public_methods$initialize
+      }
+      else
+      {
+         .rs.tryCatch(object[[name]])
+      }
+      
+      if (is.function(method))
+      {
+         signature <- .rs.getSignature(method)
+         result <- sub("function ", "", signature)
+         return(.rs.scalar(result))
+      }
+   }
+   
+   # all else fails, just provide a dummy return value
+   .rs.scalar("(...)")
+   
 })
 
 .rs.addFunction("getActiveArgument", function(object,
@@ -1902,6 +1989,11 @@
    options <- options("repos", "download.file.method", "download.file.extra", "HTTPUserAgent")
    if (identical(options[["download.file.method"]], "curl"))
       options[["download.file.extra"]] <- .rs.downloadFileExtraWithCurlArgs()
+
+   # if there is no repo option set in the R session, read it from preferences
+   if (identical(length(options[["repos"]]), 0L)) {
+      options[["repos"]]["CRAN"] <- .rs.readUiPref("cran_mirror")$url
+   }
    
    # drop NULL entries
    options <- Filter(Negate(is.null), options)
@@ -2129,18 +2221,25 @@
 
    discoveries <- new.env(parent = emptyenv())
 
-   # for R Markdown docs, scan the YAML header (requires the YAML package, a dependency of
-   # rmarkdown)
-   if (identical(extension, ".Rmd") && requireNamespace("yaml", quietly = TRUE))
+   # for R Markdown docs, scan the YAML header (requires the rmarkdown package and the yaml package,
+   # a dependency of rmarkdown)
+   if (identical(extension, ".Rmd") && 
+       requireNamespace("rmarkdown", quietly = TRUE) &&
+       requireNamespace("yaml", quietly = TRUE))
    {
-      # split document into sections based on the YAML header delimter
-      sections <- unlist(strsplit(contents, "---", fixed = TRUE))
-      if (length(sections) > 2)
+      # extract the front matter from the document; accepts a list of lines and returns a list with
+      # $front_matter and $body elements
+      partitions <- rmarkdown:::partition_yaml_front_matter(
+            strsplit(x = contents, split = "\n", fixed = TRUE)[[1]])
+
+      # did we find some front matter?
+      front_matter <- partitions[["front_matter"]]
+      if (!is.null(front_matter))
       {
          front <- NULL
 
          tryCatch({
-            front <- yaml::read_yaml(text = sections[[2]])
+            front <- yaml::read_yaml(text = front_matter)
          }, error = function(e) {
             # ignore errors when reading YAML; it's very possible that the document's YAML will not
             # be correct at all times (e.g. during editing) 
@@ -2149,20 +2248,20 @@
          # start with an empty output
          output <- NULL
 
-         if (!is.null(names(front$output)))
+         if (!is.null(names(front[["output"]])))
          {
             # if the output key has children, it will appear as a list name
             # output:
             #   pkg_name::out_fmt:
             #     foo: bar
-            output <- names(front$output)[[1]]
+            output <- names(front[["output"]])[[1]]
          }
-         else if (is.character(front$output))
+         else if (is.character(front[["output"]]))
          {
             # if the output key doesn't have children, it will appear as a plain character
             #
             # output: pkg_name::out_fmt
-            output <- front$output
+            output <- front[["output"]]
          }
 
          # check for references to an R package in output format
@@ -2176,9 +2275,12 @@
          }
 
          # check for runtime: shiny or parameters (requires the Shiny R package)
-         if (identical(front$runtime, "shiny") || 
-             identical(front$runtime, "shiny_prerendered") ||
-             !is.null(front$params))
+         runtime <- front[["runtime"]]
+         params  <- front[["params"]]
+         if (identical(runtime, "shiny") || 
+             identical(runtime, "shinyrmd") ||
+             identical(runtime, "shiny_prerendered") ||
+             !is.null(params))
          {
             discoveries[["shiny"]] <- TRUE
          }
@@ -2411,5 +2513,37 @@
    # paste and truncate once more for safety
    text <- paste(items, collapse = sep)
    .rs.truncate(text, n = max * 2L)
+   
+})
+
+.rs.addFunction("resolveEnvironment", function(envir)
+{
+   # if this is already an environment, just return it
+   if (is.environment(envir))
+      return(envir)
+   
+   # if this is a numeric, then assume we want an
+   # environment by position on the search path
+   if (is.numeric(envir))
+      return(as.environment(envir))
+   
+   # treat empty strings as request for globalenv
+   if (is.null(envir) || identical(envir, ""))
+      return(globalenv())
+   
+   # if this is the name of something on the search path,
+   # then as.environment should suffice
+   index <- match(envir, search())
+   if (!is.na(index))
+      return(as.environment(index))
+   
+   # if this is the name of a namespace, retrieve that namespace
+   if (substring(envir, 1L, 10L) == "namespace:") {
+      package <- substring(envir, 11L)
+      return(getNamespace(package))
+   }
+   
+   # otherwise, treat 'envir' directly as the name of a namespace
+   getNamespace(envir)
    
 })

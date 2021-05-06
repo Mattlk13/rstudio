@@ -1,7 +1,7 @@
 /*
  * DocTabActivatedEvent.java
  *
- * Copyright (C) 2009-15 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -30,8 +30,7 @@ public class DocTabActivatedEvent
       void onDocTabActivated(DocTabActivatedEvent event);
    }
 
-   public static final GwtEvent.Type<DocTabActivatedEvent.Handler> TYPE =
-      new GwtEvent.Type<DocTabActivatedEvent.Handler>();
+   public static final GwtEvent.Type<DocTabActivatedEvent.Handler> TYPE = new GwtEvent.Type<>();
    
    public DocTabActivatedEvent()
    {

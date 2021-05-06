@@ -1,7 +1,7 @@
 /*
  * DataViewer.cpp
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -20,9 +20,9 @@
 #include <sstream>
 #include <gsl/gsl>
 
-#include <boost/bind.hpp>
 #include <boost/format.hpp>
 #include <boost/algorithm/string/predicate.hpp>
+#include <boost/bind/bind.hpp>
 
 #include <core/Log.hpp>
 #include <shared_core/Error.hpp>
@@ -66,6 +66,7 @@
 #define MAX_COLUMNS 50
 
 using namespace rstudio::core;
+using namespace boost::placeholders;
 
 namespace rstudio {
 namespace session {
@@ -273,8 +274,8 @@ struct CachedFrame
       if (!isFilterSubset(workingSearch, newSearch))
          return false;
 
-      for (unsigned i = 0; 
-           i < std::min(newFilters.size(), workingFilters.size()); 
+      for (unsigned i = 0;
+           i < std::min(newFilters.size(), workingFilters.size());
            i++)
       {
          if (!isFilterSubset(workingFilters[i], newFilters[i]))
@@ -322,7 +323,7 @@ SEXP findInNamedEnvir(const std::string& envir, const std::string& name)
       return nullptr;
 
    // find the SEXP directly in the environment; return null if unbound
-   SEXP obj = r::sexp::findVar(name, env); 
+   SEXP obj = r::sexp::findVar(name, env);
    return obj == R_UnboundValue ? nullptr : obj;
 }
 
@@ -336,7 +337,7 @@ json::Value makeDataItem(SEXP dataSEXP,
                          const std::string& cacheKey, int preview)
 {
    int nrow = safeDim(dataSEXP, DIM_ROWS);
-   int ncol = safeDim(dataSEXP, DIM_COLS); 
+   int ncol = safeDim(dataSEXP, DIM_COLS);
 
    // fire show data event
    json::Object dataItem;
@@ -805,7 +806,7 @@ Error getGridData(const http::Request& request,
       json::Object err;
       err["error"] = e.message();
       result = err;
-      status = http::status::InternalServerError;
+      status = http::status::BadRequest;
    }
    CATCH_UNEXPECTED_EXCEPTION
 
@@ -1045,9 +1046,9 @@ Error initialize()
    addSuspendHandler(SuspendHandler(onSuspend, onResume));
 
    using boost::bind;
-   using namespace rstudio::r::function_hook ;
+   using namespace rstudio::r::function_hook;
    using namespace session::module_context;
-   ExecBlock initBlock ;
+   ExecBlock initBlock;
    initBlock.addFunctions()
       (bind(sourceModuleRFile, "SessionDataViewer.R"))
       (bind(registerRpcMethod, "remove_cached_data", removeCachedData))

@@ -1,7 +1,7 @@
 /*
  * SessionRAddins.cpp
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -27,7 +27,7 @@
 #include <core/text/DcfParser.hpp>
 
 #include <boost/regex.hpp>
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 #include <boost/range/adaptor/map.hpp>
 #include <boost/system/error_code.hpp>
 
@@ -40,6 +40,7 @@
 #include <session/SessionPackageProvidedExtension.hpp>
 
 using namespace rstudio::core;
+using namespace boost::placeholders;
 
 namespace rstudio {
 namespace session {
@@ -235,7 +236,7 @@ public:
 
          for (; it != end; ++it)
          {
-            std::map<std::string, std::string> fields = parseAddinDcf(*it);
+            std::map<std::string, std::string> fields = parseAddinDcf(addinPath, *it);
             add(pkgName, fields);
          }
       }
@@ -269,6 +270,7 @@ public:
 private:
    
    static std::map<std::string, std::string> parseAddinDcf(
+                                          const FilePath& addinPath,
                                           const std::string& contents)
    {
       // read and parse the DCF file
@@ -276,7 +278,10 @@ private:
       std::string errMsg;
       Error error = text::parseDcfFile(contents, true, &fields, &errMsg);
       if (error)
+      {
+         error.addProperty("path", addinPath.getAbsolutePath());
          LOG_ERROR(error);
+      }
 
       return fields;
    }

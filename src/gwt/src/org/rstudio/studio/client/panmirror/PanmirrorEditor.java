@@ -1,7 +1,7 @@
 /*
  * PanmirrorEditor.java
  *
- * Copyright (C) 2009-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -17,6 +17,7 @@ package org.rstudio.studio.client.panmirror;
 
 import jsinterop.annotations.JsType;
 
+import org.rstudio.core.client.jsinterop.JsConsumerFunction;
 import org.rstudio.core.client.jsinterop.JsVoidFunction;
 import org.rstudio.studio.client.panmirror.command.PanmirrorCommand;
 import org.rstudio.studio.client.panmirror.command.PanmirrorMenus;
@@ -26,7 +27,9 @@ import org.rstudio.studio.client.panmirror.location.PanmirrorEditingLocation;
 import org.rstudio.studio.client.panmirror.location.PanmirrorEditingOutlineLocation;
 import org.rstudio.studio.client.panmirror.outline.PanmirrorOutlineItem;
 import org.rstudio.studio.client.panmirror.pandoc.PanmirrorPandocFormat;
+import org.rstudio.studio.client.panmirror.spelling.PanmirrorSpellingDoc;
 import org.rstudio.studio.client.panmirror.theme.PanmirrorTheme;
+import org.rstudio.studio.client.panmirror.uitools.PanmirrorPandocFormatConfig;
 
 import com.google.gwt.dom.client.Element;
 
@@ -47,31 +50,36 @@ public class PanmirrorEditor
    public native void setTitle(String title);
    public native String getTitle();
    
-   @JsType
-   public class SetMarkdownResult
-   {
-      public String cannonical;
-      public String[] unrecognized;
-   }
-   public native Promise<SetMarkdownResult> setMarkdown(String code, PanmirrorWriterOptions options, boolean emitUpdate);
+   public native Promise<JsObject> setMarkdown(String code, PanmirrorWriterOptions options, boolean emitUpdate);
    
-   public native Promise<PanmirrorCode> getMarkdown(PanmirrorWriterOptions option);
+   public native Promise<JsObject> getMarkdown(PanmirrorWriterOptions options);
+   
+   public native Promise<String> getCanonical(String code, PanmirrorWriterOptions options);
    
    public native boolean isInitialDoc();
    
-   public native JsVoidFunction subscribe(String event, JsVoidFunction handler);
+   public native JsVoidFunction subscribe(String event, JsConsumerFunction handler);
    
    public native PanmirrorCommand[] commands();
    
    public native String getHTML();
+   
+   public native String getSelectedText();
+   public native void replaceSelection(String value);
    
    public native PanmirrorSelection getSelection();
    
    public native PanmirrorMenus getMenus();
    
    public native PanmirrorOutlineItem[] getOutline();
+
+   public native PanmirrorEditingOutlineLocation getEditingOutlineLocation();
    
    public native PanmirrorFindReplace getFindReplace();
+   
+   public native PanmirrorSpellingDoc getSpellingDoc();
+   public native void spellingInvalidateAllWords();
+   public native void spellingInvalidateWord(String word);
    
    public native PanmirrorEditingLocation getEditingLocation();
    
@@ -80,12 +88,17 @@ public class PanmirrorEditor
       PanmirrorEditingLocation previousLocation
    );
    
+   public native String getYamlFrontMatter();
+   public native void applyYamlFrontMatter(String yaml);
+   
    public native void focus();
    public native void blur();
    
    public native void resize();
    
-   public native void navigate(String id);
+   public native void insertChunk(String chunkPlaceholder, int rowOffset, int colOffset);
+   
+   public native void navigate(String type, String location, boolean recordCurrent);
 
    public native void applyTheme(PanmirrorTheme theme);
    
@@ -93,7 +106,9 @@ public class PanmirrorEditor
    
    public native void setKeybindings(PanmirrorKeybindings keybindings);
    
+   public native PanmirrorFormat getEditorFormat();
    public native PanmirrorPandocFormat getPandocFormat();
+   public native PanmirrorPandocFormatConfig getPandocFormatConfig(boolean isRmd);
    
    public native void enableDevTools(JsObject initFn);
  

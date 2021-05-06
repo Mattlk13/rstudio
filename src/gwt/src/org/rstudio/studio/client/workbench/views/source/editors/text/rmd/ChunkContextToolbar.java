@@ -1,7 +1,7 @@
 /*
  * ChunkContextToolbar.java
  *
- * Copyright (C) 2009-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -15,6 +15,7 @@
 package org.rstudio.studio.client.workbench.views.source.editors.text.rmd;
 
 import org.rstudio.core.client.BrowseCap;
+import org.rstudio.core.client.ClassIds;
 import org.rstudio.core.client.StringUtil;
 import org.rstudio.core.client.command.AppCommand;
 import org.rstudio.core.client.resources.ImageResource2x;
@@ -49,7 +50,7 @@ public class ChunkContextToolbar extends Composite
          extends UiBinder<Widget, ChunkContextToolbar>
    {
    }
-   
+
    public interface Host
    {
       void runPreviousChunks();
@@ -59,22 +60,22 @@ public class ChunkContextToolbar extends Composite
       void dequeueChunk();
       void switchChunk(String chunkType);
    }
-   
-   public final static ChunkContextResources RES = 
+
+   public final static ChunkContextResources RES =
          GWT.create(ChunkContextResources.class);
 
-   public ChunkContextToolbar(Host host, boolean dark, boolean runPrevious, 
+   public ChunkContextToolbar(Host host, boolean dark, boolean runPrevious,
          String engine)
    {
       host_ = host;
       state_ = STATE_RESTING;
       initWidget(uiBinder.createAndBindUi(this));
-      
+
       initOptions(dark);
 
       initRunPrevious(dark);
       setRunPrevious(runPrevious);
-      
+
       initRun();
    }
 
@@ -96,36 +97,37 @@ public class ChunkContextToolbar extends Composite
       }
       state_ = state;
    }
-   
+
    public void setRunPrevious(boolean visible)
    {
       runPrevious_.setVisible(visible);
    }
-   
+
    public void setEngine(String engine)
    {
       chunkTypeLabel_.setText(engine);
    }
-   
-   public void setLabelClass(String value)
+
+   public void setClassId(String value)
    {
-      if (!value.startsWith(CHUNK_CLASS_PREFIX))
-         value = new String(CHUNK_CLASS_PREFIX + value);
-      value = StringUtil.getCssIdentifier(value);
+      if (StringUtil.isNullOrEmpty(value))
+         value = ClassIds.CHUNK;
+      else if (!value.startsWith(ClassIds.CHUNK))
+         value = new String(ClassIds.CHUNK + "_" + ClassIds.idSafeString(value));
 
-      if (!StringUtil.equals(value, label_))
+      // The class ID will change if the Chunk's name changes so we need to remove any previous
+      // class id set here.
+      if (!StringUtil.equals(value, classId_))
       {
-         // if we've already added a label style, remove it
-         if (!StringUtil.isNullOrEmpty(label_))
-            this.removeStyleName(label_);
-
-         label_ = value;
-         this.addStyleName(label_);
+         if (!StringUtil.isNullOrEmpty(classId_))
+            ClassIds.removeClassId(this, classId_);
+         classId_ = value;
+         ClassIds.assignClassId(this, classId_);
       }
    }
 
    // Private methods ---------------------------------------------------------
-   
+
    private void initOptions(boolean dark)
    {
       options_.setResource(new ImageResource2x(
@@ -133,10 +135,8 @@ public class ChunkContextToolbar extends Composite
          RES.chunkOptionsLight2x()));
 
       options_.addStyleName("rstudio-themes-darkens");
+      ClassIds.assignClassId(options_, ClassIds.MODIFY_CHUNK);
 
-      // this name may be relied on by API code and should not be changed
-      options_.addStyleName("modifyButton");
-      
       DOM.sinkEvents(options_.getElement(), Event.ONCLICK);
       DOM.setEventListener(options_.getElement(), new EventListener()
       {
@@ -150,15 +150,13 @@ public class ChunkContextToolbar extends Composite
          }
       });
    }
-   
+
    private void initRun()
    {
       setState(state_);
       run_.setTitle(RStudioGinjector.INSTANCE.getCommands()
                     .executeCurrentChunk().getMenuLabel(false));
-
-      // this name may be relied on by API code and should not be changed
-      run_.addStyleName("runButton");
+      ClassIds.assignClassId(run_, ClassIds.RUN_CHUNK);
 
       DOM.sinkEvents(run_.getElement(), Event.ONCLICK);
       DOM.setEventListener(run_.getElement(), new EventListener()
@@ -184,7 +182,7 @@ public class ChunkContextToolbar extends Composite
          }
       });
    }
-   
+
    private void initRunPrevious(boolean dark)
    {
       runPrevious_.setTitle(RStudioGinjector.INSTANCE.getCommands()
@@ -192,9 +190,7 @@ public class ChunkContextToolbar extends Composite
       runPrevious_.setResource(new ImageResource2x(
          dark ? RES.runPreviousChunksDark2x() :
          RES.runPreviousChunksLight2x()));
-
-      // this name may be relied on by API code and should not be changed
-      runPrevious_.addStyleName("prevButton");
+      ClassIds.assignClassId(runPrevious_, ClassIds.PREVIEW_CHUNK);
 
       DOM.sinkEvents(runPrevious_.getElement(), Event.ONCLICK);
       DOM.setEventListener(runPrevious_.getElement(), new EventListener()
@@ -209,12 +205,12 @@ public class ChunkContextToolbar extends Composite
          }
       });
    }
-   
+
    private MenuItem createMenuItemForType(final AppCommand command, final String chunkType)
    {
       SafeHtml menuHTML = new SafeHtmlBuilder().appendHtmlConstant(
          command.getMenuHTML(false)).toSafeHtml();
-      
+
       MenuItem menuItem = new MenuItem(
          menuHTML,
          new Command()
@@ -224,7 +220,7 @@ public class ChunkContextToolbar extends Composite
                host_.switchChunk(chunkType);
             }
          });
-      
+
       return menuItem;
    }
 
@@ -243,15 +239,15 @@ public class ChunkContextToolbar extends Composite
             {
                Commands commands = RStudioGinjector.INSTANCE.getCommands();
                String engineLabel = chunkTypeLabel_.getText();
-               
+
                final ToolbarPopupMenu switchChunksMenu = new ToolbarPopupMenu();
-               
+
                if (engineLabel != "r") {
                   switchChunksMenu.addItem(createMenuItemForType(
                         commands.switchToChunkR(), "r"));
                   switchChunksMenu.addSeparator();
                }
-               
+
                if (!BrowseCap.isWindowsDesktop() && engineLabel != "bash") {
                   switchChunksMenu.addItem(createMenuItemForType(
                         commands.switchToChunkBash(), "bash"));
@@ -261,41 +257,41 @@ public class ChunkContextToolbar extends Composite
                   switchChunksMenu.addItem(createMenuItemForType(
                         commands.switchToChunkPython(), "python"));
                }
-               
+
                if (engineLabel != "rcpp") {
                   switchChunksMenu.addItem(createMenuItemForType(
                         commands.switchToChunkRCPP(), "rcpp"));
                }
-               
+
                if (engineLabel != "sql") {
                   switchChunksMenu.addItem(createMenuItemForType(
                         commands.switchToChunkSQL(), "sql"));
                }
-               
+
                if (engineLabel != "stan") {
                   switchChunksMenu.addItem(createMenuItemForType(
                         commands.switchToChunkStan(), "stan"));
                }
-               
-               switchChunksMenu.setPopupPositionAndShow(new PositionCallback() 
+
+               switchChunksMenu.setPopupPositionAndShow(new PositionCallback()
                {
                   @Override
-                  public void setPosition(int offsetWidth, 
+                  public void setPosition(int offsetWidth,
                                           int offsetHeight)
                   {
                      switchChunksMenu.setPopupPosition(
                         chunkTypePanel_.getAbsoluteLeft() +
                         chunkTypePanel_.getOffsetWidth() -
-                        offsetWidth + 15, 
-                        chunkTypePanel_.getAbsoluteTop() + 
+                        offsetWidth + 15,
+                        chunkTypePanel_.getAbsoluteTop() +
                         chunkTypePanel_.getOffsetHeight());
-                  } 
+                  }
                });
             }
          }
       });
    }
-   
+
    @UiField Image options_;
    @UiField Image runPrevious_;
    @UiField Image run_;
@@ -304,12 +300,11 @@ public class ChunkContextToolbar extends Composite
 
    private final Host host_;
    private int state_;
-   private String label_;
-   
+   private String classId_;
+
    public final static int STATE_QUEUED    = 0;
    public final static int STATE_EXECUTING = 1;
    public final static int STATE_RESTING   = 2;
 
    public final static String LINE_WIDGET_TYPE = "ChunkToolbar";
-   public final static String CHUNK_CLASS_PREFIX = "rs-chunk-";
 }

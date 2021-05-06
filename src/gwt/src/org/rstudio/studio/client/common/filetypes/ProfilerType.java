@@ -1,7 +1,7 @@
 /*
  * ProfilerType.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -51,7 +51,7 @@ public class ProfilerType extends EditableFileType
 
    public HashSet<AppCommand> getSupportedCommands(Commands commands)
    {
-      HashSet<AppCommand> results = new HashSet<AppCommand>();
+      HashSet<AppCommand> results = new HashSet<>();
       results.add(commands.saveSourceDoc());
       results.add(commands.saveSourceDocAs());
       results.add(commands.saveProfileAs());

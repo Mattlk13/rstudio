@@ -1,7 +1,7 @@
 /*
  * ObjectBrowser.java
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -124,8 +124,7 @@ public class ObjectBrowser extends Composite implements RequiresResize
          
          // if we got here, the user has clicked Show More, so scroll to the
          // bottom when they're done
-         final Value<HandlerRegistration> registration = 
-               new Value<HandlerRegistration>(null);
+         final Value<HandlerRegistration> registration = new Value<>(null);
          registration.setValue(scrollPanel_.addScrollHandler(e -> 
          {
             scrollPanel_.scrollToBottom();

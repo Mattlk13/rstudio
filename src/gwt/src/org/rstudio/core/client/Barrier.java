@@ -1,7 +1,7 @@
 /*
  * Barrier.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -16,7 +16,6 @@ package org.rstudio.core.client;
 
 import com.google.gwt.event.shared.HandlerManager;
 import org.rstudio.core.client.events.BarrierReleasedEvent;
-import org.rstudio.core.client.events.BarrierReleasedHandler;
 
 /**
  * Use this class to track when multiple independent operations are all
@@ -27,7 +26,7 @@ import org.rstudio.core.client.events.BarrierReleasedHandler;
  * outstanding tokens are released, then BarrierReleasedEvent is fired.
  *
  * As a safety precaution, all but the first call to release() on a
- * given token is a no-op. 
+ * given token is a no-op.
  */
 public class Barrier
 {
@@ -62,11 +61,10 @@ public class Barrier
       return new Token();
    }
 
-   public void addBarrierReleasedHandler(BarrierReleasedHandler handler)
+   public void addBarrierReleasedHandler(BarrierReleasedEvent.Handler handler)
    {
       handlers_.addHandler(BarrierReleasedEvent.TYPE, handler);
    }
-
 
    private void release()
    {

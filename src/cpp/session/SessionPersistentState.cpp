@@ -1,7 +1,7 @@
 /*
  * SessionPersistentState.cpp
  *
- * Copyright (C) 2009-18 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -30,7 +30,7 @@
 #include <server_core/UrlPorts.hpp>
 #endif
 
-using namespace rstudio::core ;
+using namespace rstudio::core;
 
 namespace rstudio {
 namespace session {  
@@ -42,7 +42,7 @@ const char * const kAbend = "abend";
    
 PersistentState& persistentState()
 {
-   static PersistentState instance ;
+   static PersistentState instance;
    return instance;
 }
    
@@ -179,6 +179,34 @@ bool PersistentState::environmentMonitoring() const
 void PersistentState::setEnvironmentMonitoring(bool monitoring)
 {
    return settings_.set("environmentMonitoring", monitoring);
+}
+
+std::string PersistentState::reusedStandalonePort() const
+{
+   if (session::options().getBoolOverlayOption(kLauncherSessionOption))
+      return sessionSettings_.get("reusedStandalonePort", "");
+
+   return std::string();
+}
+
+void PersistentState::setReusedStandalonePort(const std::string& port)
+{
+   if (session::options().getBoolOverlayOption(kLauncherSessionOption))
+      sessionSettings_.set("reusedStandalonePort", port);
+}
+
+std::string PersistentState::reusedSessionProxyPort() const
+{
+   if (session::options().getBoolOverlayOption(kLauncherSessionOption))
+      return sessionSettings_.get("reusedSessionProxyPort", "");
+
+   return std::string();
+}
+
+void PersistentState::setReusedSessionProxyPort(const std::string& port)
+{
+   if (session::options().getBoolOverlayOption(kLauncherSessionOption))
+      sessionSettings_.set("reusedSessionProxyPort", port);
 }
 
 } // namespace session

@@ -1,7 +1,7 @@
 /*
  * FilesCopy.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -40,8 +40,7 @@ public class FilesCopy
                        Command completedCommand)
    {
       // copy list so we don't modify passed list
-      ArrayList<FileSystemItem> filesQueue = new ArrayList<FileSystemItem>(
-                                                               files);
+      ArrayList<FileSystemItem> filesQueue = new ArrayList<>(files);
       
       // begin copy sequence (this method keeps calling itself until
       // the queue of files is empty)

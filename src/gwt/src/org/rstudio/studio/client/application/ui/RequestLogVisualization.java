@@ -1,7 +1,7 @@
 /*
  * RequestLogVisualization.java
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -306,7 +306,7 @@ public class RequestLogVisualization extends Composite
                      public void execute(String input)
                      {
                         CsvReader reader = new CsvReader(input);
-                        ArrayList<RequestLogEntry> entries = new ArrayList<RequestLogEntry>();
+                        ArrayList<RequestLogEntry> entries = new ArrayList<>();
                         Iterator<String[]> it = reader.iterator();
                         String now = it.next()[0];
                         while (it.hasNext())

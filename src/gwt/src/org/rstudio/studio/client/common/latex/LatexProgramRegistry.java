@@ -1,7 +1,7 @@
 /*
  * LatexProgramRegistry.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -73,7 +73,7 @@ public class LatexProgramRegistry
          JsArrayString types = 
                 pSession_.get().getSessionInfo().getLatexProgramTypes();
        
-         latexProgramTypes_ = new ArrayList<String>();
+         latexProgramTypes_ = new ArrayList<>();
          for (int i=0; i<types.length(); i++)
             latexProgramTypes_.add(types.get(i));
       }

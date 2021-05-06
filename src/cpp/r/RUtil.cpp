@@ -1,7 +1,7 @@
 /*
  * RUtil.cpp
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -52,6 +52,25 @@ using namespace rstudio::core;
 namespace rstudio {
 namespace r {
 namespace util {
+namespace {
+
+bool versionTest(const std::string& comparator, const std::string& version)
+{
+   std::string versionTest("getRversion() " + comparator + " \"" + version + "\"");
+   bool hasVersion = false;
+   Error error = r::exec::evaluateString(versionTest, &hasVersion);
+   if (error)
+   {
+      LOG_ERROR(error);
+      return false;
+   }
+   else
+   {
+      return hasVersion;
+   }
+}
+
+} // anonymous namespace
 
 std::string expandFileName(const std::string& name)
 {
@@ -68,18 +87,12 @@ std::string fixPath(const std::string& path)
 
 bool hasRequiredVersion(const std::string& version)
 {
-   std::string versionTest("getRversion() >= \"" + version + "\"");
-   bool hasRequired = false;
-   Error error = r::exec::evaluateString(versionTest, &hasRequired);
-   if (error)
-   {
-      LOG_ERROR(error);
-      return false;
-   }
-   else
-   {
-      return hasRequired;
-   }
+   return versionTest(">=", version);
+}
+
+bool hasExactVersion(const std::string& version)
+{
+   return versionTest("==", version);
 }
 
 bool hasCapability(const std::string& capability)
@@ -127,25 +140,14 @@ std::string rconsole2utf8(const std::string& encoded)
 #endif
 }
 
-core::Error iconvstr(const std::string& value,
-                     const std::string& from,
-                     const std::string& to,
-                     bool allowSubstitution,
-                     std::string* pResult)
+namespace {
+
+core::Error iconvstrImpl(const std::string& value,
+                         const std::string& from,
+                         const std::string& to,
+                         bool allowSubstitution,
+                         std::string* pResult)
 {
-   std::string effectiveFrom = from;
-   if (effectiveFrom.empty())
-      effectiveFrom = "UTF-8";
-   std::string effectiveTo = to;
-   if (effectiveTo.empty())
-      effectiveTo = "UTF-8";
-
-   if (effectiveFrom == effectiveTo)
-   {
-      *pResult = value;
-      return Success();
-   }
-
    std::vector<char> output;
    output.reserve(value.length());
 
@@ -196,6 +198,46 @@ core::Error iconvstr(const std::string& value,
    *pResult = std::string(output.begin(), output.end());
    return Success();
 }
+
+} // end anonymous namespace
+
+core::Error nativeToUtf8(const std::string& value,
+                         bool allowSubstitution,
+                         std::string *pResult)
+{
+   return iconvstrImpl(value, "", "UTF-8", allowSubstitution, pResult);
+}
+
+core::Error utf8ToNative(const std::string& value,
+                         bool allowSubstitution,
+                         std::string* pResult)
+{
+   return iconvstrImpl(value, "UTF-8", "", allowSubstitution, pResult);
+}
+
+core::Error iconvstr(const std::string& value,
+                     const std::string& from,
+                     const std::string& to,
+                     bool allowSubstitution,
+                     std::string* pResult)
+{
+   std::string effectiveFrom = from;
+   if (effectiveFrom.empty())
+      effectiveFrom = "UTF-8";
+
+   std::string effectiveTo = to;
+   if (effectiveTo.empty())
+      effectiveTo = "UTF-8";
+
+   if (effectiveFrom == effectiveTo)
+   {
+      *pResult = value;
+      return Success();
+   }
+
+   return iconvstrImpl(value, from, to, allowSubstitution, pResult);
+}
+
 
 std::set<std::string> makeRKeywords()
 {

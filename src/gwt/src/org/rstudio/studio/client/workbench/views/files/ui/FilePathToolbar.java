@@ -1,7 +1,7 @@
 /*
  * FilePathToolbar.java
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -18,10 +18,10 @@ import com.google.gwt.dom.client.Style.Unit;
 import com.google.gwt.event.logical.shared.ValueChangeEvent;
 import com.google.gwt.event.logical.shared.ValueChangeHandler;
 import com.google.gwt.user.client.ui.*;
+import org.rstudio.core.client.ElementIds;
 import org.rstudio.core.client.MessageDisplay;
 import org.rstudio.core.client.StringUtil;
 import org.rstudio.core.client.events.SelectionCommitEvent;
-import org.rstudio.core.client.events.SelectionCommitHandler;
 import org.rstudio.core.client.files.FileSystemContext.Callbacks;
 import org.rstudio.core.client.files.FileSystemItem;
 import org.rstudio.core.client.files.PosixFileSystemContext;
@@ -114,9 +114,10 @@ public class FilePathToolbar extends Composite
       addStyleName(ThemeStyles.INSTANCE.rstheme_secondaryToolbar());
 
       navigationObserver_ = navigationObserver;
-      
+
       // select all check box
-      CheckBoxHiddenLabel selectAllCheckBox = new CheckBoxHiddenLabel("Select all files");
+      CheckBoxHiddenLabel selectAllCheckBox = new CheckBoxHiddenLabel("Select all files",
+                                                                      ElementIds.FP_SELECT_ALL);
       selectAllCheckBox.addStyleDependentName("FilesSelectAll");
       selectAllCheckBox.addValueChangeHandler(new ValueChangeHandler<Boolean>(){
 
@@ -152,20 +153,16 @@ public class FilePathToolbar extends Composite
       });
       pathBreadcrumbWidget_ = new PathBreadcrumbWidget(fileSystemContext_);
       pathBreadcrumbWidget_.addStyleDependentName("filepane");
-      pathBreadcrumbWidget_.addSelectionCommitHandler(
-            new SelectionCommitHandler<FileSystemItem>()
+      pathBreadcrumbWidget_.addSelectionCommitHandler((SelectionCommitEvent<FileSystemItem> e) ->
       {
-         public void onSelectionCommit(SelectionCommitEvent<FileSystemItem> e)
-         {
-            fileSystemContext_.cd(e.getSelectedItem().getPath());
-         }
+         fileSystemContext_.cd(e.getSelectedItem().getPath());
       });
 
       layout.add(pathBreadcrumbWidget_);
       layout.setWidgetTopBottom(pathBreadcrumbWidget_, 0, Unit.PX, 0, Unit.PX);
       layout.setWidgetLeftRight(pathBreadcrumbWidget_, 21, Unit.PX, 0, Unit.PX);
    }
-   
+
    public void setPath(String path, String lastBrowseable)
    {
       assert fileSystemContext_.isAbsolute(path);

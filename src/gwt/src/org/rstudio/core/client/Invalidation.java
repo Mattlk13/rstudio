@@ -1,7 +1,7 @@
 /*
  * Invalidation.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -27,7 +27,7 @@ public class Invalidation
       {
          return thisSequence_ != sequence_;
       }
-      
+
       public boolean isValid()
       {
          return thisSequence_ == sequence_;

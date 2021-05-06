@@ -1,7 +1,7 @@
 /*
  * SessionFilesListingMonitor.cpp
  *
- * Copyright (C) 2009-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -17,7 +17,7 @@
 
 #include <algorithm>
 
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 
 #include <shared_core/Error.hpp>
 #include <core/Log.hpp>
@@ -35,7 +35,8 @@
 
 #include "SessionVCS.hpp"
 
-using namespace rstudio::core ;
+using namespace rstudio::core;
+using namespace boost::placeholders;
 
 namespace rstudio {
 namespace session {
@@ -221,7 +222,7 @@ Error FilesListingMonitor::listFiles(const FilePath& rootPath,
       {
          core::json::Object fileObject = module_context::createFileSystemItem(filePath);
          pCtx->decorateFile(filePath, &fileObject);
-         pJsonFiles->push_back(fileObject) ;
+         pJsonFiles->push_back(fileObject);
       }
    }
 

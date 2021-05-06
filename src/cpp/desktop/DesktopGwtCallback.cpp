@@ -1,7 +1,7 @@
 /*
  * DesktopGwtCallback.cpp
  *
- * Copyright (C) 2009-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -29,6 +29,7 @@
 #include <QtPrintSupport/QPrintPreviewDialog>
 
 #include <shared_core/FilePath.hpp>
+#include <core/FileUtils.hpp>
 #include <core/DateTime.hpp>
 #include <shared_core/SafeConvert.hpp>
 #include <core/system/System.hpp>
@@ -203,36 +204,6 @@ void GwtCallback::printFinished(int result)
 void GwtCallback::browseUrl(QString url)
 {
    QUrl qurl = QUrl::fromEncoded(url.toUtf8());
-
-#ifdef Q_OS_MAC
-   if (qurl.scheme() == QString::fromUtf8("file"))
-   {
-      QProcess open;
-      QStringList args;
-      // force use of Preview for PDFs (Adobe Reader 10.01 crashes)
-      if (url.toLower().endsWith(QString::fromUtf8(".pdf")))
-      {
-         args.append(QString::fromUtf8("-a"));
-         args.append(QString::fromUtf8("Preview"));
-         args.append(url);
-      }
-      else
-      {
-         args.append(url);
-      }
-      open.start(QString::fromUtf8("open"), args);
-      open.waitForFinished(5000);
-      if (open.exitCode() != 0)
-      {
-         // Probably means that the file doesn't have a registered
-         // application or something.
-         QProcess reveal;
-         reveal.startDetached(QString::fromUtf8("open"), QStringList() << QString::fromUtf8("-R") << url);
-      }
-      return;
-   }
-#endif
-
    desktop::openUrl(qurl);
 }
 
@@ -260,13 +231,15 @@ QString GwtCallback::getOpenFileName(const QString& caption,
 
    dialog.setFileMode(mode);
    dialog.setLabelText(QFileDialog::Accept, label);
-#if QT_VERSION < QT_VERSION_CHECK(5, 13, 0)
-   dialog.setResolveSymlinks(false);
-#else
-   dialog.setOption(QFileDialog::DontResolveSymlinks, true);
-#endif
    dialog.setWindowModality(Qt::WindowModal);
 
+   // don't resolve links on non-Windows platforms
+   // https://github.com/rstudio/rstudio/issues/2476
+   // https://github.com/rstudio/rstudio/issues/7327
+#ifndef _WIN32
+   dialog.setOption(QFileDialog::DontResolveSymlinks, true);
+#endif
+   
    QString result;
    if (dialog.exec() == QDialog::Accepted)
       result = dialog.selectedFiles().value(0);
@@ -472,6 +445,41 @@ QString GwtCallback::getClipboardText()
 {
    QClipboard* pClipboard = QApplication::clipboard();
    return pClipboard->text(QClipboard::Clipboard);
+}
+
+QJsonArray GwtCallback::getClipboardUris()
+{
+   QJsonArray urisJson;
+   QClipboard* pClipboard = QApplication::clipboard();
+   if (pClipboard->mimeData()->hasUrls())
+   {
+      // build buffer of urls
+      auto urls = pClipboard->mimeData()->urls();
+      for (auto url : urls)
+      {
+         // append (converting file-based urls)
+         if (url.scheme() == QString::fromUtf8("file"))
+            urisJson.append(QJsonValue(createAliasedPath(url.toLocalFile())));
+         else
+            urisJson.append(QJsonValue(url.toString()));
+      }
+   }
+   return urisJson;
+}
+
+QString GwtCallback::getClipboardImage()
+{
+   QClipboard* pClipboard = QApplication::clipboard();
+   if (pClipboard->mimeData()->hasImage())
+   {
+      QImage image = qvariant_cast<QImage>(pClipboard->mimeData()->imageData());
+      FilePath tempDir = options().scratchTempDir();
+      FilePath imagePath = file_utils::uniqueFilePath(tempDir, "paste-", ".png");
+      QString imageFile = QString::fromStdString(imagePath.getAbsolutePath());
+      if (image.save(imageFile))
+         return imageFile;
+   }
+   return QString();
 }
 
 void GwtCallback::setGlobalMouseSelection(QString selection)

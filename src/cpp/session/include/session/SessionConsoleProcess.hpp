@@ -1,7 +1,7 @@
 /*
  * SessionConsoleProcess.hpp
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -94,7 +94,7 @@ public:
 
       bool empty() { return !interrupt && text.empty(); }
 
-      bool interrupt ;
+      bool interrupt;
       std::string text;
       bool echoInput;
 
@@ -151,6 +151,8 @@ public:
 
    std::string handle() const { return procInfo_->getHandle(); }
    InteractionMode interactionMode() const { return procInfo_->getInteractionMode(); }
+   
+   void setenv(const std::string& name, const std::string& value);
 
    core::Error start();
    void enqueInput(const Input& input);
@@ -181,6 +183,7 @@ public:
    bool getWasRestarted() const { return procInfo_->getRestarted(); }
    boost::optional<int> getExitCode() const { return procInfo_->getExitCode(); }
 
+   core::FilePath getShellPath() const;
    std::string getShellName() const;
    TerminalShell::ShellType getShellType() const { return procInfo_->getShellType(); }
 

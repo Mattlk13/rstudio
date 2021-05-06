@@ -1,7 +1,7 @@
 /*
  * ConsoleProgressDialog.java
  *
- * Copyright (C) 2009-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -280,7 +280,8 @@ public class ConsoleProgressDialog extends ProgressDialog
    {
       if (running_)
       {
-         consoleProcess_.interrupt(new SimpleRequestCallback<Void>() {
+         consoleProcess_.interrupt(new SimpleRequestCallback<Void>()
+         {
             @Override
             public void onResponseReceived(Void response)
             {
@@ -294,6 +295,7 @@ public class ConsoleProgressDialog extends ProgressDialog
                super.onError(error);
             }
          });
+         
          stopButton().setEnabled(false);
       }
       else

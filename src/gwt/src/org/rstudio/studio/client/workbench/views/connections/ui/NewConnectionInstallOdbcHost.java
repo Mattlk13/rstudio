@@ -1,7 +1,7 @@
 /*
  * NewConnectionInstallOdbcHost.java
  *
- * Copyright (C) 2009-18 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -124,22 +124,25 @@ public class NewConnectionInstallOdbcHost extends Composite
       }
    }
 
-   private void terminateOdbcInstall(final Operation operation) {
-      if (consoleProcess_ != null) {
-         consoleProcess_.interrupt(new VoidServerRequestCallback() {
-            @Override
-            public void onSuccess()
-            {
-               reapOdbcInstall(operation);
-            }
-            
-            @Override
-            public void onFailure()
-            {
-               reapOdbcInstall(operation);
-            }
-         });
-      }
+   private void terminateOdbcInstall(final Operation operation)
+   {
+      if (consoleProcess_ == null)
+         return;
+      
+      consoleProcess_.interrupt(new VoidServerRequestCallback()
+      {
+         @Override
+         public void onSuccess()
+         {
+            reapOdbcInstall(operation);
+         }
+
+         @Override
+         public void onFailure()
+         {
+            reapOdbcInstall(operation);
+         }
+      });
    }
 
    protected void addHandlerRegistration(HandlerRegistration reg)

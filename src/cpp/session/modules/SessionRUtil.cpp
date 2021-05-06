@@ -1,7 +1,7 @@
 /*
  * SessionRUtil.cpp
  *
- * Copyright (C) 2009-2015 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -12,6 +12,8 @@
  * AGPL (http://www.gnu.org/licenses/agpl-3.0.txt) for more details.
  *
  */
+
+#include <yaml-cpp/yaml.h>
 
 #include <session/SessionRUtil.hpp>
 
@@ -25,6 +27,7 @@
 #include <r/RExec.hpp>
 #include <r/RRoutines.hpp>
 #include <r/RSexp.hpp>
+#include <r/RUtil.hpp>
 
 #include <session/SessionAsyncRProcess.hpp>
 #include <session/SessionModuleContext.hpp>
@@ -124,6 +127,21 @@ SEXP rs_fromJSON(SEXP objectSEXP)
    
    r::sexp::Protect protect;
    return r::sexp::create(jsonValue, &protect);
+}
+
+SEXP rs_fromYAML(SEXP objectSEXP)
+{
+   std::string yamlCode = r::sexp::asString(objectSEXP);
+   
+   try
+   {
+      YAML::Node node = YAML::Load(yamlCode);
+      r::sexp::Protect protect;
+      return r::sexp::create(node, &protect);
+   }
+   CATCH_UNEXPECTED_EXCEPTION;
+   
+   return R_NilValue;
 }
 
 SEXP rs_isNullExternalPointer(SEXP objectSEXP)
@@ -299,6 +317,7 @@ SEXP rs_runAsyncRProcess(SEXP codeSEXP,
 Error initialize()
 {
    RS_REGISTER_CALL_METHOD(rs_fromJSON, 1);
+   RS_REGISTER_CALL_METHOD(rs_fromYAML, 1);
    RS_REGISTER_CALL_METHOD(rs_isNullExternalPointer, 1);
    RS_REGISTER_CALL_METHOD(rs_readIniFile, 1);
    RS_REGISTER_CALL_METHOD(rs_rResourcesPath, 0);

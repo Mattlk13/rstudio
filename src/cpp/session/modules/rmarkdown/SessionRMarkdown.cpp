@@ -1,7 +1,7 @@
 /*
  * SessionRMarkdown.cpp
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -35,6 +35,7 @@
 #include <core/system/Process.hpp>
 #include <core/StringUtils.hpp>
 #include <core/Algorithm.hpp>
+#include <core/YamlUtil.hpp>
 
 #include <r/RExec.hpp>
 #include <r/RJson.hpp>
@@ -53,6 +54,7 @@
 #include <session/projects/SessionProjects.hpp>
 #include <session/prefs/UserPrefs.hpp>
 
+#include "SessionBlogdown.hpp"
 #include "RMarkdownPresentation.hpp"
 
 #define kRmdOutput "rmd_output"
@@ -201,7 +203,18 @@ FilePath extractOutputFileCreated(const FilePath& inputFile,
 
             // if the path looks absolute, use it as-is; otherwise, presume
             // it to be in the same directory as the input file
-            return inputFile.getParent().completePath(fileName);
+            FilePath outputFile = inputFile.getParent().completePath(fileName);
+
+            // if it's a plain .md file and we are in a Hugo project then
+            // don't preview it (as the user is likely running a Hugo preview)
+            if (outputFile.getExtensionLowerCase() == ".md" &&
+                session::modules::rmarkdown::blogdown::isHugoProject())
+            {
+               return FilePath();
+            }
+
+            // return the output file
+            return outputFile;
          }
       }
    }
@@ -274,7 +287,8 @@ std::string assignOutputUrl(const std::string& outputFile)
    {
       std::string renderedPath;
       Error error = r::exec::RFunction(".rs.bookdown.renderedOutputPath")
-            .addParam(outputPath.getAbsolutePath())
+            .addUtf8Param(websiteDir)
+            .addUtf8Param(outputPath)
             .callUtf8(&renderedPath);
       if (error)
          LOG_ERROR(error);
@@ -513,6 +527,16 @@ private:
          renderOptions = "render_args = list(" + renderOptions + ")";
       }
 
+      // fallback for non-function
+      r::sexp::Protect rProtect;
+      SEXP renderFuncSEXP;
+      error = r::exec::evaluateString(renderFunc, &renderFuncSEXP, &rProtect);
+      if (error || !r::sexp::isFunction((renderFuncSEXP)))
+      {
+         boost::format fmt("(function(input, ...) { system(paste0('%1% \"', input, '\"')) })");
+         renderFunc = boost::str(fmt % renderFunc);
+      }
+
       // render command
       boost::format fmt("%1%('%2%', %3% %4%);");
       std::string cmd = boost::str(fmt %
@@ -540,6 +564,28 @@ private:
 
       // set the not cran env var
       environment.push_back(std::make_pair("NOT_CRAN", "true"));
+
+      // pass along the current Python environment, if any
+      std::string reticulatePython;
+      error = r::exec::RFunction(".rs.inferReticulatePython").call(&reticulatePython);
+      if (error)
+         LOG_ERROR(error);
+      
+      // pass along current PATH
+      std::string currentPath = core::system::getenv("PATH");
+      core::system::setenv(&environment, "PATH", currentPath);
+      
+      if (!reticulatePython.empty())
+      {
+         // we found a Python version; forward it
+         environment.push_back({"RETICULATE_PYTHON", reticulatePython});
+         
+         // also update the PATH so this version of Python is visible
+         core::system::addToPath(
+                  &environment,
+                  FilePath(reticulatePython).getParent().getAbsolutePath(),
+                  true);
+      }
 
       // render unless we were handed an existing output file
       allOutput_.clear();
@@ -928,7 +974,17 @@ std::string onDetectRmdSourceType(
                                        "<!-- rmarkdown v1 -->") &&
           rmarkdownPackageAvailable())
       {
-         return "rmarkdown";
+         // if we find html_notebook in the YAML header, presume that this is an R Markdown notebook
+         // (this isn't 100% foolproof but this check runs frequently so needs to be fast; more
+         // thorough type introspection is done on the client)
+         std::string yamlHeader = yaml::extractYamlHeader(pDoc->contents());
+         if (boost::algorithm::contains(yamlHeader, "html_notebook"))
+         {
+            return "rmarkdown-notebook";
+         }
+
+         // otherwise, it's a regular R Markdown document
+         return "rmarkdown-document";
       }
    }
    return std::string();
@@ -1011,7 +1067,7 @@ Error renderRmd(const json::JsonRpcRequest& request,
    if (type == kRenderTypeNotebook)
    {
       // if this is a notebook, it's pre-rendered
-      FilePath inputFile = module_context::resolveAliasedPath(file); 
+      FilePath inputFile = module_context::resolveAliasedPath(file);
       FilePath outputFile = inputFile.getParent().completePath(inputFile.getStem() + 
                                                         kNotebookExt);
 
@@ -1134,7 +1190,7 @@ void handleRmdOutputRequest(const http::Request& request,
    catch (boost::bad_lexical_cast const&)
    {
       pResponse->setNotFoundError(request);
-      return ;
+      return;
    }
 
    // make sure the output identifier refers to a valid file
@@ -1356,6 +1412,62 @@ Error maybeCopyWebsiteAsset(const json::JsonRpcRequest& request,
    return Success();
 }
 
+Error rmdImportImages(const json::JsonRpcRequest& request,
+                      json::JsonRpcResponse* pResponse)
+{
+   // read params
+   json::Array imagesJson;
+   std::string imagesDir;
+   Error error = json::readParams(request.params, &imagesJson, &imagesDir);
+   if (error)
+      return error;
+
+   // determine images dir
+   FilePath imagesPath = module_context::resolveAliasedPath(imagesDir);
+   error = imagesPath.ensureDirectory();
+   if (error)
+      return error;
+
+   // build list of target image paths
+   json::Array importedImagesJson;
+
+   // copy each image to the target directory (renaming with a unique stem as required)
+   std::vector<std::string> images;
+   imagesJson.toVectorString(images);
+   for (auto image : images)
+   {
+      // skip if it doesn't exist
+      FilePath imagePath = module_context::resolveAliasedPath(image);
+      if (!imagePath.exists())
+         continue;
+
+      // find a unique target path
+      std::string targetStem = imagePath.getStem();
+      std::string extension = imagePath.getExtension();
+      FilePath targetPath = imagesPath.completeChildPath(targetStem + extension);
+      if (imagesPath.completeChildPath(targetStem + extension).exists())
+      {
+         std::string resolvedStem;
+         module_context::uniqueSaveStem(imagesPath, targetStem, "-", &resolvedStem);
+         targetPath = imagesPath.completeChildPath(resolvedStem + extension);
+      }
+
+      // only copy it if it's not the same path
+      if (imagePath != targetPath)
+      {
+         Error error = imagePath.copy(targetPath);
+         if (error)
+            LOG_ERROR(error);
+      }
+
+      // update imported images
+      importedImagesJson.push_back(module_context::createAliasedPath(targetPath));
+   }
+
+   pResponse->setResult(importedImagesJson);
+   return Success();
+}
+
 SEXP rs_paramsFileForRmd(SEXP fileSEXP)
 {
    static std::map<std::string,std::string> s_paramsFiles;
@@ -1509,6 +1621,7 @@ Error initialize()
       (bind(registerRpcMethod, "get_rmd_template", getRmdTemplate))
       (bind(registerRpcMethod, "prepare_for_rmd_chunk_execution", prepareForRmdChunkExecution))
       (bind(registerRpcMethod, "maybe_copy_website_asset", maybeCopyWebsiteAsset))
+      (bind(registerRpcMethod, "rmd_import_images", rmdImportImages))
       (bind(registerUriHandler, kRmdOutputLocation, handleRmdOutputRequest))
       (bind(module_context::sourceModuleRFile, "SessionRMarkdown.R"));
 
@@ -1530,14 +1643,23 @@ bool isWebsiteProject()
            r_util::kBuildTypeWebsite);
 }
 
+// used to determine if this is both a website build target AND a bookdown target
 bool isBookdownWebsite()
 {
-   if (!isWebsiteProject())
+   return isWebsiteProject() && isBookdownProject();
+}
+
+// used to determine whether the current project directory has a bookdown project
+// (distinct from isBookdownWebsite b/c includes scenarios where the book is
+// built by a makefile rather than "Build Website"
+bool isBookdownProject()
+{
+   if (!projects::projectContext().hasProject())
       return false;
 
    bool isBookdown = false;
    std::string encoding = projects::projectContext().defaultEncoding();
-   Error error = r::exec::RFunction(".rs.isBookdownWebsite",
+   Error error = r::exec::RFunction(".rs.isBookdownDir",
                               projectBuildDir(), encoding).call(&isBookdown);
    if (error)
       LOG_ERROR(error);

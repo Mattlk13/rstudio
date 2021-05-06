@@ -1,7 +1,7 @@
 /*
  * UserInterfaceHighlighter.java
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -367,18 +367,36 @@ public class UserInterfaceHighlighter
          
          DOMRect bounds = ElementEx.getBoundingClientRect(monitoredEl);
          
-         int top = scrollY + bounds.getTop();
+         int top = bounds.getTop();
          int left = scrollX + bounds.getLeft();
          int width = bounds.getWidth();
          int height = bounds.getHeight();
-         
+
          // Ignore out-of-bounds elements.
          if (width == 0 || height == 0)
          {
             highlightEl.getStyle().setVisibility(Visibility.HIDDEN);
             continue;
          }
-         
+
+         // Ignore if monitoredEl is hidden by a scrollable parent.
+         Element el = monitoredEl.getParentElement();
+         while (el != Document.get().getBody())
+         {
+            bounds = ElementEx.getBoundingClientRect(el);
+            if (bounds.getHeight() > 0 &&
+               ((top + height) <= bounds.getTop() ||
+                 top > bounds.getBottom()))
+            {
+               highlightEl.getStyle().setVisibility(Visibility.HIDDEN);
+               break;
+            }
+            el = el.getParentElement();
+         }
+         if (StringUtil.equals(Visibility.HIDDEN.getCssName(),
+                               highlightEl.getStyle().getVisibility()))
+            continue;
+
          // Avoid using too-narrow highlights.
          if (width < 20)
          {
@@ -386,7 +404,8 @@ public class UserInterfaceHighlighter
             left = left - (rest / 2);
             width = 20;
          }
-         
+
+         top += scrollY;
          style.setTop(top, Unit.PX);
          style.setLeft(left, Unit.PX);
          style.setWidth(width, Unit.PX);

@@ -1,7 +1,7 @@
 /*
  * MathJaxUtil.java
  *
- * Copyright (C) 2009-16 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -107,7 +107,7 @@ public class MathJaxUtil
    public static List<Range> findLatexChunks(DocDisplay docDisplay)
    {
       docDisplay.tokenizeDocument();
-      List<Range> ranges = new ArrayList<Range>();
+      List<Range> ranges = new ArrayList<>();
       
       Position startPos = null;
       for (int i = 0, n = docDisplay.getRowCount(); i < n; i++)

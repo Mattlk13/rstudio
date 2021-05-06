@@ -1,7 +1,7 @@
 /*
  * pandoc_capabilities.ts
  *
- * Copyright (C) 2019-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -13,7 +13,7 @@
  *
  */
 
-import { PandocEngine, parsePandocListOutput, PandocApiVersion } from './pandoc';
+import { PandocServer, parsePandocListOutput, PandocApiVersion } from './pandoc';
 
 export interface PandocCapabilitiesResult {
   version: string;
@@ -29,8 +29,8 @@ export interface PandocCapabilities {
   highlight_languages: string[];
 }
 
-export async function getPandocCapabilities(engine: PandocEngine) {
-  const result = await engine.getCapabilities();
+export async function getPandocCapabilities(server: PandocServer) {
+  const result = await server.getCapabilities();
   return {
     version: result.version,
     api_version: result.api_version,

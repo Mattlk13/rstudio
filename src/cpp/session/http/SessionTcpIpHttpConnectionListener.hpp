@@ -1,7 +1,7 @@
 /*
  * SessionTcpIpHttpConnectionListener.hpp
  *
- * Copyright (C) 2009-11 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * This program is licensed to you under the terms of version 3 of the
  * GNU Affero General Public License. This program is distributed WITHOUT
@@ -10,6 +10,9 @@
  * AGPL (http://www.gnu.org/licenses/agpl-3.0.txt) for more details.
  *
  */
+
+#ifndef SESSION_TCP_IP_HTTP_CONNECTION_LISTENER_HPP
+#define SESSION_TCP_IP_HTTP_CONNECTION_LISTENER_HPP
 
 #include <boost/algorithm/string/predicate.hpp>
 
@@ -20,7 +23,7 @@
 #include "SessionHttpConnectionUtils.hpp"
 #include "SessionHttpConnectionListenerImpl.hpp"
 
-using namespace rstudio::core ;
+using namespace rstudio::core;
 
 namespace rstudio {
 namespace session {
@@ -85,3 +88,5 @@ private:
 
 } // namespace session
 } // namespace rstudio
+
+#endif /* SESSION_TCP_IP_HTTP_CONNECTION_LISTENER_HPP */

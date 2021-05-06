@@ -1,7 +1,7 @@
 /*
  * DelegatingCompletionManager.java
  *
- * Copyright (C) 2009-18 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -35,7 +35,7 @@ public abstract class DelegatingCompletionManager implements CompletionManager
    public DelegatingCompletionManager(DocDisplay docDisplay, CompletionContext context)
    {
       docDisplay_ = docDisplay;
-      completionManagerMap_ = new HashMap<Mode, CompletionManager>();
+      completionManagerMap_ = new HashMap<>();
       nullManager_ = new NullCompletionManager();
       
       if (docDisplay_ instanceof AceEditor)
@@ -52,6 +52,15 @@ public abstract class DelegatingCompletionManager implements CompletionManager
    private CompletionManager getCurrentCompletionManager()
    {
       Mode mode = DocumentMode.getModeForCursorPosition(docDisplay_);
+      
+      // If we're in Markdown mode, but completing for inline R code,
+      // then use the R completion manager instead.
+      if (completionManagerMap_.containsKey(DocumentMode.Mode.R) &&
+          isRequestingCompletionsForInlineRCode(mode))
+      {
+         return completionManagerMap_.get(DocumentMode.Mode.R);
+      }
+      
       if (completionManagerMap_.containsKey(mode))
          return completionManagerMap_.get(mode);
       return nullManager_;
@@ -137,6 +146,26 @@ public abstract class DelegatingCompletionManager implements CompletionManager
       
       if (snippets_ != null)
          snippets_.detach();
+   }
+   
+   private boolean isRequestingCompletionsForInlineRCode(DocumentMode.Mode mode)
+   {
+      // only available in Markdown right now
+      if (mode != DocumentMode.Mode.MARKDOWN)
+         return false;
+      
+      String line = docDisplay_.getCurrentLineUpToCursor();
+      
+      // check for an unclosed '`r' at the cursor position
+      int startIndex = line.lastIndexOf("`r");
+      if (startIndex == -1)
+         return false;
+      
+      int endIndex = line.indexOf("`", startIndex + 1);
+      if (endIndex != -1)
+         return false;
+      
+      return true;
    }
 
    private final DocDisplay docDisplay_;

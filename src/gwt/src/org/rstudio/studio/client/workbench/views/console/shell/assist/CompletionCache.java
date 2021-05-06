@@ -1,7 +1,7 @@
 /*
  * CompletionCache.java
  *
- * Copyright (C) 2009-18 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -41,7 +41,7 @@ public class CompletionCache
 {
    public CompletionCache()
    {
-      cache_ = new SafeMap<String, Completions>();
+      cache_ = new SafeMap<>();
    }
    
    public boolean satisfyRequest(String line,
@@ -115,7 +115,7 @@ public class CompletionCache
       }
       
       // Finally, sort these based on score
-      List<Integer> indices = new ArrayList<Integer>();
+      List<Integer> indices = new ArrayList<>();
       for (int i = 0, n = completionsNarrow.size(); i < n; i++)
          indices.add(i);
       

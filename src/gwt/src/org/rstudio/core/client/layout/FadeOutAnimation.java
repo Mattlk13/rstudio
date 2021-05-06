@@ -1,7 +1,7 @@
 /*
  * FadeOutAnimation.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -26,7 +26,7 @@ public class FadeOutAnimation extends Animation
 {
    public FadeOutAnimation(Widget widget, Command callback)
    {
-      List<Widget> widgets = new ArrayList<Widget>();
+      List<Widget> widgets = new ArrayList<>();
       widgets.add(widget);
       widgets_ = widgets;
       callback_ = callback;

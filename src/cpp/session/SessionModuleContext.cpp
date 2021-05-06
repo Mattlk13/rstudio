@@ -1,7 +1,7 @@
 /*
  * SessionModuleContext.cpp
  *
- * Copyright (C) 2009-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -29,7 +29,7 @@
 #include <core/FileInfo.hpp>
 #include <core/Log.hpp>
 #include <core/Base64.hpp>
-#include <core/Hash.hpp>
+#include <shared_core/Hash.hpp>
 #include <core/Settings.hpp>
 #include <core/DateTime.hpp>
 #include <core/FileSerializer.hpp>
@@ -69,6 +69,7 @@
 
 #include <session/http/SessionRequest.hpp>
 
+#include "SessionRpc.hpp"
 #include "SessionClientEventQueue.hpp"
 #include "SessionMainProcess.hpp"
 
@@ -83,12 +84,13 @@
 #include <shared_core/system/User.hpp>
 
 #include "modules/SessionBreakpoints.hpp"
-#include "modules/SessionVCS.hpp"
 #include "modules/SessionFiles.hpp"
+#include "modules/SessionReticulate.hpp"
+#include "modules/SessionVCS.hpp"
 
 #include "session-config.h"
 
-using namespace rstudio::core ;
+using namespace rstudio::core;
 
 namespace rstudio {
 namespace session {   
@@ -158,14 +160,18 @@ SEXP rs_enqueClientEvent(SEXP nameSEXP, SEXP dataSEXP)
 {
    try
    {
+      // ignore forked sessions
+      if (main_process::wasForked())
+         return R_NilValue;
+      
       // extract name
-      std::string name = r::sexp::asString(nameSEXP); 
+      std::string name = r::sexp::asString(nameSEXP);
       
       // extract json value (for primitive types we only support scalars
       // since this is the most common type of event data). to return an
       // array of primitives you need to wrap them in a list/object
-      Error extractError ;
-      json::Value data ;
+      Error extractError;
+      json::Value data;
       switch(TYPEOF(dataSEXP))
       {
          case NILSXP:
@@ -194,7 +200,7 @@ SEXP rs_enqueClientEvent(SEXP nameSEXP, SEXP dataSEXP)
       }
       
       // determine the event type from the event name
-      int type = -1 ;
+      int type = -1;
       if (name == "package_status_changed")
          type = session::client_events::kPackageStatusChanged;
       else if (name == "unhandled_error")
@@ -253,6 +259,18 @@ SEXP rs_enqueClientEvent(SEXP nameSEXP, SEXP dataSEXP)
          type = session::client_events::kTutorialCommand;
       else if (name == "tutorial_launch")
          type = session::client_events::kTutorialLaunch;
+      else if (name == "reticulate_event")
+         type = session::client_events::kReticulateEvent;
+      else if (name == "environment_assigned")
+         type = session::client_events::kEnvironmentAssigned;
+      else if (name == "environment_refresh")
+         type = session::client_events::kEnvironmentRefresh;
+      else if (name == "environment_removed")
+         type = session::client_events::kEnvironmentRemoved;
+      else if (name == "environment_changed")
+         type = session::client_events::kEnvironmentChanged;
+      else if (name == "command_callbacks_changed")
+         type = session::client_events::kCommandCallbacksChanged;
 
       if (type != -1)
       {
@@ -264,13 +282,13 @@ SEXP rs_enqueClientEvent(SEXP nameSEXP, SEXP dataSEXP)
          LOG_ERROR_MESSAGE("Unexpected event name from R: " + name);
       }
    }
-   catch(r::exec::RErrorException& e)
+   catch (r::exec::RErrorException& e)
    {
       r::exec::error(e.message());
    }
    CATCH_UNEXPECTED_EXCEPTION
    
-   return R_NilValue ;
+   return R_NilValue;
 }
 
 SEXP rs_activatePane(SEXP paneSEXP)
@@ -519,6 +537,13 @@ SEXP rs_getPersistentValue(SEXP nameSEXP)
    }
 }
 
+SEXP rs_setRpcDelay(SEXP delayMsSEXP)
+{
+   int delayMs = r::sexp::asInteger(delayMsSEXP);
+   rstudio::session::rpc::setRpcDelay(delayMs);
+   return delayMsSEXP;
+}
+
 } // anonymous namespace
 
 
@@ -684,7 +709,7 @@ private:
    // of subscription and call resume handlers in reverse order of
    // subscription.
    
-   int nextGroup_; 
+   int nextGroup_;
    
    RSTUDIO_BOOST_SIGNAL<void(const r::session::RSuspendOptions&,Settings*),
                  RSTUDIO_BOOST_LAST_VALUE<void>,
@@ -980,7 +1005,7 @@ Error readAndDecodeFile(const FilePath& filePath,
                                     options().sourceLineEnding());
 
    if (error)
-      return error ;
+      return error;
 
    // convert to UTF-8
    return convertToUtf8(encodedContents,
@@ -1006,7 +1031,7 @@ Error convertToUtf8(const std::string& encodedContents,
    error = string_utils::utf8Clean(pContents->begin(),
                                    pContents->end(),
                                    '?');
-   return error ;
+   return error;
 }
 
 FilePath userHomePath()
@@ -1382,8 +1407,10 @@ bool isMinimumRoxygenInstalled()
 std::string packageVersion(const std::string& packageName)
 {
    std::string version;
-   Error error = r::exec::RFunction(".rs.packageVersionString", packageName)
-                                                               .call(&version);
+   Error error = r::exec::RFunction(".rs.packageVersionString")
+         .addParam(packageName)
+         .call(&version);
+   
    if (error)
    {
       LOG_ERROR(error);
@@ -1395,7 +1422,22 @@ std::string packageVersion(const std::string& packageName)
    }
 }
 
-bool hasMinimumRVersion(const std::string &version)
+Error packageVersion(const std::string& packageName,
+                     core::Version* pVersion)
+{
+   std::string version;
+   Error error = r::exec::RFunction(".rs.packageVersionString")
+         .addParam(packageName)
+         .call(&version);
+   
+   if (error)
+      return error;
+   
+   *pVersion = Version(version);
+   return Success();
+}
+
+bool hasMinimumRVersion(const std::string& version)
 {
    bool hasVersion = false;
    boost::format fmt("getRversion() >= '%1%'");
@@ -1602,7 +1644,7 @@ SEXP rs_base64encode(SEXP dataSEXP, SEXP binarySEXP)
 
 SEXP rs_base64encodeFile(SEXP pathSEXP)
 {
-   std::string path = r::sexp::asString(pathSEXP); 
+   std::string path = r::sexp::asString(pathSEXP);
    FilePath filePath = module_context::resolveAliasedPath(path);
 
    std::string output;
@@ -1651,7 +1693,7 @@ SEXP rs_base64decode(SEXP dataSEXP, SEXP binarySEXP)
 
 SEXP rs_resolveAliasedPath(SEXP pathSEXP)
 {
-   std::string path = r::sexp::asString(pathSEXP);
+   std::string path = r::sexp::asUtf8String(pathSEXP);
    FilePath resolved = module_context::resolveAliasedPath(path);
    r::sexp::Protect protect;
    return r::sexp::create(resolved.getAbsolutePath(), &protect);
@@ -1666,7 +1708,7 @@ SEXP rs_sessionModulePath()
 
 json::Object createFileSystemItem(const FileInfo& fileInfo)
 {
-   json::Object entry ;
+   json::Object entry;
 
    std::string aliasedPath = module_context::createAliasedPath(fileInfo);
    std::string rawPath =
@@ -1887,44 +1929,44 @@ bool isRScriptInPackageBuildTarget(const FilePath &filePath)
 SEXP rs_isRScriptInPackageBuildTarget(SEXP filePathSEXP)
 {
    r::sexp::Protect protect;
-   FilePath filePath = module_context::resolveAliasedPath(r::sexp::asString(filePathSEXP));
+   FilePath filePath = module_context::resolveAliasedPath(
+      r::sexp::asUtf8String(filePathSEXP));
    return r::sexp::create(isRScriptInPackageBuildTarget(filePath), &protect);
 }
 
 bool fileListingFilter(const core::FileInfo& fileInfo, bool hideObjectFiles)
 {
-   // check extension for special file types which are always visible
    core::FilePath filePath(fileInfo.absolutePath());
+
+   // Check to see if this is one of the extensions we always show
    std::string ext = filePath.getExtensionLowerCase();
+   core::json::Array exts = prefs::userPrefs().alwaysShownExtensions();
+   for (json::Value val: exts)
+   {
+      if (json::isType<std::string>(val))
+      {
+         if (ext == string_utils::toLower(val.getString()))
+         {
+            return true;
+         }
+      }
+   }
+
+   // Check to see if this is one of the files we always show
    std::string name = filePath.getFilename();
-   if (ext == ".r" ||
-       ext == ".rprofile" ||
-       ext == ".rbuildignore" ||
-       ext == ".rdata"    ||
-       ext == ".rhistory" ||
-       ext == ".ruserdata" ||
-       ext == ".renviron" ||
-       ext == ".httr-oauth" ||
-       ext == ".github" ||
-       ext == ".gitignore" ||
-       ext == ".gitattributes" ||
-       ext == ".circleci")
+   core::json::Array files = prefs::userPrefs().alwaysShownFiles();
+   for (json::Value val: files)
    {
-      return true;
+      if (json::isType<std::string>(val))
+      {
+         if (name == val.getString())
+         {
+            return true;
+         }
+      }
    }
-   else if (name == ".travis.yml")
-   {
-      return true;
-   }
-   else if (name == ".gitlab-ci.yml")
-   {
-      return true;
-   }
-   else if (name == ".build.yml")
-   {
-      return true;
-   }
-   else if (hideObjectFiles &&
+
+   if (hideObjectFiles &&
             (ext == ".o" || ext == ".so" || ext == ".dll") &&
             filePath.getParent().getFilename() == "src")
    {
@@ -1944,7 +1986,7 @@ void enqueFileChangedEvent(
       boost::shared_ptr<modules::source_control::FileDecorationContext> pCtx)
 {
    // create file change object
-   json::Object fileChange ;
+   json::Object fileChange;
    fileChange["type"] = event.type();
    json::Object fileSystemItem = createFileSystemItem(event.fileInfo());
 
@@ -2005,10 +2047,10 @@ void enqueFileChangedEvents(const core::FilePath& vcsStatusRoot,
 
 Error enqueueConsoleInput(const std::string& consoleInput)
 {
+   using namespace r::session;
+   
    // construct our JSON RPC
-   json::Array jsonParams;
-   jsonParams.push_back(consoleInput);
-   jsonParams.push_back("");
+   json::Array jsonParams = RConsoleInput(consoleInput).toJsonArray();
    
    json::Object jsonRpc;
    jsonRpc["method"] = "console_input";
@@ -2118,7 +2160,7 @@ void showFile(const FilePath& filePath, const std::string& window)
 std::string createFileUrl(const core::FilePath& filePath)
 {
     // determine url based on whether this is in ~ or not
-    std::string url ;
+    std::string url;
     if (isVisibleUserFile(filePath))
     {
        std::string relPath = filePath.getRelativePath(
@@ -2388,32 +2430,41 @@ bool isSessionTempPath(FilePath filePath)
    return filePath.isWithin(tempDir);
 }
 
-std::string sessionTempDirUrl(const std::string& sessionTempPath)
+namespace {
+
+bool isUsingRHelpServer()
 {
-   static boost::optional<bool> useRHelpServer;
-
-   if (!useRHelpServer)
+   // don't use R help server in server mode
+   if (session::options().programMode() == kSessionProgramModeServer)
    {
-      // Initialize the flag indicating whether we should use the R help server;
-      // in desktop mode we can have R itself handle requests for content in
-      // the session temporary folder.
-      useRHelpServer = session::options().programMode() == kSessionProgramModeDesktop;
-
-#ifdef _WIN32
-      if (*useRHelpServer)
-      {
-         // There is a known issue serving content from the session temporary folder
-         // on R 4.0+ for Windows, so if we were planning to use it, only do so if
-         // we are on an older version of R.
-         //
-         // https://github.com/rstudio/rstudio/issues/6737
-         //
-         useRHelpServer = !r::util::hasRequiredVersion("4.0");
-      }
-#endif
+      return false;
    }
 
-   if (*useRHelpServer)
+#ifdef _WIN32
+   // There is a known issue serving content from the session temporary folder
+   // on R 4.0.0 for Windows:
+   //
+   //    https://github.com/rstudio/rstudio/issues/6737
+   //
+   // so we avoid using the help server in that case.
+   if (r::util::hasExactVersion("4.0.0"))
+   {
+      return false;
+   }
+#endif
+
+   // we're running on desktop with a suitable version of R;
+   // okay to use the help server
+   return true;
+}
+
+} // end anonymous namespace
+
+std::string sessionTempDirUrl(const std::string& sessionTempPath)
+{
+   static bool useRHelpServer = isUsingRHelpServer();
+
+   if (useRHelpServer)
    {
       boost::format fmt("http://localhost:%1%/session/%2%");
       return boost::str(fmt % rLocalHelpPort() % sessionTempPath);
@@ -2484,8 +2535,16 @@ bool hasStem(const FilePath& filePath, const std::string& stem)
 
 } // anonymous namespace
 
+Error uniqueSaveStem(const core::FilePath& directoryPath,
+                     const std::string& base,
+                     std::string* pStem)
+{
+   return uniqueSaveStem(directoryPath, base, "", pStem);
+}
+
 Error uniqueSaveStem(const FilePath& directoryPath,
                      const std::string& base,
+                     const std::string& delimiter,
                      std::string* pStem)
 {
    // determine unique file name
@@ -2509,7 +2568,7 @@ Error uniqueSaveStem(const FilePath& directoryPath,
          break;
 
       // update stem and search again
-      boost::format fmt(base + "%1%");
+      boost::format fmt(base + delimiter + "%1%");
       *pStem = boost::str(fmt % boost::io::group(std::setfill('0'),
                                                  std::setw(2),
                                                  ++i));
@@ -2743,6 +2802,63 @@ void checkXcodeLicense()
 #endif
 }
 
+std::string getActiveLanguage()
+{
+   if (modules::reticulate::isReplActive())
+   {
+      return "Python";
+   }
+   else
+   {
+      return "R";
+   }
+}
+
+Error adaptToLanguage(const std::string& language)
+{
+   // check to see what language is active in main console
+   using namespace r::exec;
+   
+   // check to see what language is currently active (but default to r)
+   std::string activeLanguage = getActiveLanguage();
+
+   // now, detect if we are transitioning languages
+   if (language != activeLanguage)
+   {
+      // since it may take some time for the console input to be processed,
+      // we screen out consecutive transition attempts (otherwise we can
+      // get multiple interleaved attempts to launch the REPL with console
+      // input)
+      static RSTUDIO_BOOST_CONNECTION conn;
+      if (conn.connected())
+         return Success();
+      
+      // establish the connection, and then simply disconnect once we
+      // receive the signal
+      conn = module_context::events().onConsolePrompt.connect([&](const std::string&) {
+         conn.disconnect();
+      });
+      
+      Error error;
+
+      if (activeLanguage == "R" && language == "Python")
+      {
+         // r -> python: activate the reticulate REPL
+         error = module_context::enqueueConsoleInput("reticulate::repl_python()");
+      }
+      else if (activeLanguage == "Python" && language == "R")
+      {
+         // python -> r: deactivate the reticulate REPL
+         error = module_context::enqueueConsoleInput("quit");
+      }
+
+      if (error)
+         LOG_ERROR(error);
+   }
+   
+   return Success();
+}
+
 Error initialize()
 {
    // register .Call methods
@@ -2776,6 +2892,7 @@ Error initialize()
    RS_REGISTER_CALL_METHOD(rs_sourceDiagnostics);
    RS_REGISTER_CALL_METHOD(rs_threadSleep);
    RS_REGISTER_CALL_METHOD(rs_userPrompt);
+   RS_REGISTER_CALL_METHOD(rs_setRpcDelay);
 
    // initialize monitored scratch dir
    initializeMonitoredUserScratchDir();

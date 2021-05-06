@@ -1,7 +1,7 @@
 /*
  * SessionConsoleProcessSocketTests.cpp
  *
- * Copyright (C) 2009-18 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -16,11 +16,11 @@
 #include <session/SessionConsoleProcessSocket.hpp>
 #include <session/SessionConsoleProcessSocketPacket.hpp>
 
-#include <boost/bind.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/make_shared.hpp>
 #include <boost/enable_shared_from_this.hpp>
 #include <boost/lexical_cast.hpp>
+#include <boost/bind/bind.hpp>
 
 #include <websocketpp/config/asio_no_tls_client.hpp>
 #include <websocketpp/client.hpp>
@@ -32,6 +32,7 @@ namespace session {
 namespace console_process {
 
 using namespace console_process;
+using namespace boost::placeholders;
 
 namespace {
 
@@ -226,8 +227,6 @@ public:
 
    bool connectToServer()
    {
-      using websocketpp::lib::placeholders::_1;
-      using websocketpp::lib::placeholders::_2;
       using websocketpp::lib::bind;
 
       try {
@@ -245,13 +244,13 @@ public:
          // Register our message handler
          client_.set_message_handler(bind(&SocketClient::on_message,
                                           SocketClient::shared_from_this(),
-                                          &client_, ::_1, ::_2));
+                                          &client_, _1, _2));
          client_.set_open_handler(bind(&SocketClient::on_open,
                                        SocketClient::shared_from_this(),
-                                       &client_, ::_1));
+                                       &client_, _1));
          client_.set_fail_handler(bind(&SocketClient::on_fail,
                                        SocketClient::shared_from_this(),
-                                       &client_, ::_1));
+                                       &client_, _1));
 
          websocketpp::lib::error_code ec;
          client::connection_ptr con = client_.get_connection(uri, ec);

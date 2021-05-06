@@ -1,7 +1,7 @@
 /*
  * CppFileType.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -25,57 +25,57 @@ import org.rstudio.studio.client.workbench.views.source.editors.text.ace.spellin
 
 public class CppFileType extends TextFileType
 {
-   CppFileType(String id, String ext, ImageResource icon, 
+   CppFileType(String id, String ext, ImageResource icon,
                boolean isCpp, boolean canSource)
    {
       super(id, "C/C++", EditorLanguage.LANG_CPP, ext, icon,
-            false, false, isCpp, false, false, false, 
+            false, false, isCpp, false, false, false,
             false, false, false, true, false, true, false);
-      
+
       isCpp_ = isCpp;
       canSource_ = canSource;
    }
-   
+
    @Override
    public boolean isCpp()
    {
       return isCpp_;
    }
-   
+
    @Override
    public boolean canSource()
    {
       return canSource_;
    }
- 
+
    @Override
    public boolean canSourceWithEcho()
    {
       return false;
    }
-     
+
    @Override
    public boolean canSourceOnSave()
    {
       return canSource();
    }
- 
-   
+
+
    @Override
    public HashSet<AppCommand> getSupportedCommands(Commands commands)
    {
       HashSet<AppCommand> result = super.getSupportedCommands(commands);
       if (isCpp())
       {
-         result.add(commands.commentUncomment());
-         result.add(commands.reflowComment());
          result.add(commands.sourceActiveDocument());
          result.add(commands.sourceActiveDocumentWithEcho());
       }
+      result.add(commands.commentUncomment());
+      result.add(commands.reflowComment());
       result.add(commands.goToDefinition());
       result.add(commands.codeCompletion());
       result.add(commands.findUsages());
-            
+
       return result;
    }
 

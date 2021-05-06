@@ -1,7 +1,7 @@
 /*
  * HistoryTable.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -49,7 +49,8 @@ public class HistoryTable extends FastSelectTable<HistoryEntry, String, Long>
                                       timestampMode == TimestampMode.ITEM),
             selectedClassName,
             true,
-            true);
+            true,
+            "History Entry Table");
 
       searchResult_ = timestampMode == TimestampMode.ITEM;
       
@@ -57,6 +58,7 @@ public class HistoryTable extends FastSelectTable<HistoryEntry, String, Long>
 
       final Resources res = GWT.create(Resources.class);
       setStyleName(res.styles().historyTable());
+      addStyleName("rstudio-fixed-width-font");
       FontSizer.applyNormalFontSize(this);
 
       if (searchResult_)

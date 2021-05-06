@@ -1,7 +1,7 @@
 /*
  * CheckBoxHiddenLabel.java
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -17,17 +17,16 @@ package org.rstudio.core.client.widget;
 import com.google.gwt.aria.client.Roles;
 import com.google.gwt.dom.client.Element;
 import com.google.gwt.user.client.DOM;
-import com.google.gwt.user.client.ui.CheckBox;
 
 /**
  * A CheckBox with a label only visible to screen readers. Not recommended, avoid using.
  */
-public class CheckBoxHiddenLabel extends CheckBox
+public class CheckBoxHiddenLabel extends FormCheckBox
 {
-   public CheckBoxHiddenLabel(String visuallyHiddenLabel)
+   public CheckBoxHiddenLabel(String visuallyHiddenLabel, String id)
    {
       super();
-      
+
       // CheckBox consists of a span with input (checkbox) element followed
       // by a label element (empty in this case).
       Element label = DOM.getChild(getElement(), 1);
@@ -35,5 +34,6 @@ public class CheckBoxHiddenLabel extends CheckBox
       {
          Roles.getCheckboxRole().setAriaLabelProperty(label, visuallyHiddenLabel);
       }
+      setElementId(id);
    }
 }

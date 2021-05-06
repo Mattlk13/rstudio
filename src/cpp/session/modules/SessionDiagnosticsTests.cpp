@@ -1,7 +1,7 @@
 /*
  * SessionDiagnosticsTests.cpp
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -25,10 +25,12 @@
 #include <core/FileUtils.hpp>
 
 #include <boost/algorithm/string.hpp>
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 
 #include <session/SessionOptions.hpp>
 #include "SessionRParser.hpp"
+
+using namespace boost::placeholders;
 
 namespace rstudio {
 namespace session {
@@ -281,6 +283,17 @@ test_context("Diagnostics")
       EXPECT_ERRORS("%a\nb%");
       
       EXPECT_ERRORS("local({ if (TRUE) })");
+
+      EXPECT_NO_ERRORS("phi = function(`arg 1`) 1 + 1\nph(`arg 1` = 1)");
+      EXPECT_NO_ERRORS("'a\nb' <- 1");
+      EXPECT_NO_ERRORS("`a\nb` <- 1");
+      
+      EXPECT_NO_ERRORS("mtcars |> data => lm(mpg ~ cyl, data = data)");
+      
+      EXPECT_NO_LINT("x <- { 1 + 1 }");
+      EXPECT_NO_LINT("x <- ( 1 + 1 )");
+      EXPECT_NO_LINT("x <- {1}");
+      EXPECT_NO_LINT("x <- (1)");
    }
    
    lintRStudioRFiles();

@@ -1,7 +1,7 @@
 /*
  * pandoc_format.ts
  *
- * Copyright (C) 2019-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -13,8 +13,12 @@
  *
  */
 
-import { PandocEngine, PandocExtensions } from './pandoc';
-import { EditorFormat } from './format';
+import { Node as ProsemirrorNode } from 'prosemirror-model';
+
+import { PandocServer, PandocExtensions } from './pandoc';
+import { EditorFormat, kHugoDocType } from './format';
+import { firstYamlBlock, yamlMetadataNodes } from './yaml';
+import { findValue } from './object';
 
 export const kMarkdownFormat = 'markdown';
 export const kMarkdownPhpextraFormat = 'markdown_phpextra';
@@ -23,8 +27,10 @@ export const kMarkdownMmdFormat = 'markdown_mmd';
 export const kMarkdownStrictFormat = 'markdown_strict';
 export const kGfmFormat = 'gfm';
 export const kCommonmarkFormat = 'commonmark';
+export const kCommonmarkXFormat = 'commonmark_x';
 
 export interface PandocFormat {
+  mode: string;
   baseName: string;
   fullName: string;
   extensions: PandocExtensions;
@@ -36,11 +42,15 @@ export interface PandocFormatWarnings {
   invalidOptions: string[];
 }
 
-export interface PandocFormatComment {
+export interface PandocFormatConfig {
   mode?: string;
   extensions?: string;
-  fillColumn?: number;
+  rmdExtensions?: string;
+  wrap?: string;
   doctypes?: string[];
+  references_location?: string;
+  references_prefix?: string;
+  canonical?: boolean;
 }
 
 export function matchPandocFormatComment(code: string) {
@@ -48,7 +58,55 @@ export function matchPandocFormatComment(code: string) {
   return code.match(magicCommentRegEx);
 }
 
-export function pandocFormatCommentFromCode(code: string): PandocFormatComment {
+export function pandocFormatConfigFromDoc(doc: ProsemirrorNode, isRmd: boolean) {
+  return pandocFormatConfigFromYamlInDoc(doc, isRmd) || pandocFormatConfigFromCommentInDoc(doc) || {};
+}
+
+export function pandocFormatConfigFromCode(code: string, isRmd: boolean): PandocFormatConfig {
+  return pandocFormatConfigFromYamlInCode(code, isRmd) || pandocFormatConfigFromCommentInCode(code) || {};
+}
+
+function pandocFormatConfigFromYamlInCode(code: string, isRmd: boolean): PandocFormatConfig | null {
+  // get the first yaml block in the file
+  const yaml = firstYamlBlock(code);
+
+  // did we find yaml?
+  if (yaml) {
+    // see if we have any md_extensions defined
+    const mdExtensions = isRmd ? findValue('md_extensions', yaml?.output) : undefined;
+
+    // see if we have any markdown options defined
+    let yamlFormatConfig: PandocFormatConfig | undefined;
+    const yamlMarkdownOptions = yaml?.editor_options?.markdown;
+    if (yamlMarkdownOptions instanceof Object) {
+      yamlFormatConfig = readPandocFormatConfig(yamlMarkdownOptions);
+    }
+
+    // combine and return
+    if (mdExtensions || yamlFormatConfig) {
+      const formatConfig: PandocFormatConfig = yamlFormatConfig ? yamlFormatConfig : {};
+      if (mdExtensions) {
+        formatConfig.extensions = mdExtensions + (formatConfig.extensions || '');
+      }
+      return formatConfig;
+    } else {
+      return null;
+    }
+  } else {
+    return null;
+  }
+}
+
+function pandocFormatConfigFromYamlInDoc(doc: ProsemirrorNode, isRmd: boolean): PandocFormatConfig | null {
+  const yamlNodes = yamlMetadataNodes(doc);
+  if (yamlNodes.length > 0) {
+    return pandocFormatConfigFromYamlInCode(yamlNodes[0].node.textContent, isRmd);
+  } else {
+    return null;
+  }
+}
+
+function pandocFormatConfigFromCommentInCode(code: string): PandocFormatConfig | null {
   const keyValueRegEx = /^([^:]+):\s*(.*)$/;
   const match = matchPandocFormatComment(code);
   if (match) {
@@ -62,29 +120,103 @@ export function pandocFormatCommentFromCode(code: string): PandocFormatComment {
         variables[keyValueMatch[1].trim()] = keyValueMatch[2].trim();
       }
     });
-    const formatComment: PandocFormatComment = {};
-    if (variables.mode) {
-      formatComment.mode = variables.mode;
-    }
-    if (variables.extensions) {
-      formatComment.extensions = variables.extensions;
-    }
-    if (variables['fill-column']) {
-      formatComment.fillColumn = parseInt(variables['fill-column'], 10) || undefined;
-    }
-    if (variables.doctype) {
-      formatComment.doctypes = variables.doctype.split(',').map(str => str.trim());
-    }
-    return formatComment;
+    return readPandocFormatConfig(variables);
   } else {
-    return {};
+    return null;
   }
 }
 
-export async function resolvePandocFormat(pandoc: PandocEngine, format: EditorFormat) {
+function pandocFormatConfigFromCommentInDoc(doc: ProsemirrorNode): PandocFormatConfig | null {
+  let config: PandocFormatConfig | null = null;
+  let foundFirstRawInline = false;
+  doc.descendants((node, pos) => {
+    // don't search once we've found our target
+    if (foundFirstRawInline) {
+      return false;
+    }
+
+    // if it's a text node with a raw-html then scan it for the format comment
+    const schema = doc.type.schema;
+    if (
+      node.isText &&
+      schema.marks.raw_html_comment &&
+      schema.marks.raw_html_comment.isInSet(node.marks) &&
+      node.attrs.format
+    ) {
+      foundFirstRawInline = true;
+      config = pandocFormatConfigFromCommentInCode(node.textContent);
+      return false;
+    } else {
+      return true;
+    }
+  });
+  return config;
+}
+
+function readPandocFormatConfig(source: { [key: string]: any }) {
+  const asString = (obj: any): string => {
+    if (typeof obj === 'string') {
+      return obj;
+    } else if (obj) {
+      return obj.toString();
+    } else {
+      return '';
+    }
+  };
+
+  const asBoolean = (obj: any) => {
+    if (typeof obj === 'boolean') {
+      return obj;
+    } else {
+      const str = asString(obj).toLowerCase();
+      return str === 'true' || str === '1';
+    }
+  };
+
+  const readWrap = () => {
+    const wrap = source.wrap || source.wrap_column || source['fill-column'];
+    if (wrap) {
+      return asString(wrap);
+    } else {
+      return undefined;
+    }
+  };
+
+  const formatConfig: PandocFormatConfig = {};
+  if (source.mode) {
+    formatConfig.mode = asString(source.mode);
+  }
+  if (source.extensions) {
+    formatConfig.extensions = asString(source.extensions);
+  }
+  if (source.rmd_extensions) {
+    formatConfig.rmdExtensions = asString(source.rmd_extensions);
+  }
+  formatConfig.wrap = readWrap();
+  if (source.doctype) {
+    formatConfig.doctypes = asString(source.doctype)
+      .split(',')
+      .map(str => str.trim());
+  }
+  if (source.references) {
+    if (typeof source.references === 'string') {
+      formatConfig.references_location = source.references;
+    } else {
+      formatConfig.references_location = source.references.location;
+      formatConfig.references_prefix = source.references.prefix;
+    }
+  }
+  if (source.canonical) {
+    formatConfig.canonical = asBoolean(source.canonical);
+  }
+  return formatConfig;
+}
+
+export async function resolvePandocFormat(pandoc: PandocServer, format: EditorFormat): Promise<PandocFormat> {
   // additional markdown variants we support
   const kMarkdownVariants: { [key: string]: string[] } = {
     [kCommonmarkFormat]: commonmarkExtensions(),
+    [kCommonmarkXFormat]: commonmarkXExtensions(),
     [kGfmFormat]: gfmExtensions(),
     goldmark: goldmarkExtensions(format),
     blackfriday: blackfridayExtensions(format),
@@ -107,6 +239,7 @@ export async function resolvePandocFormat(pandoc: PandocEngine, format: EditorFo
       kMarkdownStrictFormat,
       kGfmFormat,
       kCommonmarkFormat,
+      kCommonmarkXFormat
     ]
       .concat(Object.keys(kMarkdownVariants))
       .includes(baseName)
@@ -118,15 +251,6 @@ export async function resolvePandocFormat(pandoc: PandocEngine, format: EditorFo
   // format options we will be building
   let formatOptions: string;
 
-  // determine valid options (normally all options, but for gfm and commonmark then
-  // the valid optoins are constrained)
-  let validOptions: string = '';
-  if ([kGfmFormat, kCommonmarkFormat].includes(baseName)) {
-    validOptions = await pandoc.listExtensions(baseName);
-  } else {
-    // will fill in below when retreiving formatOptions (don't want to make 2 calls)
-  }
-
   // if we are using a variant then get it's base options and merge with user options
   if (kMarkdownVariants[baseName]) {
     const variant = kMarkdownVariants[baseName];
@@ -134,11 +258,8 @@ export async function resolvePandocFormat(pandoc: PandocEngine, format: EditorFo
     baseName = 'markdown_strict';
   }
 
-  // query for format options (set validOptions if we don't have them yet)
+  // query for format options
   formatOptions = await pandoc.listExtensions(baseName);
-  if (!validOptions) {
-    validOptions = formatOptions;
-  }
 
   // active pandoc extensions
   const pandocExtensions: { [key: string]: boolean } = {};
@@ -149,7 +270,8 @@ export async function resolvePandocFormat(pandoc: PandocEngine, format: EditorFo
   });
 
   // now parse extensions for user options (validate and build format name)
-  const validOptionNames = parseExtensions(validOptions).map(option => option.name);
+  const validOptionNames = parseExtensions(formatOptions).map(option => option.name);
+
   let fullName = baseName;
   parseExtensions(options).forEach(option => {
     // validate that the option is valid
@@ -164,6 +286,7 @@ export async function resolvePandocFormat(pandoc: PandocEngine, format: EditorFo
 
   // return format name, enabled extensiosn, and warnings
   return {
+    mode: format.pandocMode,
     baseName,
     fullName,
     extensions: (pandocExtensions as unknown) as PandocExtensions,
@@ -210,26 +333,59 @@ export function hasFencedCodeBlocks(pandocExtensions: PandocExtensions) {
   return pandocExtensions.backtick_code_blocks || pandocExtensions.fenced_code_blocks;
 }
 
-function commonmarkExtensions() {
-  const extensions = ['+raw_html'];
+// e.g. [My Heading] to link to ## My Heading
+export function hasShortcutHeadingLinks(pandocExtensions: PandocExtensions) {
+  return pandocExtensions.implicit_header_references && pandocExtensions.shortcut_reference_links;
+}
+
+function commonmarkExtensions(rawHTML = true) {
+  const extensions = [
+    rawHTML ? '+raw_html' : '-raw_html',
+    '+all_symbols_escapable',
+    '+backtick_code_blocks',
+    '+fenced_code_blocks',
+    '+space_in_atx_header',
+    '+intraword_underscores',
+    '+lists_without_preceding_blankline',
+    '+shortcut_reference_links',
+  ];
+  return extensions;
+}
+
+// https://github.com/jgm/pandoc/commit/0aed9dd589189a9bbe5cae99e0e024e2d4a92c36
+function commonmarkXExtensions() {
+  const extensions = [
+    '+pipe_tables',
+    '+raw_html',
+    '+auto_identifiers',
+    '+strikeout',
+    '+task_lists',
+    '+emoji',
+    '+raw_tex',
+    '+smart',
+    '+tex_math_dollars',
+    '+superscript',
+    '+subscript',
+    '+definition_lists',
+    '+footnotes',
+    '+fancy_lists',
+    '+fenced_divs',
+    '+bracketed_spans',
+    '+raw_attribute',
+    '+implicit_header_references',
+    // '+attributes' (not yet)
+  ];
   return extensions;
 }
 
 function gfmExtensions() {
   const extensions = [
-    '+all_symbols_escapable',
+    ...commonmarkExtensions(),
     '+auto_identifiers',
     '+autolink_bare_uris',
-    '+backtick_code_blocks',
     '+emoji',
-    '+fenced_code_blocks',
     '+gfm_auto_identifiers',
-    '+intraword_underscores',
-    '+lists_without_preceding_blankline',
     '+pipe_tables',
-    '+raw_html',
-    '+shortcut_reference_links',
-    '+space_in_atx_header',
     '+strikeout',
     '+task_lists',
   ];
@@ -240,8 +396,8 @@ function gfmExtensions() {
 // https://github.com/yuin/goldmark/#html-renderer-options
 function goldmarkExtensions(format: EditorFormat) {
   const extensions = [
-    // disables raw_html by default
-    '-raw_html',
+    // start with commonmark
+    ...commonmarkExtensions(false),
 
     // adds most of gfm
     '+pipe_tables',
@@ -258,9 +414,11 @@ function goldmarkExtensions(format: EditorFormat) {
     // hugo preprocessor supports yaml metadata
     '+yaml_metadata_block',
   ];
-  if (format.rmdExtensions.blogdownMathInCode) {
+
+  if (includeTexMathDollars(format)) {
     extensions.push('+tex_math_dollars');
   }
+
   return extensions;
 }
 
@@ -277,8 +435,15 @@ function blackfridayExtensions(format: EditorFormat) {
     '+smart',
     '+yaml_metadata_block',
   ];
-  if (format.rmdExtensions.blogdownMathInCode) {
+
+  if (includeTexMathDollars(format)) {
     extensions.push('+tex_math_dollars');
   }
+
   return extensions;
+}
+
+function includeTexMathDollars(format: EditorFormat) {
+  // hugo users often sort out some way to include math so we enable it for hugo
+  return format.docTypes.includes(kHugoDocType) || format.rmdExtensions.blogdownMathInCode;
 }

@@ -1,7 +1,7 @@
 /*
  * pandoc_from_prosemirror.ts
  *
- * Copyright (C) 2019-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -26,11 +26,13 @@ import {
   PandocTokenType,
   PandocOutputOption,
   PandocExtensions,
+  marksByPriority,
 } from '../api/pandoc';
 
 import { PandocFormat, kGfmFormat } from '../api/pandoc_format';
 import { PandocAttr } from '../api/pandoc_attr';
 import { fragmentText } from '../api/fragment';
+import { fancyQuotesToSimple } from '../api/quote';
 
 export function pandocFromProsemirror(
   doc: ProsemirrorNode,
@@ -59,6 +61,7 @@ class PandocWriter implements PandocOutput {
   public readonly extensions: PandocExtensions;
 
   private readonly escapeCharacters: string[] = [];
+  private readonly manualEscapeCharacters: Map<string, string> = new Map<string, string>();
   private readonly preventEscapeCharacters: string[] = [];
 
   constructor(
@@ -115,7 +118,7 @@ class PandocWriter implements PandocOutput {
     const token: PandocToken = {
       t: type,
     };
-    if (content) {
+    if (content !== undefined) {
       if (typeof content === 'function') {
         token.c = [];
         this.fill(token.c, content);
@@ -126,9 +129,9 @@ class PandocWriter implements PandocOutput {
     this.write(token);
   }
 
-  public writeMark(type: PandocTokenType, parent: Fragment, expelEnclosingWhitespace = false) {
+  public writeMark(type: PandocTokenType, parent: Fragment, expelEnclosingWhitespace = true) {
     // expel enclosing whitepsace if requested and if the fragment isn't 100% spaces
-    if (expelEnclosingWhitespace && fragmentText(parent).trim().length > 0) {
+    if (expelEnclosingWhitespace) {
       // build output spec
       const output = {
         spaceBefore: false,
@@ -144,22 +147,30 @@ class PandocWriter implements PandocOutput {
           let outputText = node.textContent;
 
           // checking for leading space in first node
-          if (index === 0 && node.textContent.match(/^\s+\S]/)) {
+          if (output.nodes.length === 0 && node.textContent.match(/^\s+/)) {
             output.spaceBefore = true;
             outputText = outputText.trimLeft();
           }
 
           // check for trailing space in last node
-          if (index === parent.childCount - 1 && node.textContent.match(/\S\s+$/)) {
+          if (index === parent.childCount - 1 && node.textContent.match(/\s+$/)) {
             output.spaceAfter = true;
             outputText = outputText.trimRight();
           }
 
-          // if we modified the node's text then create a new node
-          if (outputText !== node.textContent) {
-            output.nodes.push(node.type.schema.text(outputText, node.marks));
-          } else {
-            output.nodes.push(node);
+          // check for an entirely blank node
+          if (outputText.match(/^\s*$/)) {
+            outputText = '';
+          }
+
+          // skip the node if it has nothing in it
+          if (outputText.length > 0) {
+            // if we modified the node's text then create a new node
+            if (outputText !== node.textContent) {
+              output.nodes.push(node.type.schema.text(outputText, node.marks));
+            } else {
+              output.nodes.push(node);
+            }
           }
         } else {
           output.nodes.push(node);
@@ -167,14 +178,16 @@ class PandocWriter implements PandocOutput {
       });
 
       // output space tokens before/after mark as necessary
-      if (output.spaceBefore) {
-        this.writeToken(PandocTokenType.Space);
-      }
-      this.writeToken(type, () => {
-        this.writeInlines(Fragment.from(output.nodes));
-      });
-      if (output.spaceAfter) {
-        this.writeToken(PandocTokenType.Space);
+      if (output.nodes.length > 0) {
+        if (output.spaceBefore) {
+          this.writeToken(PandocTokenType.Space);
+        }
+        this.writeToken(type, () => {
+          this.writeInlines(Fragment.from(output.nodes));
+        });
+        if (output.spaceAfter) {
+          this.writeToken(PandocTokenType.Space);
+        }
       }
 
       // normal codepath (not expelling existing whitespace)
@@ -191,7 +204,7 @@ class PandocWriter implements PandocOutput {
     this.write(arr);
   }
 
-  public writeAttr(id?: string, classes?: string[], keyvalue?: string[]) {
+  public writeAttr(id?: string, classes?: string[], keyvalue?: Array<[string, string]>) {
     this.write([id || '', classes || [], keyvalue || []]);
   }
 
@@ -203,28 +216,48 @@ class PandocWriter implements PandocOutput {
       let textRun = '';
       const flushTextRun = () => {
         if (textRun) {
+          // if this is a line block, convert leading nbsp to regular space,
+          if (!this.options.writeSpaces) {
+            textRun = textRun.replace(/(^|\n)+(\u00A0+)/g, (_match, p1, p2) => {
+              return p1 + Array(p2.length + 1).join(' ');
+            });
+          }
+
+          // reverse smart punctuation. pandoc does this autmoatically for markdown
+          // writing w/ +smart, however this also results in nbsp's being inserted
+          // after selected abbreviations like e.g. and Mr., and we don't want that
+          // to happen for editing (b/c the nbsp's weren't put there by the user
+          // and are not obviously visible)
+          if (this.extensions.smart) {
+            textRun = textRun
+              .replace(/—/g, '---')
+              .replace(/–/g, '--')
+              .replace(/…/g, '...');
+          }
+
+          // we explicitly don't want fancy quotes in the editor
+          textRun = fancyQuotesToSimple(textRun);
+
           this.writeToken(PandocTokenType.Str, textRun);
           textRun = '';
         }
       };
       for (let i = 0; i < text.length; i++) {
-        let ch = text.charAt(i);
-        if (ch.charCodeAt(0) === 160) {
-          ch = ' '; // convert &nbsp; to ' '
-        }
+        const ch = text.charAt(i);
         if (this.options.writeSpaces && ch === ' ') {
           flushTextRun();
           this.writeToken(PandocTokenType.Space);
         } else if (preventEscapeCharacters.includes(ch)) {
           flushTextRun();
           this.writeRawMarkdown(ch);
+        } else if (this.manualEscapeCharacters.has(ch)) {
+          flushTextRun();
+          this.writeRawMarkdown(this.manualEscapeCharacters.get(ch)!);
         } else {
           textRun += ch;
         }
       }
-      if (textRun) {
-        this.writeToken(PandocTokenType.Str, textRun);
-      }
+      flushTextRun();
     }
   }
 
@@ -247,10 +280,15 @@ class PandocWriter implements PandocOutput {
   }
 
   public writeNote(note: ProsemirrorNode) {
+    // get corresponding note body
     const noteBody = this.notes[note.attrs.ref];
-    this.writeToken(PandocTokenType.Note, () => {
-      this.writeNodes(noteBody);
-    });
+
+    // don't write empty footnotes (otherwise in block or section mode they gobble up the section below them)
+    if (noteBody.textContent.trim().length > 0) {
+      this.writeToken(PandocTokenType.Note, () => {
+        this.writeNodes(noteBody);
+      });
+    }
   }
 
   public writeNode(node: ProsemirrorNode) {
@@ -264,19 +302,8 @@ class PandocWriter implements PandocOutput {
   public writeInlines(fragment: Fragment) {
     // get the marks from a node that are not already on the stack of active marks
     const nodeMarks = (node: ProsemirrorNode) => {
-      // get marks -- order marks by priority (code lowest so that we never include
-      // other markup inside code)
-      let marks: Mark[] = node.marks.sort((a: Mark, b: Mark) => {
-        const aPriority = this.markWriters[a.type.name].priority;
-        const bPriority = this.markWriters[b.type.name].priority;
-        if (aPriority < bPriority) {
-          return -1;
-        } else if (bPriority < aPriority) {
-          return 1;
-        } else {
-          return 0;
-        }
-      });
+      // get marks ordered by writer priority
+      let marks = marksByPriority(node.marks, this.markWriters);
 
       // remove active marks
       for (const activeMark of this.activeMarks) {
@@ -379,9 +406,10 @@ class PandocWriter implements PandocOutput {
   private initEscapeCharacters() {
     // gfm disallows [] escaping so that MediaWiki style page links (e.g. [[MyPage]]) work as expected
     // tex_math_single_backslash does not allow escaping of [] or () (as that conflicts with the math syntax)
-    if (this.format.baseName === kGfmFormat || this.format.extensions.tex_math_single_backslash) {
+    if (this.format.mode === kGfmFormat || this.format.extensions.tex_math_single_backslash) {
       this.preventEscapeCharacters.push('[', ']');
     }
+
     // tex_math_single_backslash does not allow escaping of [] or () (as that conflicts with the math syntax)
     if (this.format.extensions.tex_math_single_backslash) {
       this.preventEscapeCharacters.push('(', ')');
@@ -389,6 +417,17 @@ class PandocWriter implements PandocOutput {
 
     // filter standard escape characters w/ preventEscapeCharacters
     const allEscapeCharacters = ['\\', '`', '*', '_', '{', '}', '[', ']', '(', ')', '>', '#', '+', '-', '.', '!'];
+    if (this.format.extensions.angle_brackets_escapable) {
+      allEscapeCharacters.push('<');
+    }
     this.escapeCharacters.push(...allEscapeCharacters.filter(ch => !this.preventEscapeCharacters.includes(ch)));
+
+    // Manual escape characters are ones we can't rely on pandoc to automatically escape (b/c
+    // they represent valid syntax for a markdown extension, e.g. '@' for citations).
+    // For '@', since we already do special writing for spans we know are citation ids, we can
+    // globally prescribe escaping behavior and never stomp over a citation. We also check
+    // that '@' can be escaped in the current markdown format, and if not use an html escape.
+    const atEscape = this.extensions.all_symbols_escapable ? '\\@' : '&#x0040;';
+    this.manualEscapeCharacters.set('@', atEscape);
   }
 }

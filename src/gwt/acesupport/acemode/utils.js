@@ -1,7 +1,7 @@
 /*
  * utils.js
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -63,8 +63,17 @@ var unicode = require("ace/unicode");
    this.primaryState = function(states)
    {
       if (that.isArray(states))
-         return states[0];
-      return states;
+      {
+         for (var i = 0; i < states.length; i++)
+         {
+            var state = states[i];
+            if (state === "#tmp")
+               continue;
+            return state || "start";
+         }
+      }
+
+      return states || "start";
    };
 
    this.activeMode = function(state, major)
@@ -258,6 +267,11 @@ var unicode = require("ace/unicode");
 
       return true;
    };
+
+   this.getTokenTypeRegex = function(type)
+   {
+      return new RegExp("(?:^|[.])" + type + "(?:$|[.])", "");
+   }
 
 
 }).call(exports);

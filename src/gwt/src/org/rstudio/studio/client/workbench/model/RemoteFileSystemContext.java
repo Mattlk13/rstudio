@@ -1,7 +1,7 @@
 /*
  * RemoteFileSystemContext.java
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -79,7 +79,7 @@ public class RemoteFileSystemContext extends PosixFileSystemContext
 
       final FileSystemItem newPathEntry = FileSystemItem.createDir(newPath);
       
-      final ArrayList<FileSystemItem> fsi = new ArrayList<FileSystemItem>();
+      final ArrayList<FileSystemItem> fsi = new ArrayList<>();
 
       server_.listFiles(
             newPathEntry,

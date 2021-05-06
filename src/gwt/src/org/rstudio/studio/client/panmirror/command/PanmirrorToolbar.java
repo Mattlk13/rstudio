@@ -1,7 +1,7 @@
 /*
  * PanmirrorToolbar.java
  *
- * Copyright (C) 2009-20 byRStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -61,6 +61,7 @@ public class PanmirrorToolbar extends SecondaryToolbar implements RequiresResize
       formatWidgets_ = addWidgetGroup(
          addLeftButton(PanmirrorCommands.Strong),
          addLeftButton(PanmirrorCommands.Em),
+         addLeftButton(PanmirrorCommands.Underline),
          addLeftButton(PanmirrorCommands.Code),
          addLeftSeparator(),
          addLeftButton(PanmirrorCommands.ClearFormatting),
@@ -75,8 +76,9 @@ public class PanmirrorToolbar extends SecondaryToolbar implements RequiresResize
       );
       
       insertWidgets_ = addWidgetGroup(
-         addLeftButton(PanmirrorCommands.RmdChunk),
          addLeftButton(PanmirrorCommands.Link),
+         addLeftButton(PanmirrorCommands.Citation),
+         addLeftSeparator(),
          addLeftButton(PanmirrorCommands.Image),
          addLeftSeparator()
       );
@@ -97,25 +99,22 @@ public class PanmirrorToolbar extends SecondaryToolbar implements RequiresResize
          addLeftTextMenu(new ToolbarMenuButton("Table", "Table", null, tableMenu, false));
       }
              
-      if (haveAnyOf(PanmirrorCommands.HTMLComment))
+      if (findReplace != null)
       {
          addLeftSeparator();
-         addLeftButton(PanmirrorCommands.HTMLComment);
+         findReplaceButton_ = new ToolbarButton(
+            ToolbarButton.NoText,
+            "Find/Replace",
+            FindReplaceBar.getFindIcon(),
+            new ClickHandler() {
+               public void onClick(ClickEvent event)
+               {
+                  boolean show = !findReplace.isFindReplaceShowing();
+                  findReplace.showFindReplace(show);
+               }
+            });
+         addLeftWidget(findReplaceButton_);
       }
-     
-      addLeftSeparator();
-      findReplaceButton_ = new ToolbarButton(
-         ToolbarButton.NoText,
-         "Find/Replace",
-         FindReplaceBar.getFindIcon(),
-         new ClickHandler() {
-            public void onClick(ClickEvent event)
-            {
-               boolean show = !findReplace.isFindReplaceShowing();
-               findReplace.showFindReplace(show);
-            }
-         });
-      addLeftWidget(findReplaceButton_);
    }
   
    
@@ -128,10 +127,13 @@ public class PanmirrorToolbar extends SecondaryToolbar implements RequiresResize
    
    public void setFindReplaceLatched(boolean latched)
    {
-      findReplaceButton_.setLeftImage(latched ? 
-         FindReplaceBar.getFindLatchedIcon() : 
-         FindReplaceBar.getFindIcon()
-     );
+      if (findReplaceButton_ != null)
+      {
+         findReplaceButton_.setLeftImage(latched ? 
+            FindReplaceBar.getFindLatchedIcon() : 
+            FindReplaceBar.getFindIcon()
+         );
+      }
    }
    
    @Override 
@@ -228,5 +230,5 @@ public class PanmirrorToolbar extends SecondaryToolbar implements RequiresResize
    
    private PanmirrorToolbarCommands commands_ = null;
    private PanmirrorMenus menus_ = null;
-   private ArrayList<PanmirrorCommandUIObject> commandObjects_ = new ArrayList<PanmirrorCommandUIObject>();
+   private ArrayList<PanmirrorCommandUIObject> commandObjects_ = new ArrayList<>();
 }

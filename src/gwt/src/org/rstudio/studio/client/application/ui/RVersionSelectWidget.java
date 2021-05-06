@@ -1,7 +1,7 @@
 /*
  * RVersionSelectWidget.java
  *
- * Copyright (C) 2009-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -68,7 +68,7 @@ public class RVersionSelectWidget extends SelectWidget
       boolean disambiguate = RVersionSpec.hasDuplicates(rVersions);
 
       // build list of choices
-      ArrayList<String> choices = new ArrayList<String>();
+      ArrayList<String> choices = new ArrayList<>();
 
       // include "default" label if requested
       if (includeSystemDefault)
@@ -91,7 +91,7 @@ public class RVersionSelectWidget extends SelectWidget
    private static String[] rVersionValues(JsArray<RVersionSpec> rVersions,
                                           boolean includeSystemDefault)
    {
-      ArrayList<String> values = new ArrayList<String>();
+      ArrayList<String> values = new ArrayList<>();
 
       if (includeSystemDefault)
          values.add(rVersionSpecToString(RVersionSpec.createEmpty()));

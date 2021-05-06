@@ -1,7 +1,7 @@
 /*
  * SessionProjects.cpp
  *
- * Copyright (C) 2009-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -162,7 +162,7 @@ bool findProjectFile(const std::string& path, std::string* pResult)
       }
       else
       {
-         return false; 
+         return false;
       }
    }
 
@@ -395,6 +395,18 @@ json::Object projectConfigJson(const r_util::RProjectConfig& config)
    configJson["tutorial_path"] = config.tutorialPath;
    configJson["quit_child_processes_on_exit"] = config.quitChildProcessesOnExit;
    configJson["disable_execute_rprofile"] = config.disableExecuteRprofile;
+   configJson["markdown_wrap"] = config.markdownWrap;
+   configJson["markdown_wrap_at_column"] = config.markdownWrapAtColumn;
+   configJson["markdown_references"] = config.markdownReferences;
+   configJson["markdown_canonical"] = config.markdownCanonical;
+   configJson["python_type"] = config.pythonType;
+   configJson["python_version"] = config.pythonVersion;
+   configJson["python_path"] = config.pythonPath;
+   configJson["spelling_dictionary"] = config.spellingDictionary;
+   if (config.zoteroLibraries.has_value())
+      configJson["zotero_libraries"] = json::toJsonArray(config.zoteroLibraries.get());
+   else
+      configJson["zotero_libraries"] = json::Value(); // null
 
    return configJson;
 }
@@ -550,21 +562,11 @@ Error rProjectVcsOptionsFromJson(const json::Object& optionsJson,
          "active_vcs_override", pOptions->vcsOverride);
 }
 
-Error writeProjectOptions(const json::JsonRpcRequest& request,
-                         json::JsonRpcResponse* /*pResponse*/)
+Error writeProjectConfig(const json::Object& configJson)
 {
-   // get the project config, vcs options, and build options
-   json::Object configJson, vcsOptionsJson, buildOptionsJson;
-   Error error = json::readObjectParam(request.params, 0,
-                                       "config", &configJson,
-                                       "vcs_options", &vcsOptionsJson,
-                                       "build_options", &buildOptionsJson);
-   if (error)
-      return error;
-
    // read the config
    r_util::RProjectConfig config;
-   error = json::readObject(
+   Error error = json::readObject(
                     configJson,
                     "version", config.version,
                     "restore_workspace", config.restoreWorkspace,
@@ -603,7 +605,7 @@ Error writeProjectOptions(const json::JsonRpcRequest& request,
       {
          config.defaultOpenDocs = existingConfig.defaultOpenDocs;
       }
-      
+
       if (!existingConfig.defaultTutorial.empty())
       {
          config.defaultTutorial = existingConfig.defaultTutorial;
@@ -650,15 +652,32 @@ Error writeProjectOptions(const json::JsonRpcRequest& request,
    if (error)
       return error;
 
-   // read the vcs options
-   RProjectVcsOptions vcsOptions;
-   error = rProjectVcsOptionsFromJson(vcsOptionsJson, &vcsOptions);
+   // read markdown options
+   error = json::readObject(configJson,
+                            "markdown_wrap", config.markdownWrap,
+                            "markdown_wrap_at_column", config.markdownWrapAtColumn,
+                            "markdown_references", config.markdownReferences,
+                            "markdown_canonical", config.markdownCanonical);
    if (error)
       return error;
 
-   // read the build options
-   RProjectBuildOptions buildOptions;
-   error = rProjectBuildOptionsFromJson(buildOptionsJson, &buildOptions);
+   // read zotero options
+   error = json::readObject(configJson, "zotero_libraries", config.zoteroLibraries);
+   if (error)
+      return error;
+
+   // read python options
+   error = json::readObject(configJson,
+                            "python_type", config.pythonType,
+                            "python_version", config.pythonVersion,
+                            "python_path", config.pythonPath);
+   
+   if (error)
+      return error;
+
+   // read spelling options
+   error = json::readObject(configJson,
+                            "spelling_dictionary", config.spellingDictionary);
    if (error)
       return error;
 
@@ -671,6 +690,51 @@ Error writeProjectOptions(const json::JsonRpcRequest& request,
 
    // set the config
    setProjectConfig(config);
+
+   return Success();
+
+
+}
+
+Error writeProjectConfigRpc(const json::JsonRpcRequest& request,
+                            json::JsonRpcResponse* pResponse)
+{
+   json::Object configJson;
+   Error error = json::readParam(request.params, 0, &configJson);
+   if (error)
+      return error;
+
+   return writeProjectConfig(configJson);
+}
+
+Error writeProjectOptions(const json::JsonRpcRequest& request,
+                          json::JsonRpcResponse* pResponse)
+{
+   // get the project config, vcs options and build options
+   json::Object configJson, vcsOptionsJson, buildOptionsJson;
+   Error error = json::readObjectParam(request.params, 0,
+                                       "config", &configJson,
+                                       "vcs_options", &vcsOptionsJson,
+                                       "build_options", &buildOptionsJson);
+   if (error)
+      return error;
+
+   // write project config
+   error = writeProjectConfig(configJson);
+   if (error)
+      return error;
+
+   // read the vcs options
+   RProjectVcsOptions vcsOptions;
+   error = rProjectVcsOptionsFromJson(vcsOptionsJson, &vcsOptions);
+   if (error)
+      return error;
+
+   // read the build options
+   RProjectBuildOptions buildOptions;
+   error = rProjectBuildOptionsFromJson(buildOptionsJson, &buildOptions);
+   if (error)
+      return error;
 
    // write the vcs options
    error = s_projectContext.writeVcsOptions(vcsOptions);
@@ -893,42 +957,24 @@ void startup(const std::string& firstProjectPath)
          module_context::events().onClientInit.connect(boost::bind(onClientInit, openProjectError));
       }
    }
-
-   // add default open docs if specified in the project
-   // and the project has never been opened before
-   std::string defaultOpenDocs = projectContext().config().defaultOpenDocs;
-   if (!defaultOpenDocs.empty() && projects::projectContext().isNewProject())
-   {
-      std::vector<std::string> docs;
-      boost::algorithm::split(docs, defaultOpenDocs, boost::is_any_of(":"));
-
-      for (std::string& doc : docs)
-      {
-         boost::algorithm::trim(doc);
-
-         FilePath docPath = projectContext().directory().completePath(doc);
-         if (docPath.exists())
-         {
-            addFirstRunDoc(projectFilePath, doc);
-         }
-      }
-   }
 }
 
 SEXP rs_writeProjectFile(SEXP projectFilePathSEXP)
 {
-   std::string absolutePath = r::sexp::asString(projectFilePathSEXP);
+   std::string absolutePath = r::sexp::asUtf8String(projectFilePathSEXP);
    FilePath projectFilePath(absolutePath);
    
    Error error = r_util::writeProjectFile(
             projectFilePath,
             ProjectContext::buildDefaults(),
             ProjectContext::defaultConfig());
-   
+
+   if (error)
+      r::exec::warning(error.asString());
+
+   bool succeeded = error == Success();
    r::sexp::Protect protect;
-   return error ?
-            r::sexp::create(false, &protect) :
-            r::sexp::create(true, &protect);
+   return r::sexp::create(succeeded, &protect);
 }
 
 SEXP rs_addFirstRunDoc(SEXP projectFileAbsolutePathSEXP, SEXP docRelativePathsSEXP)
@@ -951,7 +997,7 @@ SEXP rs_addFirstRunDoc(SEXP projectFileAbsolutePathSEXP, SEXP docRelativePathsSE
 
 SEXP rs_requestOpenProject(SEXP projectFileSEXP, SEXP newSessionSEXP)
 {
-   std::string projectFile = r::sexp::asString(projectFileSEXP);
+   std::string projectFile = r::sexp::asUtf8String(projectFileSEXP);
    bool newSession = r::sexp::asLogical(newSessionSEXP);
    
    // opening projects in a new session is only supported in desktop, RSP
@@ -975,9 +1021,9 @@ SEXP rs_requestOpenProject(SEXP projectFileSEXP, SEXP newSessionSEXP)
 Error initialize()
 {
    // register R methods
-   RS_REGISTER_CALL_METHOD(rs_writeProjectFile, 1);
-   RS_REGISTER_CALL_METHOD(rs_addFirstRunDoc, 2);
-   RS_REGISTER_CALL_METHOD(rs_requestOpenProject, 2);
+   RS_REGISTER_CALL_METHOD(rs_writeProjectFile);
+   RS_REGISTER_CALL_METHOD(rs_addFirstRunDoc);
+   RS_REGISTER_CALL_METHOD(rs_requestOpenProject);
    
    // call project-context initialize
    Error error = s_projectContext.initialize();
@@ -1009,7 +1055,7 @@ Error initialize()
 
    using boost::bind;
    using namespace module_context;
-   ExecBlock initBlock ;
+   ExecBlock initBlock;
    initBlock.addFunctions()
       (bind(registerRpcMethod, "validate_project_path", validateProjectPath))
       (bind(registerRpcMethod, "get_new_project_context", getNewProjectContext))
@@ -1018,6 +1064,7 @@ Error initialize()
       (bind(registerRpcMethod, "create_project_file", createProjectFile))
       (bind(registerRpcMethod, "read_project_options", readProjectOptions))
       (bind(registerRpcMethod, "write_project_options", writeProjectOptions))
+      (bind(registerRpcMethod, "write_project_config", writeProjectConfigRpc))
       (bind(registerRpcMethod, "write_project_vcs_options", writeProjectVcsOptions))
       (bind(registerRpcMethod, "find_project_in_folder", findProjectInFolder))
    ;
@@ -1034,14 +1081,16 @@ json::Array websiteOutputFormatsJson()
    json::Array formatsJson;
    if (projectContext().config().buildType == r_util::kBuildTypeWebsite)
    {
-      r::exec::RFunction getFormats(".rs.getAllOutputFormats");
-      getFormats.addParam(string_utils::utf8ToSystem(
-         projectContext().buildTargetPath().getAbsolutePath()));
-      getFormats.addParam(projectContext().defaultEncoding());
       std::vector<std::string> formats;
-      Error error = getFormats.call(&formats);
+      
+      Error error = r::exec::RFunction(".rs.getAllOutputFormats")
+            .addUtf8Param(projectContext().buildTargetPath())
+            .addParam(projectContext().defaultEncoding())
+            .call(&formats);
+      
       if (error)
          LOG_ERROR(error);
+      
       formatsJson = json::toJsonArray(formats);
    }
    return formatsJson;

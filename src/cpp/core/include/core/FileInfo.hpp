@@ -1,7 +1,7 @@
 /*
  * FileInfo.hpp
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -38,7 +38,8 @@ public:
       : absolutePath_(), 
         isDirectory_(false), 
         size_(0), 
-        lastWriteTime_(0)
+        lastWriteTime_(0),
+        isSymlink_(false)
    {
    }
    
@@ -52,7 +53,7 @@ public:
    // burned by boost filesystem having nasty beahvior for seemingly
    // innocuous operations before!)
    explicit FileInfo(const FilePath& filePath,
-                     bool isSymlink = false) ;
+                     bool isSymlink = false);
    
    FileInfo(const std::string& absolutePath,
             bool isDirectory,
@@ -85,7 +86,7 @@ public:
    
    bool operator!=(const FileInfo& other) const
    {
-      return !(*this == other); 
+      return !(*this == other);
    }
    
 public:
@@ -147,7 +148,7 @@ inline bool fileInfoIsDirectory(const FileInfo& fileInfo)
    return fileInfo.isDirectory();
 }
    
-std::ostream& operator << (std::ostream& stream, const FileInfo& fileInfo) ;
+std::ostream& operator << (std::ostream& stream, const FileInfo& fileInfo);
 
    
 } // namespace core 

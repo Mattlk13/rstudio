@@ -1,7 +1,7 @@
 /*
  * SessionUriHandlers.cpp
  *
- * Copyright (C) 2009-16 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -12,6 +12,9 @@
  * AGPL (http://www.gnu.org/licenses/agpl-3.0.txt) for more details.
  *
  */
+
+#ifndef SESSION_URI_HANDLERS_HPP
+#define SESSION_URI_HANDLERS_HPP
 
 #include <core/http/UriHandler.hpp>
 
@@ -24,3 +27,5 @@ core::http::UriHandlers& handlers();
 } // namespace uri_handlers
 } // namespace session
 } // namespace rstudio
+
+#endif /* SESSION_URI_HANDLERS_HPP */

@@ -1,7 +1,7 @@
 /*
  * FileTypeRegistry.java
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -201,6 +201,11 @@ public class FileTypeRegistry
                false, false, false, false, false, false, false, false);
 
 
+   public static final TextFileType DOCKERFILE =
+         new TextFileType("dockerfile", "Dockerfile", EditorLanguage.LANG_DOCKERFILE, "Dockerfile", new ImageResource2x(ICONS.iconDockerfile2x()),
+               false, false, false, false, false,
+               false, false, false, false, false, false, false, false);
+   
    public static final TextFileType GITIGNORE =
          new TextFileType("gitignore", "Gitignore", EditorLanguage.LANG_GITIGNORE, ".gitignore", new ImageResource2x(ICONS.iconGitignore2x()),
                false, false, false, false, false,
@@ -330,6 +335,7 @@ public class FileTypeRegistry
       register("LICENSE", TEXT, new ImageResource2x(icons.iconText2x()));
       register("LICENCE", TEXT, new ImageResource2x(icons.iconText2x()));
       register("CITATION", TEXT, new ImageResource2x(icons.iconText2x()));
+      register("Dockerfile", DOCKERFILE, new ImageResource2x(icons.iconDockerfile2x()));
       register("MD5", TEXT, new ImageResource2x(icons.iconText2x()));
       register("NEWS", TEXT, new ImageResource2x(icons.iconText2x()));
       register("PORTING", TEXT, new ImageResource2x(icons.iconText2x()));
@@ -376,6 +382,7 @@ public class FileTypeRegistry
       register("*.sass", SASS, new ImageResource2x(icons.iconScss2x()));
       register("*.scss", SCSS, new ImageResource2x(icons.iconScss2x()));
       register("*.js", JS, new ImageResource2x(icons.iconJavascript2x()));
+      register("*.ts", JS, new ImageResource2x(icons.iconJavascript2x()));
       register("*.json", JSON, new ImageResource2x(icons.iconJavascript2x()));
       register("*.rmd", RMARKDOWN, new ImageResource2x(icons.iconRmarkdown2x()));
       register("*.rmarkdown", RMARKDOWN, new ImageResource2x(icons.iconRmarkdown2x()));
@@ -443,6 +450,7 @@ public class FileTypeRegistry
       registerIcon(".tiff", new FileIcon(new ImageResource2x(icons.iconPng2x()), "TIFF"));
       registerIcon(".tif", new FileIcon(new ImageResource2x(icons.iconPng2x()), "TIF"));
       registerIcon(".png", new FileIcon(new ImageResource2x(icons.iconPng2x()), "PNG"));
+      registerIcon(".webp", new FileIcon(new ImageResource2x(icons.iconPng2x()), "WEBP"));
 
       registerIcon(".pdf", FileIcon.PDF_ICON);
       registerIcon(".csv", FileIcon.CSV_ICON);
@@ -654,6 +662,7 @@ public class FileTypeRegistry
       FileIcon icon = iconsByFilename_.get(filename.toLowerCase());
       if (icon != null)
          return icon;
+      
       String ext = FileSystemItem.getExtensionFromPath(filename);
       icon = iconsByFileExtension_.get(ext.toLowerCase());
       if (icon != null)

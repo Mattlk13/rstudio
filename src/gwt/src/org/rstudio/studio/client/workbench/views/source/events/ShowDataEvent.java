@@ -1,7 +1,7 @@
 /*
  * ShowDataEvent.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -14,36 +14,41 @@
  */
 package org.rstudio.studio.client.workbench.views.source.events;
 
+import com.google.gwt.event.shared.EventHandler;
 import com.google.gwt.event.shared.GwtEvent;
 import org.rstudio.studio.client.workbench.views.source.model.DataItem;
 
-public class ShowDataEvent extends GwtEvent<ShowDataHandler>
+public class ShowDataEvent extends GwtEvent<ShowDataEvent.Handler>
 {
-   public static final GwtEvent.Type<ShowDataHandler> TYPE =
-      new GwtEvent.Type<ShowDataHandler>();
-   
+   public static final Type<Handler> TYPE = new Type<>();
+
+   public interface Handler extends EventHandler
+   {
+      void onShowData(ShowDataEvent event);
+   }
+
    public ShowDataEvent(DataItem data)
    {
       data_ = data;
    }
-   
+
    public DataItem getData()
    {
       return data_;
    }
-   
+
    @Override
-   protected void dispatch(ShowDataHandler handler)
+   protected void dispatch(Handler handler)
    {
       handler.onShowData(this);
    }
 
    @Override
-   public GwtEvent.Type<ShowDataHandler> getAssociatedType()
+   public Type<Handler> getAssociatedType()
    {
       return TYPE;
    }
-   
-   private DataItem data_;
+
+   private final DataItem data_;
 }
 

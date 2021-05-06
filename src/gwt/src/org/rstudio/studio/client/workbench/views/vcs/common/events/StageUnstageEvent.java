@@ -1,7 +1,7 @@
 /*
  * StageUnstageEvent.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -14,12 +14,13 @@
  */
 package org.rstudio.studio.client.workbench.views.vcs.common.events;
 
+import com.google.gwt.event.shared.EventHandler;
 import com.google.gwt.event.shared.GwtEvent;
 import org.rstudio.studio.client.common.vcs.StatusAndPath;
 
 import java.util.ArrayList;
 
-public class StageUnstageEvent extends GwtEvent<StageUnstageHandler>
+public class StageUnstageEvent extends GwtEvent<StageUnstageEvent.Handler>
 {
    public StageUnstageEvent(boolean unstage, ArrayList<StatusAndPath> paths)
    {
@@ -38,13 +39,13 @@ public class StageUnstageEvent extends GwtEvent<StageUnstageHandler>
    }
 
    @Override
-   public Type<StageUnstageHandler> getAssociatedType()
+   public Type<StageUnstageEvent.Handler> getAssociatedType()
    {
       return TYPE;
    }
 
    @Override
-   protected void dispatch(StageUnstageHandler handler)
+   protected void dispatch(StageUnstageEvent.Handler handler)
    {
       handler.onStageUnstage(this);
    }
@@ -52,5 +53,11 @@ public class StageUnstageEvent extends GwtEvent<StageUnstageHandler>
    private final boolean unstage_;
    private final ArrayList<StatusAndPath> paths;
 
-   public static final Type<StageUnstageHandler> TYPE = new Type<StageUnstageHandler>();
+   public static final Type<StageUnstageEvent.Handler> TYPE = new Type<>();
+
+   public interface Handler extends EventHandler
+   {
+      void onStageUnstage(StageUnstageEvent event);
+   }
+
 }

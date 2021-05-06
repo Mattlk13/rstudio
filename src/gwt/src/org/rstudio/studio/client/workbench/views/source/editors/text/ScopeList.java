@@ -1,7 +1,7 @@
 /*
  * ScopeList.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -155,5 +155,5 @@ public class ScopeList implements Iterable<Scope>
       }
    }
 
-   private final ArrayList<Scope> scopes_ = new ArrayList<Scope>();
+   private final ArrayList<Scope> scopes_ = new ArrayList<>();
 }

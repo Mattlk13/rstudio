@@ -1,6 +1,6 @@
 /* UserPrefValues.cpp
  *
- * Copyright (C) 2009-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -244,6 +244,97 @@ core::Error UserStateValues::setUsingMingwGcc49(bool val)
    return writePref("using_mingw_gcc49", val);
 }
 
+/**
+ * Whether or not the use of Visual Mode has been confirmed.
+ */
+bool UserStateValues::visualModeConfirmed()
+{
+   return readPref<bool>("visual_mode_confirmed");
+}
+
+core::Error UserStateValues::setVisualModeConfirmed(bool val)
+{
+   return writePref("visual_mode_confirmed", val);
+}
+
+/**
+ * The default type for new bibliographies.
+ */
+std::string UserStateValues::bibliographyDefaultType()
+{
+   return readPref<std::string>("bibliography_default_type");
+}
+
+core::Error UserStateValues::setBibliographyDefaultType(std::string val)
+{
+   return writePref("bibliography_default_type", val);
+}
+
+/**
+ * The default style for inserting citations.
+ */
+bool UserStateValues::citationDefaultInText()
+{
+   return readPref<bool>("citation_default_in_text");
+}
+
+core::Error UserStateValues::setCitationDefaultInText(bool val)
+{
+   return writePref("citation_default_in_text", val);
+}
+
+/**
+ * Zotero connection type (local or web)
+ */
+std::string UserStateValues::zoteroConnectionType()
+{
+   return readPref<std::string>("zotero_connection_type");
+}
+
+core::Error UserStateValues::setZoteroConnectionType(std::string val)
+{
+   return writePref("zotero_connection_type", val);
+}
+
+/**
+ * Whether to use Better BibTeX when suggesting citation keys and writing citations to BibTeX bibliographies
+ */
+bool UserStateValues::zoteroUseBetterBibtex()
+{
+   return readPref<bool>("zotero_use_better_bibtex");
+}
+
+core::Error UserStateValues::setZoteroUseBetterBibtex(bool val)
+{
+   return writePref("zotero_use_better_bibtex", val);
+}
+
+/**
+ * Key for making Zotero API calls
+ */
+std::string UserStateValues::zoteroApiKey()
+{
+   return readPref<std::string>("zotero_api_key");
+}
+
+core::Error UserStateValues::setZoteroApiKey(std::string val)
+{
+   return writePref("zotero_api_key", val);
+}
+
+/**
+ * Directory containing Zotero data files
+ */
+std::string UserStateValues::zoteroDataDir()
+{
+   return readPref<std::string>("zotero_data_dir");
+}
+
+core::Error UserStateValues::setZoteroDataDir(std::string val)
+{
+   return writePref("zotero_data_dir", val);
+}
+
 std::vector<std::string> UserStateValues::allKeys()
 {
    return std::vector<std::string>({
@@ -264,6 +355,13 @@ std::vector<std::string> UserStateValues::allKeys()
       kConnectVia,
       kErrorHandlerType,
       kUsingMingwGcc49,
+      kVisualModeConfirmed,
+      kBibliographyDefaultType,
+      kCitationDefaultInText,
+      kZoteroConnectionType,
+      kZoteroUseBetterBibtex,
+      kZoteroApiKey,
+      kZoteroDataDir,
    });
 }
    

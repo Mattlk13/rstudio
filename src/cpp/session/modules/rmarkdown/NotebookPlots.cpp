@@ -1,7 +1,7 @@
 /*
  * NotebookPlots.cpp
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -370,7 +370,7 @@ core::Error PlotCapture::setGraphicsOption()
 
    // device dimensions
    setOption.addParam(height_);
-   setOption.addParam(width_); 
+   setOption.addParam(width_);
 
    // sizing behavior drives units -- user specified units are in inches but
    // we use pixels when scaling automatically

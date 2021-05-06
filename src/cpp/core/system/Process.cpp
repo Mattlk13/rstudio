@@ -1,7 +1,7 @@
 /*
  * Process.cpp
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -18,7 +18,7 @@
 #include <iostream>
 
 #include <boost/algorithm/cxx11/any_of.hpp>
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 
 #include <core/Scope.hpp>
 #include <shared_core/Error.hpp>
@@ -27,6 +27,8 @@
 
 #include <core/PerformanceTimer.hpp>
 #include <core/system/ChildProcess.hpp>
+
+using namespace boost::placeholders;
 
 namespace rstudio {
 namespace core {
@@ -47,6 +49,15 @@ Error runProgram(const std::string& executable,
 {
    SyncChildProcess child(executable, args, options);
    return child.run(input, pResult);
+}
+
+Error runProgram(const std::string& executable,
+                 const std::vector<std::string>& args,
+                 const ProcessOptions& options,
+                 ProcessResult* pResult)
+{
+   SyncChildProcess child(executable, args, options);
+   return child.run(std::string(), pResult);
 }
 
 Error runCommand(const std::string& command,

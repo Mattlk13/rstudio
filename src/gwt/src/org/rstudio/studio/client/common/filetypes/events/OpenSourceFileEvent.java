@@ -1,7 +1,7 @@
 /*
  * OpenSourceFileEvent.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -14,7 +14,7 @@
  */
 package org.rstudio.studio.client.common.filetypes.events;
 
-import com.google.gwt.event.shared.GwtEvent;
+import com.google.gwt.event.shared.EventHandler;
 
 import org.rstudio.core.client.FilePosition;
 import org.rstudio.core.client.files.FileSystemItem;
@@ -25,44 +25,58 @@ import org.rstudio.studio.client.common.filetypes.TextFileType;
 import org.rstudio.studio.client.common.filetypes.model.NavigationMethods;
 
 @JavaScriptSerializable
-public class OpenSourceFileEvent extends CrossWindowEvent<OpenSourceFileHandler>
+public class OpenSourceFileEvent extends CrossWindowEvent<OpenSourceFileEvent.Handler>
 {
-   public static final GwtEvent.Type<OpenSourceFileHandler> TYPE =
-      new GwtEvent.Type<OpenSourceFileHandler>();
+   public static final Type<Handler> TYPE = new Type<>();
+
+   public interface Handler extends EventHandler
+   {
+      void onOpenSourceFile(OpenSourceFileEvent event);
+   }
 
    public OpenSourceFileEvent()
    {
    }
-   
+
    public OpenSourceFileEvent(FileSystemItem file, TextFileType fileType)
    {
       this(file, null, fileType);
    }
-   
-   public OpenSourceFileEvent(FileSystemItem file, 
-                              FilePosition position, 
+
+   public OpenSourceFileEvent(FileSystemItem file,
+                              FilePosition position,
                               TextFileType fileType)
    {
       this(file, position, fileType, NavigationMethods.DEFAULT);
    }
-   
-   public OpenSourceFileEvent(FileSystemItem file, 
-                              FilePosition position, 
+
+   public OpenSourceFileEvent(FileSystemItem file,
+                              FilePosition position,
                               TextFileType fileType,
+                              int navMethod)
+   {
+      this(file, position, fileType, true, navMethod);
+   }
+
+   public OpenSourceFileEvent(FileSystemItem file,
+                              FilePosition position,
+                              TextFileType fileType,
+                              boolean moveCursor,
                               int navMethod)
    {
       file_ = file;
       position_ = position;
-      fileType_ = fileType;  
+      fileType_ = fileType;
+      moveCursor_ = moveCursor;
       navigationMethod_ = navMethod;
    }
-   
+
    @Override
    public boolean forward()
    {
       return false;
    }
-   
+
    public FileSystemItem getFile()
    {
       return file_;
@@ -80,31 +94,37 @@ public class OpenSourceFileEvent extends CrossWindowEvent<OpenSourceFileHandler>
          return fileType_;
       }
    }
-   
+
+   public boolean getMoveCursor()
+   {
+      return moveCursor_;
+   }
+
    public FilePosition getPosition()
    {
       return position_;
    }
-   
+
    public int getNavigationMethod()
    {
       return navigationMethod_;
    }
 
    @Override
-   protected void dispatch(OpenSourceFileHandler handler)
+   protected void dispatch(Handler handler)
    {
       handler.onOpenSourceFile(this);
    }
 
    @Override
-   public GwtEvent.Type<OpenSourceFileHandler> getAssociatedType()
+   public Type<Handler> getAssociatedType()
    {
       return TYPE;
    }
-   
+
    private FileSystemItem file_;
    private FilePosition position_;
    private TextFileType fileType_;
+   private boolean moveCursor_;
    private int navigationMethod_;
 }

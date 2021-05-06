@@ -1,7 +1,7 @@
 /*
  * ImmediatelyInvokedFunctionExpression.java
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -21,7 +21,7 @@ package org.rstudio.core.client;
 public abstract class ImmediatelyInvokedFunctionExpression
 {
    protected abstract void invoke();
-   
+
    public ImmediatelyInvokedFunctionExpression()
    {
       invoke();

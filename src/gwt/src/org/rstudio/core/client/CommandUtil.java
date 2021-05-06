@@ -1,7 +1,7 @@
 /*
  * CommandUtil.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -18,23 +18,16 @@ import com.google.gwt.user.client.Command;
 
 public class CommandUtil
 {
-   public static final Command NULL = new Command() {
-      public void execute()
-      {
-      }
-   };
+   public static final Command NULL = () -> {};
 
    public static Command join(final Command a, final Command b)
    {
-      return new Command()
+      return () ->
       {
-         public void execute()
-         {
-            if (a != null)
-               a.execute();
-            if (b != null)
-               b.execute();
-         }
+         if (a != null)
+            a.execute();
+         if (b != null)
+            b.execute();
       };
    }
 }

@@ -1,7 +1,7 @@
 /*
  * AskPassManager.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -28,7 +28,6 @@ import org.rstudio.studio.client.common.crypto.RSAEncrypt;
 import org.rstudio.studio.client.common.satellite.Satellite;
 import org.rstudio.studio.client.common.satellite.SatelliteManager;
 import org.rstudio.studio.client.server.ServerError;
-import org.rstudio.studio.client.server.Void;
 import org.rstudio.studio.client.server.VoidServerRequestCallback;
 import org.rstudio.studio.client.workbench.views.vcs.common.events.AskPassEvent;
 
@@ -81,10 +80,19 @@ public class AskPassManager
             
             String prompt = e.getPrompt();
             
+            // default to password prompt
             String title = "Password";
             int dialogType = MessageDisplay.INPUT_PASSWORD;
-            if (prompt.toLowerCase().indexOf("username") != -1)
+
+            if (prompt.toLowerCase().indexOf("password") != -1)
             {
+               // if password is mentioned in prompt, treat as password
+               title = "Password";
+               dialogType = MessageDisplay.INPUT_PASSWORD;
+            }
+            else if (prompt.toLowerCase().indexOf("username") != -1)
+            {
+               // if username is mentioned in prmopt, treat as username
                title = "Username";
                dialogType = MessageDisplay.INPUT_USERNAME;
             }
@@ -129,7 +137,7 @@ public class AskPassManager
 
                                     server.askpassCompleted(
                                        null, false,
-                                       new SimpleRequestCallback<Void>());
+                                       new SimpleRequestCallback<>());
                                  }
                               });
                      }
@@ -143,7 +151,7 @@ public class AskPassManager
                         
                         server.askpassCompleted(
                                            null, false,
-                                           new SimpleRequestCallback<Void>());
+                                           new SimpleRequestCallback<>());
                      }
                   });
          }
@@ -161,8 +169,8 @@ public class AskPassManager
                askpassPending_ = false;
                
                server.askpassCompleted(null, 
-                                        false,
-                                        new SimpleRequestCallback<Void>());
+                                       false,
+                                       new SimpleRequestCallback<>());
             }
             
          } 

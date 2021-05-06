@@ -1,7 +1,7 @@
 /*
  * CollabEditStartedEvent.java
  *
- * Copyright (C) 2009-15 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -25,8 +25,7 @@ public class CollabEditStartedEvent extends GwtEvent<CollabEditStartedEvent.Hand
       void onCollabEditStarted(CollabEditStartedEvent event);
    }
 
-   public static final GwtEvent.Type<CollabEditStartedEvent.Handler> TYPE =
-      new GwtEvent.Type<CollabEditStartedEvent.Handler>();
+   public static final GwtEvent.Type<CollabEditStartedEvent.Handler> TYPE = new GwtEvent.Type<>();
    
    public CollabEditStartedEvent(CollabEditStartParams params)
    {

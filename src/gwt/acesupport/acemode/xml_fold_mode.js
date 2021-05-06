@@ -1,7 +1,7 @@
 /*
  * xml_fold_mode.js
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  *
  * The Original Code is Ajax.org Code Editor (ACE).

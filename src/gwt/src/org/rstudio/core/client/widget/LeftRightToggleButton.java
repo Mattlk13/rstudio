@@ -1,7 +1,7 @@
 /*
  * LeftRightToggleButton.java
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -16,6 +16,7 @@ package org.rstudio.core.client.widget;
 
 import com.google.gwt.aria.client.PressedValue;
 import com.google.gwt.aria.client.Roles;
+import org.rstudio.core.client.ClassIds;
 import org.rstudio.core.client.theme.res.ThemeResources;
 
 import com.google.gwt.core.client.GWT;
@@ -85,10 +86,21 @@ public class LeftRightToggleButton extends Widget
       else
          addStyleName(styles.rightOn());
 
+      setClassId();
       Roles.getButtonRole().setAriaPressedState(left_, leftIsOn ? PressedValue.TRUE : PressedValue.FALSE);
       Roles.getButtonRole().setAriaPressedState(right_, leftIsOn ? PressedValue.FALSE : PressedValue.TRUE);
    }
 
+   public void setClassId()
+   {
+      String leftId = ClassIds.idSafeString(left_.getInnerText());
+      String rightId = ClassIds.idSafeString(right_.getInnerText());
+      ClassIds.assignClassId(getElement(),
+         ClassIds.LEFT_RIGHT_TOGGLE_BTN + "_" + leftId + "_" + rightId);
+      ClassIds.assignClassId(left_, ClassIds.LEFT_TOGGLE_BTN + "_"  + leftId);
+      ClassIds.assignClassId(right_, ClassIds.RIGHT_TOGGLE_BTN + "_"  + rightId);
+   }
+   
    @Override
    public HandlerRegistration addClickHandler(ClickHandler handler)
    {

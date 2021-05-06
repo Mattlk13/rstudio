@@ -1,7 +1,7 @@
 /*
  * ImageMenuItem.java
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -20,17 +20,17 @@ import com.google.gwt.core.client.Scheduler.ScheduledCommand;
 import com.google.gwt.resources.client.ImageResource;
 import com.google.gwt.user.client.ui.MenuItem;
 
-public class ImageMenuItem 
+public class ImageMenuItem
 {
-   public static MenuItem create(ImageResource res, 
-                                 String text, 
-                                 ScheduledCommand command, 
+   public static MenuItem create(ImageResource res,
+                                 String text,
+                                 ScheduledCommand command,
                                  Integer iconOffsetY)
    {
-      
-      return new MenuItem(AppCommand.formatMenuLabel(res, text, null, 
-                                                     iconOffsetY), 
-                          true, 
+
+      return new MenuItem(AppCommand.formatMenuLabel(res, text, null,
+                                                     iconOffsetY),
+                          true,
                           command);
    }
 }

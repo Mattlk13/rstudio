@@ -1,7 +1,7 @@
 /*
  * RTokenizer.hpp
  *
- * Copyright (C) 2009-17 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -139,7 +139,7 @@ public:
    {
       return type_ == type;
    }
-
+   
    // allow direct use in conditional statements (nullability)
    typedef void (*unspecified_bool_type)();
    static void unspecified_bool_true() {}
@@ -210,6 +210,8 @@ public:
    RToken nextToken();
 
 private:
+   Error matchRawStringLiteral(RToken* pToken);
+   
    RToken matchWhitespace();
    RToken matchStringLiteral();
    RToken matchNumber();
@@ -401,10 +403,11 @@ inline bool isNamespaceExtractionOperator(const RToken& rToken)
             rToken.contentEquals(L":::"));
 }
 
-inline bool isFunction(const RToken& rToken)
+inline bool isFunctionKeyword(const RToken& rToken)
 {
-   return rToken.isType(RToken::ID) &&
-          rToken.contentEquals(L"function");
+   return rToken.isType(RToken::ID) && (
+            rToken.contentEquals(L"function") ||
+            rToken.contentEquals(L"\\"));
 }
 
 inline bool isString(const RToken& rToken)

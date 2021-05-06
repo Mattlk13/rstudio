@@ -1,7 +1,7 @@
 /*
  * PanmirrorUIDisplay.java
  *
- * Copyright (C) 2009-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -16,12 +16,14 @@
 
 package org.rstudio.studio.client.panmirror.ui;
 
+import org.rstudio.core.client.XRef;
 import org.rstudio.studio.client.RStudioGinjector;
 import org.rstudio.studio.client.common.GlobalDisplay;
 import org.rstudio.studio.client.panmirror.command.PanmirrorMenuItem;
 
 import com.google.inject.Inject;
 
+import elemental2.promise.Promise;
 import jsinterop.annotations.JsFunction;
 import jsinterop.annotations.JsType;
 
@@ -43,13 +45,21 @@ public class PanmirrorUIDisplay {
    {
       globalDisplay_.openWindow(url);
    }
+   
+   public NavigateToXRef navigateToXRef;
+   
+   @JsFunction
+   public interface NavigateToXRef
+   {
+      void navigate(String file, XRef xref);
+   }
 
    public ShowContextMenu showContextMenu;   
    
    @JsFunction
    public interface ShowContextMenu
    {
-      void show(PanmirrorMenuItem[] items, int clientX, int clientY);
+      Promise<Boolean> show(PanmirrorMenuItem[] items, int clientX, int clientY);
    }
    
    private GlobalDisplay globalDisplay_;

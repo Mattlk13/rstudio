@@ -1,7 +1,7 @@
 /*
  * RoxygenHelper.java
  *
- * Copyright (C) 2009-15 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -796,7 +796,7 @@ public class RoxygenHelper
          Pattern.create("^\\s*#+'\\s*@[^@]", "");
    
    private static final ArrayList<String> ROXYGEN_ANNOTATABLE_CALLS =
-      new ArrayList<String>(
+      new ArrayList<>(
             Arrays.asList(new String[] {
             "setClass",
             "setRefClass",

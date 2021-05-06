@@ -1,7 +1,7 @@
 /*
  * Database.hpp
  *
- * Copyright (C) 2020 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -32,7 +32,11 @@ namespace database {
 
 struct SqliteConnectionOptions
 {
+   SqliteConnectionOptions(const std::string& file) : file(file), readonly(false) {}
+   SqliteConnectionOptions() : readonly(false) {}
    std::string file;
+   int poolSize;
+   bool readonly;
 };
 
 struct PostgresqlConnectionOptions
@@ -40,9 +44,14 @@ struct PostgresqlConnectionOptions
    std::string database;
    std::string host;
    std::string port;
-   std::string user;
+   std::string username;
    std::string password;
+   std::string connectionUri;
    int connectionTimeoutSeconds;
+   int poolSize;
+   std::string secureKey; // obfuscated secure-key value
+   std::string secureKeyFileUsed; // absolute path to file containing the key, for troubleshooting
+   std::string secureKeyHash; // hash of secureKey (pre-obfuscation)
 };
 
 enum class Driver
@@ -213,6 +222,8 @@ private:
 class ConnectionPool : public boost::enable_shared_from_this<ConnectionPool>
 {
 public:
+   ConnectionPool(const ConnectionOptions& options);
+
    // get a connection from the connection pool, blocking until one becomes available
    boost::shared_ptr<IConnection> getConnection();
 
@@ -229,8 +240,10 @@ private:
                                      boost::shared_ptr<ConnectionPool>* pPool);
 
    void returnConnection(const boost::shared_ptr<Connection>& connection);
+   void testAndReconnect(boost::shared_ptr<Connection>& connection);
 
    thread::ThreadsafeQueue<boost::shared_ptr<Connection>> connections_;
+   ConnectionOptions connectionOptions_;
 };
 
 class Transaction
@@ -287,6 +300,11 @@ private:
    boost::shared_ptr<IConnection> connection_;
    FilePath migrationsPath_;
 };
+
+// validates connection options - used for test purposes only
+Error validateOptions(const ConnectionOptions& options,
+                      std::string* pConnectionStr,
+                      std::string* pPassword = nullptr);
 
 // connect to the database with the specified connection options
 Error connect(const ConnectionOptions& options,

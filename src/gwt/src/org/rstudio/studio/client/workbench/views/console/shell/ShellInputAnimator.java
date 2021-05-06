@@ -1,7 +1,7 @@
 /*
  * ShellInputAnimator.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -124,7 +124,6 @@ public class ShellInputAnimator
    
    private InputEditorDisplay display_;
    
-   private ArrayList<InputAnimator> pendingAnimatedInput_ =
-      new ArrayList<InputAnimator>();
+   private ArrayList<InputAnimator> pendingAnimatedInput_ = new ArrayList<>();
 
 }

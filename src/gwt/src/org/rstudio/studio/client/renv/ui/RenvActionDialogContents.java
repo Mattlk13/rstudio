@@ -1,7 +1,7 @@
 /*
  * RenvActionDialogContents.java
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -43,10 +43,10 @@ public class RenvActionDialogContents extends Composite
    public RenvActionDialogContents(String action, JsArray<RenvAction> actions)
    {
       action_ = action;
-      actions_ = new ArrayList<RenvAction>();
+      actions_ = new ArrayList<>();
       JsArrayUtil.fillList(actions, actions_);
       
-      table_ = new RStudioDataGrid<RenvAction>(actions.length(), RES);
+      table_ = new RStudioDataGrid<>(actions.length(), RES);
       
       table_.setHeight("500px");
       table_.setWidth("600px");

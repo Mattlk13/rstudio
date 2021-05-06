@@ -1,7 +1,7 @@
 /*
  * EventBasedChangeTracker.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -44,7 +44,7 @@ public class EventBasedChangeTracker<T> implements ChangeTracker
 
    public ChangeTracker fork()
    {
-      EventBasedChangeTracker<T> ebct = new EventBasedChangeTracker<T>(source_);
+      EventBasedChangeTracker<T> ebct = new EventBasedChangeTracker<>(source_);
       ebct.changed_ = changed_;
       return ebct;
    }

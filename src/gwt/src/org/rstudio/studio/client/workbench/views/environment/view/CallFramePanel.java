@@ -1,7 +1,7 @@
 /*
  * CallFramePanel.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -124,7 +124,7 @@ public class CallFramePanel extends ResizeComposite
                                                          14, Style.Unit.PX);
       
       observer_ = observer;
-      callFrameItems_ = new ArrayList<CallFrameItem>();
+      callFrameItems_ = new ArrayList<>();
    }
 
    public void setCallFrames(JsArray<CallFrame> frameList, int contextDepth)

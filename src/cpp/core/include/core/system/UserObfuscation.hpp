@@ -1,7 +1,7 @@
 /*
  * UserObfuscation.hpp
  *
- * Copyright (C) 2009-15 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -13,6 +13,10 @@
  *
  */
 
+#ifndef CORE_USER_OBFUSCATION_HPP
+#define CORE_USER_OBFUSCATION_HPP
+
 #define OBFUSCATE_USER_ID(x)    (x)
 #define DEOBFUSCATE_USER_ID(x)  (x)
 
+#endif /* CORE_USER_OBFUSCATION_HPP */

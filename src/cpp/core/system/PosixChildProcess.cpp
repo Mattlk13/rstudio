@@ -1,7 +1,7 @@
 /*
  * PosixChildProcess.cpp
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -33,7 +33,7 @@
 #include <sys/types.h>
 
 #include <boost/asio.hpp>
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 
 #include <shared_core/Error.hpp>
 #include <core/Log.hpp>
@@ -45,6 +45,8 @@
 #include <core/Thread.hpp>
 
 #include <core/PerformanceTimer.hpp>
+
+using namespace boost::placeholders;
 
 namespace rstudio {
 namespace core {
@@ -76,7 +78,18 @@ const int kThreadSafeForkErrorExit = 153;
 
 int resolveExitStatus(int status)
 {
-   return WIFEXITED(status) ? WEXITSTATUS(status) : status;
+   if (WIFEXITED(status))
+   {
+      return WEXITSTATUS(status);
+   }
+   else if (WIFSIGNALED(status))
+   {
+      // return bash-style exit codes for process terminated by a signal
+      // ex: if killed with SIGTERM, returns 128 + 15 = 143
+      return 128 + WTERMSIG(status);
+   }
+   else
+      return status;
 }
 
 void setPipeNonBlocking(int pipeFd)
@@ -794,7 +807,7 @@ Error ChildProcess::run()
       else
       {
          // execute
-         ::execv(exe_.c_str(), pProcessArgs->args()) ;
+         ::execv(exe_.c_str(), pProcessArgs->args());
       }
 
       if (!options_.threadSafe)
@@ -1012,7 +1025,7 @@ void AsyncChildProcess::poll()
       if (options().pseudoterminal)
          pAsyncImpl_->finishedStderr_ = true;
       else
-         setPipeNonBlocking(pImpl_->fdStderr);         
+         setPipeNonBlocking(pImpl_->fdStderr);
 
       // setup for subprocess polling
       pAsyncImpl_->pSubprocPoll_.reset(new ChildProcessSubprocPoll(

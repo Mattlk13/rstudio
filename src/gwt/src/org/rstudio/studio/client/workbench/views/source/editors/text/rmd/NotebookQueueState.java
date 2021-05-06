@@ -1,7 +1,7 @@
 /*
  * NotebookQueueState.java
  *
- * Copyright (C) 2009-16 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -17,6 +17,7 @@ package org.rstudio.studio.client.workbench.views.source.editors.text.rmd;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.rstudio.core.client.Debug;
 import org.rstudio.core.client.StringUtil;
 import org.rstudio.core.client.dom.DomUtils;
 import org.rstudio.studio.client.RStudioGinjector;
@@ -153,8 +154,23 @@ public class NotebookQueueState implements NotebookRangeExecutedEvent.Handler,
       {
          String chunkId = notebook_.getRowChunkId(
                chunk.getScope().getPreamble().getRow());
+
          if (chunkId == null)
-            return;
+         {
+            // If this chunk has never been executed before, it doesn't have a ID yet;
+            // create one so that we can queue the chunk.
+            ChunkDefinition def = getChunkDefAtRow(chunk.getScope().getEnd().getRow(), null);
+            if (def == null)
+            {
+               // Could not create an ID for the chunk; this is not expected.
+               Debug.logWarning("Could not create a notebook output chunk at row " +
+                  chunk.getScope().getBodyStart().getRow() + " of " +
+                  sentinel_.getPath());
+               return;
+            }
+
+            chunkId = def.getChunkId();
+         }
 
          NotebookQueueUnit unit = getUnit(chunkId);
          if (unit == null)
@@ -186,7 +202,7 @@ public class NotebookQueueState implements NotebookRangeExecutedEvent.Handler,
       }
       else
       {
-         List<ChunkExecUnit> chunks = new ArrayList<ChunkExecUnit>();
+         List<ChunkExecUnit> chunks = new ArrayList<>();
          chunks.add(chunk);
          executeChunks("Run Chunk", chunks);
       }
@@ -394,7 +410,7 @@ public class NotebookQueueState implements NotebookRangeExecutedEvent.Handler,
    {
       for (Integer line: lines)
       {
-         docDisplay_.setChunkLineExecState(line + offset, line + offset, state);
+         notebook_.setChunkLineExecState(line + offset, line + offset, state);
       }
    }
    
@@ -487,7 +503,7 @@ public class NotebookQueueState implements NotebookRangeExecutedEvent.Handler,
    private void syncWidth()
    {
       // check the width and see if it's already synced
-      int width = docDisplay_.getPixelWidth();
+      int width = editingTarget_.getPixelWidth();
       if (pixelWidth_ == width)
          return;
       
@@ -499,17 +515,25 @@ public class NotebookQueueState implements NotebookRangeExecutedEvent.Handler,
    
    private ChunkDefinition getChunkDefAtRow(int row, String newId)
    {
-      ChunkDefinition chunkDef;
+      ChunkDefinition chunkDef = null;
       
-      // if there is an existing widget just modify it in place
-      LineWidget widget = docDisplay_.getLineWidgetForRow(row);
-      if (widget != null && 
-          widget.getType() == ChunkDefinition.LINE_WIDGET_TYPE)
+      // look for an existing chunk definition
+      if (editingTarget_.isVisualModeActivated())
       {
-         chunkDef = widget.getData();
+         chunkDef = editingTarget_.getVisualMode().getChunkDefAtRow(row);
       }
-      // otherwise create a new one
       else
+      {
+         LineWidget widget = docDisplay_.getLineWidgetForRow(row);
+         if (widget != null && 
+             widget.getType() == ChunkDefinition.LINE_WIDGET_TYPE)
+         {
+            chunkDef = widget.getData();
+         }
+      }
+
+      // if no chunk definition exists, create a new one
+      if (chunkDef == null)
       {
          if (StringUtil.isNullOrEmpty(newId))
             newId = "c" + StringUtil.makeRandomId(12);

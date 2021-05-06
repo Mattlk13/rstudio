@@ -1,7 +1,7 @@
 /*
  * EditSnippetsPanel.java
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -113,7 +113,7 @@ public class EditSnippetsDialog extends ModalDialogBase implements TextDisplay
       panel_.setHeight(size.height + "px");
       
       // snippet types
-      snippetTypes_ = new WidgetListBox<EditableSnippets>();
+      snippetTypes_ = new WidgetListBox<>();
       snippetTypes_.addChangeHandler(new ChangeHandler() {
          @Override
          public void onChange(ChangeEvent event)
@@ -132,6 +132,7 @@ public class EditSnippetsDialog extends ModalDialogBase implements TextDisplay
       snippetTypes_.addItem(new EditableSnippets(FileTypeRegistry.JAVA));
       snippetTypes_.addItem(new EditableSnippets(FileTypeRegistry.PYTHON));
       snippetTypes_.addItem(new EditableSnippets(FileTypeRegistry.STAN));
+      snippetTypes_.addItem(new EditableSnippets(FileTypeRegistry.YAML));
      
       panel_.addWest(snippetTypes_, 150);
      
@@ -305,8 +306,7 @@ public class EditSnippetsDialog extends ModalDialogBase implements TextDisplay
    private boolean editorDirty_ = false;
    private EditableSnippets activeSnippets_ = null;
    
-   private final ArrayList<HandlerRegistration> releaseOnDismiss_ =
-         new ArrayList<HandlerRegistration>();
+   private final ArrayList<HandlerRegistration> releaseOnDismiss_ = new ArrayList<>();
    
    private EventBus events_;
    private GlobalDisplay globalDisplay_;

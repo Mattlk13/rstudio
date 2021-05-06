@@ -1,7 +1,7 @@
 /*
  * RawFormatSelect.java
  *
- * Copyright (C) 2009-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -37,7 +37,7 @@ public class PanmirrorRawFormatSelect extends SelectWidget
    
    private static String[] getFormatList(String firstItem, String[] formats, String value)
    {
-      ArrayList<String> options = new ArrayList<String>();
+      ArrayList<String> options = new ArrayList<>();
       options.add(firstItem);
       options.addAll(Arrays.asList(formats));
       if (!options.contains(value))

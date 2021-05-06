@@ -1,7 +1,7 @@
 /*
  * EnvironmentObjectList.java
  *
- * Copyright (C) 2009-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -17,6 +17,7 @@ package org.rstudio.studio.client.workbench.views.environment.view;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.rstudio.core.client.ClassIds;
 import org.rstudio.core.client.resources.CoreResources;
 import org.rstudio.core.client.resources.ImageResource2x;
 import org.rstudio.core.client.theme.res.ThemeStyles;
@@ -77,8 +78,7 @@ public class EnvironmentObjectList extends EnvironmentObjectDisplay
       // disable persistent and transient row selection (currently necessary
       // because we emit more than one row per object and the DataGrid selection
       // behaviors aren't designed to work that way)
-      setSelectionModel(new NoSelectionModel<RObjectEntry>(
-              RObjectEntry.KEY_PROVIDER));
+      setSelectionModel(new NoSelectionModel<>(RObjectEntry.KEY_PROVIDER));
       setKeyboardSelectionPolicy(KeyboardSelectionPolicy.DISABLED);
 
       createColumns();
@@ -91,7 +91,7 @@ public class EnvironmentObjectList extends EnvironmentObjectDisplay
       style_.ensureInjected();
       addStyleName(style_.objectList());
       addStyleName("ace_editor_theme");
-      
+
       exportResizer();
    }
 
@@ -101,11 +101,11 @@ public class EnvironmentObjectList extends EnvironmentObjectDisplay
       // If the view is unfiltered, return nothing.
       if (host_.getFilterText().isEmpty())
       {
-         return new ArrayList<String>();
+         return new ArrayList<>();
       }
 
       // If the view is filtered, return items that are visible.
-      ArrayList<String> objectNames = new ArrayList<String>();
+      ArrayList<String> objectNames = new ArrayList<>();
       List<RObjectEntry> objects = getVisibleItems();
       for (RObjectEntry object: objects)
       {
@@ -189,8 +189,8 @@ public class EnvironmentObjectList extends EnvironmentObjectDisplay
                if (object.canExpand())
                {
                   imageStyle = imageStyle + " " + ThemeStyles.INSTANCE.handCursor();
-                  ImageResource expandImage = 
-                      object.isExpanding ? 
+                  ImageResource expandImage =
+                      object.isExpanding ?
                          CoreResources.INSTANCE.progress() :
                          object.expanded ?
                             new ImageResource2x(EnvironmentResources.INSTANCE.collapseIcon2x()) :
@@ -228,7 +228,7 @@ public class EnvironmentObjectList extends EnvironmentObjectDisplay
                  }
               });
    }
-   
+
    private void createResizeColumn()
    {
       SafeHtmlRenderer<String> resizerRenderer =
@@ -257,9 +257,9 @@ public class EnvironmentObjectList extends EnvironmentObjectDisplay
             }
          };
    }
-   
+
    private final native void exportResizer() /*-{
-      $wnd.rstudio_beginResize = function(ele, event, clazz) 
+      $wnd.rstudio_beginResize = function(ele, event, clazz)
       {
          // Ignore non-primary buttons
          if (event.button !== 0)
@@ -280,34 +280,34 @@ public class EnvironmentObjectList extends EnvironmentObjectDisplay
          var width = resizer.clientWidth;
 
          // Resize method; given a mouse move event, adjust the size accordingly
-         var resize = function(evt) 
+         var resize = function(evt)
          {
             if (start === -1)
                start = evt.clientX;
             var newWidth = (width + (evt.clientX - start));
-            
+
             // Enforce minimum/maximum width
             if (newWidth < 40)
                newWidth = 40;
             else if (newWidth > 500)
                newWidth = 500;
-               
+
             resizer.style.width = newWidth + "px";
          };
 
          // Wire up event listeners
          $wnd.addEventListener("mousemove", resize);
-         $wnd.addEventListener("mouseup", function(evt) 
+         $wnd.addEventListener("mouseup", function(evt)
          {
             $wnd.removeEventListener("mousemove", resize);
          });
       }
    }-*/;
-   
+
    private void expandObject(final int index, final RObjectEntry object)
    {
-      if (!object.expanded && 
-          !object.isExpanding && 
+      if (!object.expanded &&
+          !object.isExpanding &&
           object.rObject.getContentsDeferred())
       {
          host_.fillEntryContents(object, index, true);
@@ -315,7 +315,7 @@ public class EnvironmentObjectList extends EnvironmentObjectDisplay
       else if (!object.rObject.getContentsDeferred())
       {
          object.expanded = !object.expanded;
-         
+
          // Tell the observer this happened, so it can persist. Don't persist
          // expansion state for deferred-content objects, since we don't want
          // those to try to expand at app init.
@@ -347,7 +347,7 @@ public class EnvironmentObjectList extends EnvironmentObjectDisplay
          // build nothing for invisible rows
          if (!rowValue.visible)
             return;
-         
+
          // build the header for the row (if any)
          buildRowHeader(rowValue, absRowIndex);
 
@@ -375,7 +375,7 @@ public class EnvironmentObjectList extends EnvironmentObjectDisplay
          renderCell(expandCol, createContext(0), objectExpandColumn_, rowValue);
          expandCol.endTD();
       }
-      
+
       private void buildResizeColumn(RObjectEntry rowValue, TableRowBuilder row)
       {
          TableCellBuilder resizeCol = row.startTD();
@@ -388,16 +388,16 @@ public class EnvironmentObjectList extends EnvironmentObjectDisplay
       {
          TableCellBuilder nameCol = row.startTD();
          String styleName = style_.nameCol();
-         
+
          boolean isClickable =
                host_.enableClickableObjects() &&
                rowValue.getCategory() != Categories.Value;
-         
+
          if (isClickable)
          {
             styleName += (" " + style_.clickableCol() + " " +
                           ThemeStyles.INSTANCE.handCursor());
-            
+
          }
          String size = rowValue.rObject.getSize() > 0 ?
                               ", " + rowValue.rObject.getSize() + " bytes" :
@@ -430,33 +430,33 @@ public class EnvironmentObjectList extends EnvironmentObjectDisplay
          String descriptionStyle = style_.valueCol();
          if (rowValue.isPromise())
          {
-            descriptionStyle += (" " + style_.unevaluatedPromise() + 
+            descriptionStyle += (" " + style_.unevaluatedPromise() +
                                  " " + ThemeStyles.INSTANCE.handCursor());
          }
          else if (isClickable)
          {
             descriptionStyle += (" " +
                                  style_.decoratedValueCol() + " " +
-                                 style_.clickableCol() + " " + 
+                                 style_.clickableCol() + " " +
                                  ThemeStyles.INSTANCE.handCursor());
          }
-         
+
          if (rowValue.getCategory() == RObjectEntry.Categories.Data)
          {
             if (rowValue.isHierarchical())
             {
-               descriptionStyle += (" " + 
+               descriptionStyle += (" " +
                      ThemeStyles.INSTANCE.environmentHierarchicalCol());
             }
             else
             {
-               descriptionStyle += (" " + 
+               descriptionStyle += (" " +
                      ThemeStyles.INSTANCE.environmentDataFrameCol());
             }
          }
          else if (rowValue.getCategory() == RObjectEntry.Categories.Function)
          {
-            descriptionStyle += (" " + 
+            descriptionStyle += (" " +
                                 ThemeStyles.INSTANCE.environmentFunctionCol());
          }
          descCol.className(descriptionStyle);
@@ -484,23 +484,28 @@ public class EnvironmentObjectList extends EnvironmentObjectDisplay
          if (rowValue.isCategoryLeader)
          {
             String categoryTitle;
+            String categoryClass;
             switch (rowValue.getCategory())
             {
                case RObjectEntry.Categories.Data:
                   categoryTitle = "Data";
+                  categoryClass = ClassIds.ENV_LIST_DATA_HDR;
                   break;
                case RObjectEntry.Categories.Function:
                   categoryTitle = "Functions";
+                  categoryClass = ClassIds.ENV_LIST_FUNCTIONS_HDR;
                   break;
                default:
                   categoryTitle = "Values";
+                  categoryClass = ClassIds.ENV_LIST_VALUES_HDR;
                   break;
             }
             TableRowBuilder leaderRow = startRow().className(
                     style_.categoryHeaderRow());
             TableCellBuilder objectHeader = leaderRow.startTD();
             objectHeader.colSpan(4)
-                    .className(style_.categoryHeaderText() + " rstudio-themes-background")
+                    .className(style_.categoryHeaderText() + " rstudio-themes-background" + " " +
+                       ClassIds.getClassId(categoryClass))
                     .text(categoryTitle)
                     .endTD();
             leaderRow.endTR();
@@ -515,22 +520,22 @@ public class EnvironmentObjectList extends EnvironmentObjectDisplay
          for (int idx = 0; idx < contents.length(); idx++)
          {
             TableRowBuilder detail = startRow().className(style_.detailRow());
+
             detail.startTD().endTD();
-            TableCellBuilder objectDetail = detail.startTD();
+
             String content = contents.get(idx);
-            // remove known R indentation prefixes
-            if (content.startsWith(" $") || content.startsWith("  ")) 
-               content = content.substring(2, content.length());
-            content = content.trim();
+
+            TableCellBuilder objectDetail = detail.startTD();
             objectDetail.colSpan(3)
                     .title(content)
                     .text(content)
                     .endTD();
             detail.endTR();
+
          }
       }
    }
-   
+
    private Style style_;
 
    private Column<RObjectEntry, String> objectExpandColumn_;

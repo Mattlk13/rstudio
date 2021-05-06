@@ -1,7 +1,7 @@
 /*
  * AceSupport.java
  *
- * Copyright (C) 2009-18 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -21,11 +21,11 @@ public class AceSupport
 {
    public static final native void initialize()
    /*-{
-      
+
       $wnd.AceSupport = {
          ScopeManager : $wnd.require("mode/r_scope_tree").ScopeManager,
          ScopeNode    : $wnd.require("mode/r_scope_tree").ScopeNode
       };
-      
+
    }-*/;
 }

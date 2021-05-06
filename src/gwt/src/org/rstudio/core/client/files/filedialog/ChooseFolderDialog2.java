@@ -1,7 +1,7 @@
 /*
  * ChooseFolderDialog2.java
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -53,7 +53,7 @@ public class ChooseFolderDialog2 extends FileSystemDialog
    public FileSystemItem[] ls()
    {
       FileSystemItem[] items = super.ls();
-      ArrayList<FileSystemItem> dirs = new ArrayList<FileSystemItem>();
+      ArrayList<FileSystemItem> dirs = new ArrayList<>();
       for (FileSystemItem item : items)
          if (item.isDirectory())
             dirs.add(item);

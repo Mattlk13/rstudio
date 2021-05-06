@@ -1,7 +1,7 @@
 /*
  * SourceOnSaveChangedEvent.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -14,20 +14,26 @@
  */
 package org.rstudio.studio.client.workbench.views.source.editors.text.events;
 
+import com.google.gwt.event.shared.EventHandler;
 import com.google.gwt.event.shared.GwtEvent;
 
-public class SourceOnSaveChangedEvent extends GwtEvent<SourceOnSaveChangedHandler>
+public class SourceOnSaveChangedEvent extends GwtEvent<SourceOnSaveChangedEvent.Handler>
 {
-   public static final Type<SourceOnSaveChangedHandler> TYPE = new Type<SourceOnSaveChangedHandler>();
+   public static final Type<Handler> TYPE = new Type<>();
+
+   public interface Handler extends EventHandler
+   {
+      void onSourceOnSaveChanged(SourceOnSaveChangedEvent event);
+   }
 
    @Override
-   public Type<SourceOnSaveChangedHandler> getAssociatedType()
+   public Type<Handler> getAssociatedType()
    {
       return TYPE;
    }
 
    @Override
-   protected void dispatch(SourceOnSaveChangedHandler handler)
+   protected void dispatch(Handler handler)
    {
       handler.onSourceOnSaveChanged(this);
    }

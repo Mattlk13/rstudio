@@ -1,7 +1,7 @@
 /*
  * MainWindowObject.java
  *
- * Copyright (C) 2009-16 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -93,7 +93,7 @@ public class MainWindowObject<T>
    
    public static final MainWindowObject<Window> lastFocusedWindow()
    {
-      return new MainWindowObject<Window>(LAST_FOCUSED_WINDOW, new DefaultProvider<Window>()
+      return new MainWindowObject<>(LAST_FOCUSED_WINDOW, new DefaultProvider<Window>()
       {
          @Override
          public Window defaultValue()
@@ -105,7 +105,7 @@ public class MainWindowObject<T>
    
    public static final MainWindowObject<String> lastFocusedEditorId()
    {
-      return new MainWindowObject<String>(LAST_FOCUSED_EDITOR_ID, new DefaultProvider<String>()
+      return new MainWindowObject<>(LAST_FOCUSED_EDITOR_ID, new DefaultProvider<String>()
       {
          @Override
          public String defaultValue()
@@ -117,7 +117,7 @@ public class MainWindowObject<T>
    
    public static final MainWindowObject<String> lastFocusedWindowId()
    {
-      return new MainWindowObject<String>(LAST_FOCUSED_WINDOW_ID, new DefaultProvider<String>()
+      return new MainWindowObject<>(LAST_FOCUSED_WINDOW_ID, new DefaultProvider<String>()
       {
          @Override
          public String defaultValue()
@@ -129,7 +129,7 @@ public class MainWindowObject<T>
    
    public static final MainWindowObject<String> lastFocusedSourceWindowId()
    {
-      return new MainWindowObject<String>(LAST_FOCUSED_SOURCE_WINDOW_ID, new DefaultProvider<String>()
+      return new MainWindowObject<>(LAST_FOCUSED_SOURCE_WINDOW_ID, new DefaultProvider<String>()
       {
          @Override
          public String defaultValue()
@@ -141,7 +141,7 @@ public class MainWindowObject<T>
    
    public static final MainWindowObject<RAddins> rAddins()
    {
-      return new MainWindowObject<RAddins>(R_ADDINS, new DefaultProvider<RAddins>()
+      return new MainWindowObject<>(R_ADDINS, new DefaultProvider<RAddins>()
       {
          @Override
          public RAddins defaultValue()

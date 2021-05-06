@@ -1,7 +1,7 @@
 /*
  * smarty.ts
  *
- * Copyright (C) 2019-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -13,16 +13,17 @@
  *
  */
 
-import { smartQuotes, ellipsis, InputRule } from 'prosemirror-inputrules';
+import { ellipsis, InputRule } from 'prosemirror-inputrules';
 import { Plugin, PluginKey, EditorState } from 'prosemirror-state';
 import { Schema } from 'prosemirror-model';
 
 import { Extension, extensionIfEnabled } from '../api/extension';
+import { fancyQuotesToSimple } from '../api/quote';
 
 const plugin = new PluginKey('smartypaste');
 
 // match enDash but only for lines that aren't an html comment
-const enDash = new InputRule(/[^!-]--$/, (state: EditorState, match: string[], start: number, end: number) => {
+const enDash = new InputRule(/[^!-`]--$/, (state: EditorState, match: string[], start: number, end: number) => {
   const { parent, parentOffset } = state.selection.$head;
   const precedingText = parent.textBetween(0, parentOffset);
   if (precedingText.indexOf('<!--') === -1) {
@@ -34,22 +35,15 @@ const enDash = new InputRule(/[^!-]--$/, (state: EditorState, match: string[], s
   }
 });
 
-const emDash = new InputRule(/–-$/, (state: EditorState, match: string[], start: number, end: number) => {
+const emDash = new InputRule(/(^|[^`])–-$/, (state: EditorState, match: string[], start: number, end: number) => {
   const tr = state.tr;
   tr.insertText('—', end - 1, end);
   return tr;
 });
 
-// from: https://github.com/ProseMirror/prosemirror-inputrules/blob/master/src/rules.js
-// (forked so we could customize/override default behavior behavior)
-const openDoubleQuote = new InputRule(/(?:^|[\s`\*_\{\[\(\<'"\u2018\u201C])(")$/, "“");
-const closeDoubleQuote = new InputRule(/"$/, "”");
-const openSingleQuote = new InputRule(/(?:^|[\s`\*_\{\[\(\<'"\u2018\u201C])(')$/, "‘");
-const closeSingleQuote = new InputRule(/'$/, "’");
-
 const extension: Extension = {
   inputRules: () => {
-    return [...[openDoubleQuote, closeDoubleQuote, openSingleQuote, closeSingleQuote], ellipsis, enDash, emDash];
+    return [ellipsis, enDash, emDash];
   },
 
   plugins: (schema: Schema) => {
@@ -59,18 +53,6 @@ const extension: Extension = {
         key: plugin,
         props: {
           transformPastedText(text: string) {
-            // double quotes
-            text = text.replace(/(?:^|[\s{[(<'"\u2018\u201C])(")/g, x => {
-              return x.slice(0, x.length - 1) + '“';
-            });
-            text = text.replace(/"/g, '”');
-
-            // single quotes
-            text = text.replace(/(?:^|[\s{[(<'"\u2018\u201C])(')/g, x => {
-              return x.slice(0, x.length - 1) + '‘';
-            });
-            text = text.replace(/'/g, '’');
-
             // emdash
             text = text.replace(/(\w)---(\w)/g, '$1—$2');
 
@@ -79,6 +61,9 @@ const extension: Extension = {
 
             // ellipses
             text = text.replace(/\.\.\./g, '…');
+
+            // we explicitly don't want fancy quotes in the editor
+            text = fancyQuotesToSimple(text);
 
             return text;
           },

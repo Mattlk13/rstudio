@@ -1,7 +1,7 @@
 /*
  * SessionMainOverlay.cpp
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -15,13 +15,18 @@
 
 #include <shared_core/Error.hpp>
 
-using namespace rstudio::core ;
+using namespace rstudio::core;
 
 namespace rstudio {
 namespace session {
 namespace overlay {
 
 Error initialize()
+{
+   return Success();
+}
+
+Error initializeSessionProxy()
 {
    return Success();
 }

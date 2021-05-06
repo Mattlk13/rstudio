@@ -1,7 +1,7 @@
 /*
  * RActiveSessions.cpp
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -15,7 +15,7 @@
 
 #include <core/r_util/RActiveSessions.hpp>
 
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 
 #include <core/StringUtils.hpp>
@@ -27,6 +27,8 @@
 #include <core/r_util/RSessionContext.hpp>
 
 #define kSessionDirPrefix "session-"
+
+using namespace boost::placeholders;
 
 namespace rstudio {
 namespace core {
@@ -97,8 +99,11 @@ Error ActiveSessions::create(const std::string& project,
    activeSession.setLastUsed();
    activeSession.setRunning(false);
 
-   // return the id
-   *pId = id;
+   // return the id if requested
+   if (pId != nullptr)
+   {
+      *pId = id;
+   }
    return Success();
 }
 
@@ -107,28 +112,7 @@ namespace {
 bool compareActivityLevel(boost::shared_ptr<ActiveSession> a,
                           boost::shared_ptr<ActiveSession> b)
 {
-   if (a->executing() == b->executing())
-   {
-      if (a->running() == b->running())
-      {
-         if (a->lastUsed() == b->lastUsed())
-         {
-            return a->id() > b->id();
-         }
-         else
-         {
-            return a->lastUsed() > b->lastUsed();
-         }
-      }
-      else
-      {
-         return a->running();
-      }
-   }
-   else
-   {
-      return a->executing();
-   }
+   return *a > *b;
 }
 
 } // anonymous namespace
@@ -159,6 +143,10 @@ std::vector<boost::shared_ptr<ActiveSession> > ActiveSessions::list(
          {
             if (pSession->validate(userHomePath, projectSharingEnabled))
             {
+               // Cache the sort conditions to ensure compareActivityLevel will provide a strict weak ordering.
+               // Otherwise, the conditions on which we sort (e.g. lastUsed()) can be updated on disk during a sort
+               // causing an occasional segfault.
+               pSession->cacheSortConditions();
                sessions.push_back(pSession);
             }
             else

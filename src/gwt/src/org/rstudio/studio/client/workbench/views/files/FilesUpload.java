@@ -1,7 +1,7 @@
 /*
  * FilesUpload.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -67,22 +67,28 @@ public class FilesUpload
          new OperationWithInput<PendingFileUpload>() {
             public void execute(PendingFileUpload pendingUpload)
             {
-               // confirm overwrites if necessary
                FileUploadToken token = pendingUpload.getToken();
-               if (pendingUpload.getOverwrites().length() > 0)
+               boolean unzipFound = token.getUnzipFound();
+               boolean isZip = token.getIsZip();
+
+               // confirm unzip is installed
+               if (!unzipFound && isZip)
                {
+                  // Warn user unzip is not installed
                   globalDisplay_.showYesNoMessage(
-                       MessageDialog.WARNING, 
-                       "Confirm Overwrite",
-                       confirmFileUploadOverwriteMessage(pendingUpload), 
-                       false, 
-                       completeFileUploadOperation(token, true), 
-                       completeFileUploadOperation(token, false), 
-                       false);
+                          MessageDialog.WARNING,
+                          "unzip not found",
+                          "The unzip system utility could not be found. unzip is required for decompressing .zip archives after upload.\n\nWould you like to upload the zip archive without unzipping?",
+                          false,
+                          checkForFileUploadOverwrite(pendingUpload, token),
+                          completeFileUploadOperation(token, false),
+                          true
+                          );
                }
                else
                {
-                  completeFileUploadOperation(token, true).execute();
+                  // Upload and warn of overwrites, if any
+                  checkForFileUploadOverwrite(pendingUpload, token).execute();
                }
             }                     
         },
@@ -152,6 +158,33 @@ public class FilesUpload
                   eventBus_.fireEvent(event);
                }
             });
+         }
+      };
+   }
+
+   private Operation checkForFileUploadOverwrite(
+           PendingFileUpload pendingUpload,
+           FileUploadToken token
+   )
+   {
+      return new Operation() {
+         @Override
+         public void execute() {
+            if (pendingUpload.getOverwrites().length() > 0)
+            {
+               globalDisplay_.showYesNoMessage(
+                       MessageDialog.WARNING,
+                       "Confirm Overwrite",
+                       confirmFileUploadOverwriteMessage(pendingUpload),
+                       false,
+                       completeFileUploadOperation(token, true),
+                       completeFileUploadOperation(token, false),
+                       false);
+            }
+            else
+            {
+               completeFileUploadOperation(token, true).execute();
+            }
          }
       };
    }

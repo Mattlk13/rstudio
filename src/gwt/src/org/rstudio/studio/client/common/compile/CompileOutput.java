@@ -1,7 +1,7 @@
 /*
  * CompileOutput.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -18,11 +18,11 @@ package org.rstudio.studio.client.common.compile;
 import com.google.gwt.core.client.JavaScriptObject;
 
 public class CompileOutput extends JavaScriptObject
-{ 
+{
    protected CompileOutput()
    {
    }
-   
+
    public static final int kCommand = 0;
    public static final int kNormal = 1;
    public static final int kError = 2;
@@ -32,8 +32,8 @@ public class CompileOutput extends JavaScriptObject
       compileOutput.type = type;
       compileOutput.output = output;
       return compileOutput;
-   }-*/; 
-   
+   }-*/;
+
    public native final int getType() /*-{
       return this.type;
    }-*/;

@@ -1,7 +1,7 @@
 /*
  * RSConnectAccountWizard.java
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -94,9 +94,7 @@ public class RSConnectAccountWizard
    {
       if (showCloudPage)
       {
-         return new WizardNavigationPage<
-            NewRSConnectAccountInput,
-            NewRSConnectAccountResult>(
+         return new WizardNavigationPage<>(
                   "Choose Account Type", 
                   "Choose Account Type", 
                   "Connect Account", 
@@ -111,9 +109,7 @@ public class RSConnectAccountWizard
                                          NewRSConnectAccountResult>> createPages()
    {
       ArrayList<WizardPage<NewRSConnectAccountInput, 
-                           NewRSConnectAccountResult>> pages =
-           new ArrayList<WizardPage<NewRSConnectAccountInput, 
-                                    NewRSConnectAccountResult>>();
+                           NewRSConnectAccountResult>> pages = new ArrayList<>();
 
       pages.add(new NewRSConnectCloudPage());
       pages.add(new NewRSConnectLocalPage());

@@ -1,7 +1,7 @@
 /*
  * PanmirrorFindReplaceWidget.java
  *
- * Copyright (C) 2009-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -17,9 +17,12 @@
 
 package org.rstudio.studio.client.panmirror.findreplace;
 
+import org.rstudio.core.client.TimeBufferedCommand;
 import org.rstudio.core.client.command.KeyboardHelper;
 import org.rstudio.core.client.command.KeyboardShortcut;
 import org.rstudio.core.client.widget.HasFindReplace;
+import org.rstudio.studio.client.RStudioGinjector;
+import org.rstudio.studio.client.common.GlobalDisplay;
 import org.rstudio.studio.client.workbench.views.source.editors.text.findreplace.FindReplaceBar;
 
 import com.google.gwt.core.client.Scheduler;
@@ -84,7 +87,12 @@ public class PanmirrorFindReplaceWidget extends FindReplaceBar implements HasFin
       getReplaceAll().addClickHandler((event) -> {
          PanmirrorFindReplace find = findWithResults();
          String text = getReplaceValue().getValue();
-         find.replaceAll(text);
+         int replaced = find.replaceAll(text);
+         RStudioGinjector.INSTANCE.getGlobalDisplay().showMessage(
+            GlobalDisplay.MSG_INFO,
+            "Find/Replace",
+            replaced + " occurrences replaced."
+         );
       });
      
       
@@ -92,14 +100,29 @@ public class PanmirrorFindReplaceWidget extends FindReplaceBar implements HasFin
    
    public void performFind()
    {
-      PanmirrorFindReplace find = container_.getFindReplace();
-      PanmirrorFindOptions options =  new PanmirrorFindOptions();
-      options.caseSensitive = getCaseSensitive().getValue();
-      options.regex = getRegex().getValue();
-      options.wrap = getWrapSearch().getValue();
-      find.find(getFindValue().getValue(), options);
-      find.selectCurrent();
+      performFind(null);
    }
+   
+   public void performFind(String term)
+   {
+      if (term != null)
+         getFindValue().setValue(term);
+      timeBufferedFind_.nudge();
+   }
+   
+   private TimeBufferedCommand timeBufferedFind_ = new TimeBufferedCommand(300) {
+      @Override
+      protected void performAction(boolean shouldReschedule)
+      {
+         PanmirrorFindReplace find = container_.getFindReplace();
+         PanmirrorFindOptions options =  new PanmirrorFindOptions();
+         options.caseSensitive = getCaseSensitive().getValue();
+         options.regex = getRegex().getValue();
+         options.wrap = getWrapSearch().getValue();
+         find.find(getFindValue().getValue(), options);
+         find.selectCurrent(); 
+      }
+   };
    
    
    @Override
@@ -125,6 +148,14 @@ public class PanmirrorFindReplaceWidget extends FindReplaceBar implements HasFin
    {
       container_.showFindReplace(false);
    }
+   
+   @Override
+   public void findFromSelection(String term)
+   {
+      showFindReplace(true);
+      performFind(term);
+   }
+
 
    @Override
    public void findNext()

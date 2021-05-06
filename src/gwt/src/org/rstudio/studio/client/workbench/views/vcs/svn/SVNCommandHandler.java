@@ -1,7 +1,7 @@
 /*
  * SVNCommandHandler.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -75,7 +75,7 @@ public class SVNCommandHandler
       pCommitDialog_ = pCommitDialog;
       pIgnore_ = pIgnore;
    }
-   
+
    public void setFilesCommandsEnabled(boolean enabled)
    {
       commands_.vcsAddFiles().setEnabled(enabled);
@@ -84,11 +84,11 @@ public class SVNCommandHandler
       commands_.vcsIgnore().setEnabled(enabled);
       commands_.vcsResolve().setEnabled(enabled);
    }
-   
-   // onVcsPull and onVcsCommit and not direct  command handlers because they 
-   // are handled globally in the main frame (by BaseVcsPresenter or the 
+
+   // onVcsPull and onVcsCommit and not direct  command handlers because they
+   // are handled globally in the main frame (by BaseVcsPresenter or the
    // satellite frame)
-   
+
    public void onVcsPull()
    {
       server_.svnUpdate(new SimpleRequestCallback<ConsoleProcess>()
@@ -100,7 +100,7 @@ public class SVNCommandHandler
             }
          });
    }
-   
+
    public void onVcsPullRebase()
    {
       server_.svnUpdate(new SimpleRequestCallback<ConsoleProcess>()
@@ -112,13 +112,13 @@ public class SVNCommandHandler
             }
          });
    }
-   
-   
+
+
    public void onVcsCommit()
    {
       pCommitDialog_.get().showModal();
    }
-   
+
    public void onVcsIgnore()
    {
       // special case for a single directory with property changes
@@ -131,19 +131,18 @@ public class SVNCommandHandler
             String path = item.getPath();
             if (path == ".")
                path = "";
-            IgnoreList ignoreList = new IgnoreList(path, 
-                                                   new ArrayList<String>());
+            IgnoreList ignoreList = new IgnoreList(path, new ArrayList<>());
             pIgnore_.get().showDialog(ignoreList, ignoreStrategy_);
             return;
          }
       }
-      
+
       // standard case
       ArrayList<String> paths = getPathArray();
       pIgnore_.get().showDialog(paths, ignoreStrategy_);
-      
+
    }
-   
+
    private final Ignore.Strategy ignoreStrategy_ = new Ignore.Strategy() {
 
       @Override
@@ -151,13 +150,13 @@ public class SVNCommandHandler
       {
          return "SVN Ignore";
       }
-      
+
       @Override
       public String getIgnoresCaption()
       {
          return "svn:ignore";
       }
-      
+
       @Override
       public String getHelpLinkName()
       {
@@ -170,7 +169,7 @@ public class SVNCommandHandler
          return null;
       }
 
-      
+
       @Override
       public void getIgnores(String path,
             ServerRequestCallback<ProcessResult> requestCallback)
@@ -184,21 +183,21 @@ public class SVNCommandHandler
       {
          server_.svnSetIgnores(path, ignores, requestCallback);
       }
-   };    
-   
+   };
+
    @Handler
    void onVcsOpen()
    {
       vcsFileOpener_.openFiles(display_.getSelectedItems());
    }
-   
+
    @Handler
    void onVcsRefresh()
    {
       display_.getChangelistTable().showProgress();
       svnState_.refresh(true);
    }
-   
+
    @Handler
    void onVcsRefreshNoError()
    {
@@ -214,7 +213,7 @@ public class SVNCommandHandler
       if (paths.size() > 0)
          server_.svnAdd(paths, new ProcessCallback("SVN Add"));
    }
-   
+
    @Handler
    void onVcsRemoveFiles()
    {
@@ -223,7 +222,7 @@ public class SVNCommandHandler
       if (paths.size() > 0)
          server_.svnDelete(paths, new ProcessCallback("SVN Delete"));
    }
-   
+
    @Handler
    void onVcsRevert()
    {
@@ -238,7 +237,7 @@ public class SVNCommandHandler
             display_.getChangelistTable().selectNextUnselectedItem();
             display_.getChangelistTable().focus();
          }
-         
+
       });
    }
 
@@ -250,7 +249,7 @@ public class SVNCommandHandler
       if (items.size() == 0)
          return;
 
-      final ArrayList<String> paths = new ArrayList<String>();
+      final ArrayList<String> paths = new ArrayList<>();
 
       boolean conflict = false;
       for (StatusAndPath item : items)
@@ -302,11 +301,11 @@ public class SVNCommandHandler
                                          true);
       }
    }
-   
+
    public void revertFile(FileSystemItem file)
    {
       // build an ArrayList<String> so we can call the core helper
-      ArrayList<String> revertList = new ArrayList<String>();
+      ArrayList<String> revertList = new ArrayList<>();
       for (StatusAndPath item :  svnState_.getStatus())
       {
          if (item.getRawPath() == file.getPath())
@@ -315,7 +314,7 @@ public class SVNCommandHandler
             break;
          }
       }
-      
+
       if (revertList.size() > 0)
       {
          doRevert(revertList, null);
@@ -323,14 +322,14 @@ public class SVNCommandHandler
       else
       {
          globalDisplay_.showMessage(MessageDialog.INFO,
-                                    "No Changes to Revert", 
-                                    "There are no changes to the file \"" + 
+                                    "No Changes to Revert",
+                                    "There are no changes to the file \"" +
                                     file.getName() + "\" to revert.");
       }
-      
+
    }
-    
-   private void doRevert(final ArrayList<String> revertList, 
+
+   private void doRevert(final ArrayList<String> revertList,
                          final Command onRevertConfirmed)
    {
       String noun = revertList.size() == 1 ? "file" : "files";
@@ -347,24 +346,24 @@ public class SVNCommandHandler
                   if (onRevertConfirmed != null)
                      onRevertConfirmed.execute();
 
-                  server_.svnRevert(revertList, 
+                  server_.svnRevert(revertList,
                                     new ProcessCallback("SVN Revert"));
 
                }
             },
             false);
    }
-   
-   
+
+
    private ArrayList<String> getPathArray()
    {
       ArrayList<StatusAndPath> items = display_.getSelectedItems();
-      ArrayList<String> paths = new ArrayList<String>();
+      ArrayList<String> paths = new ArrayList<>();
       for (StatusAndPath item : items)
          paths.add(item.getPath());
       return paths;
    }
-   
+
    private final SVNPresenterDisplay display_;
    private final GlobalDisplay globalDisplay_;
    private final Commands commands_;

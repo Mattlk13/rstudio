@@ -1,7 +1,7 @@
 /*
  * yaml_metadata.ts
  *
- * Copyright (C) 2019-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -13,71 +13,76 @@
  *
  */
 
-import { Node as ProsemirrorNode, Schema } from 'prosemirror-model';
+import { Node as ProsemirrorNode, DOMOutputSpec, ParseRule } from 'prosemirror-model';
 import { EditorState, Transaction } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { setTextSelection } from 'prosemirror-utils';
 
-import { Extension } from '../../api/extension';
-import { PandocOutput, PandocTokenType, ProsemirrorWriter, PandocToken } from '../../api/pandoc';
-import { parsePandocBlockCapsule, PandocBlockCapsule, encodedBlockCapsuleRegex, blockCapsuleSourceWithoutPrefix } from '../../api/pandoc_capsule';
+import { ExtensionContext, Extension } from '../../api/extension';
+import { PandocOutput, PandocTokenType } from '../../api/pandoc';
 import { EditorUI } from '../../api/ui';
 import { ProsemirrorCommand, EditorCommandId } from '../../api/command';
 import { canInsertNode } from '../../api/node';
 import { codeNodeSpec } from '../../api/code';
 import { selectionIsBodyTopLevel } from '../../api/selection';
-import { uuidv4 } from '../../api/util';
-
 import { yamlMetadataTitlePlugin } from './yaml_metadata-title';
+import { yamlMetadataBlockCapsuleFilter } from './yaml_metadata-capsule';
+import { OmniInsertGroup } from '../../api/omni_insert';
+import { fragmentText } from '../../api/fragment';
+import { stripYamlDelimeters } from '../../api/yaml';
 
-const extension: Extension = {
-  nodes: [
-    {
-      name: 'yaml_metadata',
+const extension = (context: ExtensionContext): Extension => {
+  const { ui } = context;
 
-      spec: {
-        ...codeNodeSpec(),
-        attrs: {
-          navigation_id: { default: null },
-        },
-        parseDOM: [
-          {
-            tag: "div[class*='yaml-block']",
-            preserveWhitespace: 'full',
+  return {
+    nodes: [
+      {
+        name: 'yaml_metadata',
+
+        spec: {
+          ...codeNodeSpec(),
+          attrs: {
+            navigation_id: { default: null },
           },
-        ],
-        toDOM(node: ProsemirrorNode) {
-          return ['div', { class: 'yaml-block pm-code-block' }, 0];
+          parseDOM: [
+            {
+              tag: "div[class*='yaml-block']",
+              preserveWhitespace: 'full',
+            } as ParseRule,
+          ],
+          toDOM(node: ProsemirrorNode): DOMOutputSpec {
+            return ['div', { class: 'yaml-block pm-code-block' }, 0];
+          },
+        },
+
+        code_view: {
+          lang: () => 'yaml-frontmatter',
+          classes: ['pm-metadata-background-color', 'pm-yaml-metadata-block'],
+        },
+
+        pandoc: {
+          blockCapsuleFilter: yamlMetadataBlockCapsuleFilter(),
+
+          writer: (output: PandocOutput, node: ProsemirrorNode) => {
+            output.writeToken(PandocTokenType.Para, () => {
+              const yaml = '---\n' + stripYamlDelimeters(fragmentText(node.content)) + '\n---';
+              output.writeRawMarkdown(yaml);
+            });
+          },
         },
       },
+    ],
 
-      code_view: {
-        lang: () => 'yaml-frontmatter',
-        classes: ['pm-metadata-background-color', 'pm-yaml-metadata-block'],
-      },
-
-      pandoc: {
-       
-        blockCapsuleFilter: yamlMetadataBlockCapsuleFilter(),
-        
-        writer: (output: PandocOutput, node: ProsemirrorNode) => {
-          output.writeToken(PandocTokenType.Para, () => {
-            output.writeRawMarkdown(node.content);
-          });
-        },
-      },
+    commands: () => {
+      return [new YamlMetadataCommand(ui)];
     },
-  ],
 
-  commands: (_schema: Schema, ui: EditorUI) => {
-    return [new YamlMetadataCommand()];
-  },
-
-  plugins: () => [yamlMetadataTitlePlugin()],
+    plugins: () => [yamlMetadataTitlePlugin()],
+  };
 };
 
 class YamlMetadataCommand extends ProsemirrorCommand {
-  constructor() {
+  constructor(ui: EditorUI) {
     super(
       EditorCommandId.YamlMetadata,
       [],
@@ -96,96 +101,28 @@ class YamlMetadataCommand extends ProsemirrorCommand {
         // create yaml metadata text
         if (dispatch) {
           const tr = state.tr;
-
           const kYamlLeading = '---\n';
           const kYamlTrailing = '\n---';
           const yamlText = schema.text(kYamlLeading + kYamlTrailing);
           const yamlNode = schema.nodes.yaml_metadata.create({}, yamlText);
           tr.replaceSelectionWith(yamlNode);
-          setTextSelection(tr.selection.from - kYamlTrailing.length - 2)(tr);
+          setTextSelection(tr.mapping.map(state.selection.from) - kYamlTrailing.length - 1)(tr);
           dispatch(tr);
         }
 
         return true;
       },
+      {
+        name: ui.context.translateText('YAML'),
+        description: ui.context.translateText('YAML metadata block'),
+        group: OmniInsertGroup.Blocks,
+        priority: 3,
+        selectionOffset: -4,
+        image: () =>
+          ui.prefs.darkMode() ? ui.images.omni_insert?.yaml_block_dark! : ui.images.omni_insert?.yaml_block!,
+      },
     );
   }
-}
-
-function yamlMetadataBlockCapsuleFilter() {
-
-  const kYamlMetadataCapsuleType = 'E1819605-0ACD-4FAE-8B99-9C1B7BD7C0F1'.toLowerCase();
-
-  const textRegex = encodedBlockCapsuleRegex(undefined, '\\n', 'gm');
-  const tokenRegex = encodedBlockCapsuleRegex('^', '$');
-
-  return {
-
-    type: kYamlMetadataCapsuleType,
-    
-    match: /^([\t >]*)(---[ \t]*\n(?![ \t]*\n)[\W\w]*?\n[\t >]*(?:---|\.\.\.))([ \t]*)$/gm,
-    
-    // add a newline to ensure that if the metadata block has text right
-    // below it we still end up in our own pandoc paragarph block
-    enclose: (capsuleText: string) => 
-      capsuleText + '\n'
-    ,
-
-    // globally replace any instances of our block capsule found in text
-    handleText: (text: string) : string => {
-
-      // if we have an exact match of the token regex, then the yaml got parsed into 
-      // a block (this could have happended if it was a 4-space indented code block
-      // that "looks like" it's yaml to our regex -- several of these apppear in the
-      // pandoc MANUAL.md). In this case we need to strip the prefix from the lines
-      // of the yaml (since pandoc would have effectively eliminated these when 
-      // collecting the text into a block)
-      const tokenMatch = text.match(tokenRegex);
-      if (tokenMatch) {
-        const capsule = parsePandocBlockCapsule(tokenMatch[0]);
-        if (capsule.type === kYamlMetadataCapsuleType) {
-          return blockCapsuleSourceWithoutPrefix(capsule.source, capsule.prefix);
-        }
-      }
-
-      return text.replace(textRegex, (match) => {
-        const capsuleText = match.substring(0, match.length - 1); // trim off newline
-        const capsule = parsePandocBlockCapsule(capsuleText);
-        if (capsule.type === kYamlMetadataCapsuleType) {
-          return capsule.source;
-        } else {
-          return match;
-        }
-      });
-    },
-
-    // we are looking for a paragraph token consisting entirely of a
-    // block capsule of our type. if find that then return the block
-    // capsule text
-    handleToken: (tok: PandocToken) => {
-      if (tok.t === PandocTokenType.Para) {
-        if (tok.c.length === 1 && tok.c[0].t === PandocTokenType.Str) {
-          const text = tok.c[0].c as string;
-          const match = text.match(tokenRegex);
-          if (match) {
-            const capsuleRecord = parsePandocBlockCapsule(match[0]);
-            if (capsuleRecord.type === kYamlMetadataCapsuleType) {
-              return match[0];
-            }
-          }
-        }
-      }
-      return null;
-    },
-
-    // write as yaml_metadata
-    writeNode: (schema: Schema, writer: ProsemirrorWriter, capsule: PandocBlockCapsule) => {
-      writer.openNode(schema.nodes.yaml_metadata, { navigation_id: uuidv4() });
-      // write the lines w/o the source-level prefix
-      writer.writeText(blockCapsuleSourceWithoutPrefix(capsule.source, capsule.prefix));
-      writer.closeNode();
-    }
-  };
 }
 
 export default extension;

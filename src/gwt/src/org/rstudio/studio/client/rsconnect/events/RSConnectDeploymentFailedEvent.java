@@ -1,7 +1,7 @@
 /*
  * RSConnectDeploymentFailedEvent.java
  *
- * Copyright (C) 2009-15 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -40,8 +40,7 @@ public class RSConnectDeploymentFailedEvent extends GwtEvent<RSConnectDeployment
       }-*/;
    }
 
-   public static final GwtEvent.Type<RSConnectDeploymentFailedEvent.Handler> TYPE =
-      new GwtEvent.Type<RSConnectDeploymentFailedEvent.Handler>();
+   public static final GwtEvent.Type<RSConnectDeploymentFailedEvent.Handler> TYPE = new GwtEvent.Type<>();
    
    public RSConnectDeploymentFailedEvent(Data data)
    {

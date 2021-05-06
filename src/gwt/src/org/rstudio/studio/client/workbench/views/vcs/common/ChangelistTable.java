@@ -1,7 +1,7 @@
 /*
  * ChangelistTable.java
  *
- * Copyright (C) 2009-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -61,7 +61,7 @@ public abstract class ChangelistTable extends Composite
       @Source({RStudioCellTableStyle.RSTUDIO_DEFAULT_CSS,
                "ChangelistTableCellTableStyle.css"})
       ChangelistTableCellTableStyle cellTableStyle();
-      
+
       @Source("ChangelistTable.css")
       Styles styles();
    }
@@ -70,13 +70,13 @@ public abstract class ChangelistTable extends Composite
    {
       String status();
    }
-   
+
 
    interface Styles extends CssResource
    {
       String infoBar();
    }
-   
+
    public static void ensureStylesInjected()
    {
       resources_.styles().ensureInjected();
@@ -124,16 +124,15 @@ public abstract class ChangelistTable extends Composite
          return false;
       }
 
-      private Set<String> consumedEvents_ = new HashSet<String>();
+      private Set<String> consumedEvents_ = new HashSet<>();
    }
 
    public ChangelistTable()
    {
-      table_ = new MultiSelectCellTable<StatusAndPath>(100, resources_);
+      table_ = new MultiSelectCellTable<>(100, resources_);
 
-      dataProvider_ = new ListDataProvider<StatusAndPath>();
-      sortHandler_ = new ColumnSortEvent.ListHandler<StatusAndPath>(
-            dataProvider_.getList());
+      dataProvider_ = new ListDataProvider<>();
+      sortHandler_ = new ColumnSortEvent.ListHandler<>(dataProvider_.getList());
       table_.addColumnSortHandler(sortHandler_);
 
       selectionModel_ = createSelectionModel();
@@ -163,7 +162,7 @@ public abstract class ChangelistTable extends Composite
 
    protected MultiSelectionModel<StatusAndPath> createSelectionModel()
    {
-      return new MultiSelectionModel<StatusAndPath>(
+      return new MultiSelectionModel<>(
             new ProvidesKey<StatusAndPath>()
             {
                @Override
@@ -207,7 +206,7 @@ public abstract class ChangelistTable extends Composite
          progressPanel_.endProgressOperation();
       }
    }
-   
+
 
    public void showInfoBar(String message, boolean animate)
    {
@@ -216,10 +215,10 @@ public abstract class ChangelistTable extends Composite
          infoBar_ = new ChangelistInfoBar();
          layout_.add(infoBar_);
          layout_.setWidgetLeftRight(infoBar_, 0, Unit.PX, 0, Unit.PX);
-         layout_.setWidgetTopHeight(infoBar_, 
-                                    0, Unit.PX, 
+         layout_.setWidgetTopHeight(infoBar_,
+                                    0, Unit.PX,
                                     infoBar_.getHeight(), Unit.PX);
-         layout_.setWidgetTopBottom(scrollPanel_, 
+         layout_.setWidgetTopBottom(scrollPanel_,
                                     infoBar_.getHeight(), Unit.PX,
                                     0, Unit.PX);
          infoBar_.setText(message);
@@ -321,7 +320,7 @@ public abstract class ChangelistTable extends Composite
    {
       SelectionModel<? super StatusAndPath> selectionModel = table_.getSelectionModel();
 
-      ArrayList<StatusAndPath> results = new ArrayList<StatusAndPath>();
+      ArrayList<StatusAndPath> results = new ArrayList<>();
       for (StatusAndPath item : dataProvider_.getList())
       {
          if (selectionModel.isSelected(item))
@@ -334,7 +333,7 @@ public abstract class ChangelistTable extends Composite
    {
       SelectionModel<? super StatusAndPath> selectionModel = table_.getSelectionModel();
 
-      ArrayList<String> results = new ArrayList<String>();
+      ArrayList<String> results = new ArrayList<>();
       for (StatusAndPath item : dataProvider_.getList())
       {
          if (selectionModel.isSelected(item))
@@ -354,7 +353,7 @@ public abstract class ChangelistTable extends Composite
    {
       SelectionModel<? super StatusAndPath> selectionModel = table_.getSelectionModel();
 
-      ArrayList<String> results = new ArrayList<String>();
+      ArrayList<String> results = new ArrayList<>();
       for (StatusAndPath item : dataProvider_.getList())
       {
          if (selectionModel.isSelected(item) && item.isDiscardable())
@@ -372,7 +371,7 @@ public abstract class ChangelistTable extends Composite
             selectNext = true;
          else if (selectNext)
          {
-            ArrayList<StatusAndPath> selection = new ArrayList<StatusAndPath>();
+            ArrayList<StatusAndPath> selection = new ArrayList<>();
             selection.add(path);
             setSelectedStatusAndPaths(selection);
             return;
@@ -397,7 +396,7 @@ public abstract class ChangelistTable extends Composite
    {
       return table_.addMouseDownHandler(handler);
    }
-   
+
    @Override
    public HandlerRegistration addContextMenuHandler(ContextMenuHandler handler)
    {
@@ -413,7 +412,7 @@ public abstract class ChangelistTable extends Composite
    {
       table_.setFocus(true);
    }
-   
+
    private class ChangelistInfoBar extends InfoBar
    {
       public ChangelistInfoBar()
@@ -421,7 +420,7 @@ public abstract class ChangelistTable extends Composite
          super(InfoBar.INFO);
          addStyleName(resources_.styles().infoBar());
          container_.getElement().getStyle().setBackgroundColor("#EEEFF1");
-         
+
       }
    }
 

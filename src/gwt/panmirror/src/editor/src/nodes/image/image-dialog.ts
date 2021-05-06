@@ -1,7 +1,7 @@
 /*
  * image-dialog.ts
  *
- * Copyright (C) 2019-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -17,9 +17,10 @@ import { Node as ProsemirrorNode, NodeType, Fragment, Mark } from 'prosemirror-m
 import { EditorView } from 'prosemirror-view';
 
 import { insertAndSelectNode } from '../../api/node';
-import { ImageProps, ImageType, EditorUI } from '../../api/ui';
+import { EditorUI } from '../../api/ui';
+import { ImageProps } from '../../api/ui-dialogs';
 import { extractSizeStyles, kPercentUnit, kPixelUnit } from '../../api/css';
-import { ImageDimensions, isNaturalAspectRatio } from '../../api/image';
+import { ImageType, ImageDimensions, isNaturalAspectRatio } from '../../api/image';
 import { kWidthAttrib, kHeightAttrib } from '../../api/pandoc_attr';
 
 import { imagePropsWithSizes, hasPercentWidth } from './image-util';

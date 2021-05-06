@@ -1,7 +1,7 @@
 /*
  * BlogdownConfig.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -27,4 +27,5 @@ public class BlogdownConfig
    public String[] static_dirs;
    public String markdown_engine;
    public String markdown_extensions;
+   public String rmd_extensions;
 }

@@ -1,9 +1,7 @@
-
-
 /*
  * editor-menus.ts
  *
- * Copyright (C) 2019-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -15,9 +13,10 @@
  *
  */
 
-import { EditorMenuItem, EditorUI } from "../api/ui";
-import { tableMenu } from "../api/table";
-import { EditorCommandId, EditorCommand } from "../api/command";
+import { EditorMenuItem, EditorUI } from '../api/ui';
+import { tableMenu } from '../api/table';
+import { EditorCommandId, EditorCommand } from '../api/command';
+import { Editor } from './editor';
 
 export interface EditorMenus {
   format: EditorMenuItem[];
@@ -29,7 +28,7 @@ export function editorMenus(ui: EditorUI, commands: EditorCommand[]) {
   return {
     format: formatMenu(ui, commands),
     insert: insertMenu(ui, commands),
-    table: tableMenu(true, ui)
+    table: tableMenu(true, ui),
   };
 }
 
@@ -37,55 +36,62 @@ function formatMenu(ui: EditorUI, commands: EditorCommand[]) {
   return [
     { command: EditorCommandId.Strong },
     { command: EditorCommandId.Em },
+    { command: EditorCommandId.Underline },
     { command: EditorCommandId.Code },
-    { subMenu: {
+    {
       text: ui.context.translateText('Text'),
-      items: [
-        { command: EditorCommandId.Strikeout },
-        { command: EditorCommandId.Superscript },
-        { command: EditorCommandId.Subscript },
-        { command: EditorCommandId.Smallcaps },
-        { separator: true },
-        { command: EditorCommandId.Span }
-      ]
-    }},
+      subMenu: {
+        items: [
+          { command: EditorCommandId.Strikeout },
+          { command: EditorCommandId.Superscript },
+          { command: EditorCommandId.Subscript },
+          { command: EditorCommandId.Smallcaps },
+        ],
+      },
+    },
     { separator: true },
-    { subMenu: {
+    {
       text: ui.context.translateText('Bullets & Numbering'),
-      items: [
-        { command: EditorCommandId.BulletList },
-        { command: EditorCommandId.OrderedList },
-        { command: EditorCommandId.TightList },
-        { separator: true },
-        { command: EditorCommandId.ListItemCheck },
-        { command: EditorCommandId.ListItemCheckToggle },
-        { separator: true },
-        { command: EditorCommandId.ListItemSink },
-        { command: EditorCommandId.ListItemLift },
-        { separator: true },
-        { command: EditorCommandId.OrderedListEdit },
-      ]
-    }},
+      subMenu: {
+        items: [
+          { command: EditorCommandId.BulletList },
+          { command: EditorCommandId.OrderedList },
+          { separator: true },
+          { command: EditorCommandId.TightList },
+          { separator: true },
+          { command: EditorCommandId.ListItemCheck },
+          { command: EditorCommandId.ListItemCheckToggle },
+          { separator: true },
+          { command: EditorCommandId.ListItemSink },
+          { command: EditorCommandId.ListItemLift },
+          { separator: true },
+          { command: EditorCommandId.EditListProperties },
+        ],
+      },
+    },
     { separator: true },
+    { command: codeBlockCommand(commands) },
     { command: EditorCommandId.Blockquote },
     { command: EditorCommandId.LineBlock },
-    { separator: haveAnyOf(commands, EditorCommandId.Div) },
-    { command: codeBlockCommand(commands) },
+    { separator: haveAnyOf(commands, EditorCommandId.Div, EditorCommandId.Span) },
     { command: EditorCommandId.Div },
+    { command: EditorCommandId.Span },
     { separator: true },
-    { subMenu: {
+    {
       text: ui.context.translateText('Raw'),
-      items: [
-        { command: EditorCommandId.HTMLInline },
-        { command: EditorCommandId.HTMLBlock },
-        { separator: true },
-        { command: EditorCommandId.TexInline },
-        { command: EditorCommandId.TexBlock },
-        { separator: true },
-        { command: EditorCommandId.RawInline },
-        { command: EditorCommandId.RawBlock },
-      ]
-    }},
+      subMenu: {
+        items: [
+          { command: EditorCommandId.HTMLInline },
+          { command: EditorCommandId.HTMLBlock },
+          { separator: true },
+          { command: EditorCommandId.TexInline },
+          { command: EditorCommandId.TexBlock },
+          { separator: true },
+          { command: EditorCommandId.RawInline },
+          { command: EditorCommandId.RawBlock },
+        ],
+      },
+    },
     { separator: true },
     { command: EditorCommandId.ClearFormatting },
     { separator: true },
@@ -95,29 +101,71 @@ function formatMenu(ui: EditorUI, commands: EditorCommand[]) {
 
 function insertMenu(ui: EditorUI, commands: EditorCommand[]) {
   return [
-    { command: EditorCommandId.RmdChunk },
+    { command: EditorCommandId.OmniInsert },
+    ...(haveAnyOf(commands, EditorCommandId.RCodeChunk, EditorCommandId.PythonCodeChunk)
+      ? [
+          { separator: true },
+          {
+            text: ui.context.translateText('Code Chunk'),
+            subMenu: {
+              items: [
+                { command: EditorCommandId.RCodeChunk },
+                { separator: true },
+                { command: EditorCommandId.PythonCodeChunk },
+                { command: EditorCommandId.BashCodeChunk },
+                { command: EditorCommandId.RcppCodeChunk },
+                { command: EditorCommandId.SQLCodeChunk },
+                { command: EditorCommandId.D3CodeChunk },
+                { command: EditorCommandId.StanCodeChunk },
+              ],
+            },
+          },
+        ]
+      : []),
+    { separator: true },
+    { command: EditorCommandId.Citation },
+    { command: EditorCommandId.CrossReference },
+    { command: EditorCommandId.Footnote },
     { separator: true },
     { command: EditorCommandId.Image },
     { command: EditorCommandId.Link },
     { command: EditorCommandId.HorizontalRule },
-    { separator: true },
-    { subMenu: {
-      text: ui.context.translateText('Definition'),
-      items: [
-        { command: EditorCommandId.DefinitionList },
-        { separator: true },
-        { command: EditorCommandId.DefinitionTerm },
-        { command: EditorCommandId.DefinitionDescription },
-      ]
-    }},
+    ...(haveAnyOf(commands, EditorCommandId.DefinitionList)
+      ? [
+          { separator: true },
+          {
+            text: ui.context.translateText('Definition'),
+            subMenu: {
+              items: [
+                { command: EditorCommandId.DefinitionList },
+                { separator: true },
+                { command: EditorCommandId.DefinitionTerm },
+                { command: EditorCommandId.DefinitionDescription },
+              ],
+            },
+          },
+        ]
+      : []),
     { separator: true },
     { command: EditorCommandId.InlineMath },
     { command: EditorCommandId.DisplayMath },
     { separator: true },
-    { command: EditorCommandId.CrossReference },
-    { separator: true },
-    { command: EditorCommandId.Footnote },
-    { command: EditorCommandId.Citation },
+    {
+      text: ui.context.translateText('Special Characters'),
+      subMenu: {
+        items: [
+          { command: EditorCommandId.Emoji },
+          { command: EditorCommandId.Symbol },
+          { separator: true },
+          { command: EditorCommandId.EnDash },
+          { command: EditorCommandId.EmDash },
+          { separator: true },
+          { command: EditorCommandId.NonBreakingSpace },
+          { separator: true },
+          { command: EditorCommandId.HardLineBreak },
+        ],
+      },
+    },
     { separator: true },
     { command: EditorCommandId.ParagraphInsert },
     { command: EditorCommandId.CodeBlockFormat },
@@ -134,13 +182,13 @@ function haveAnyOf(commands: EditorCommand[], ...ids: EditorCommandId[]) {
   for (const command of commands) {
     if (ids.includes(command.id)) {
       return true;
-    } 
+    }
   }
   return false;
 }
 
 function codeBlockCommand(commands: EditorCommand[]) {
-  return haveAnyOf(commands, EditorCommandId.CodeBlockFormat) 
+  return haveAnyOf(commands, EditorCommandId.CodeBlockFormat)
     ? EditorCommandId.CodeBlockFormat
     : EditorCommandId.CodeBlock;
 }

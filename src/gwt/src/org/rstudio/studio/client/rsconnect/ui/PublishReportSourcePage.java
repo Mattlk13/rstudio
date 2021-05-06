@@ -1,7 +1,7 @@
 /*
  * PublishReportSourcePage.java
  *
- * Copyright (C) 2009-18 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -44,9 +44,7 @@ public class PublishReportSourcePage
            createPages(RSConnectPublishInput input, boolean asMultiple)
    {
       ArrayList<WizardPage<RSConnectPublishInput, 
-                           RSConnectPublishResult>> pages =
-                           new ArrayList<WizardPage<RSConnectPublishInput, 
-                                                    RSConnectPublishResult>>();
+                           RSConnectPublishResult>> pages = new ArrayList<>();
       
       String descriptor = "document";
       if (asMultiple)

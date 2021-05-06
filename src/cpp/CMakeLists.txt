@@ -1,7 +1,7 @@
 #
 # CMakeLists.txt
 #
-# Copyright (C) 2009-19 by RStudio, PBC
+# Copyright (C) 2021 by RStudio, PBC
 #
 # Unless you have received this program directly from RStudio pursuant
 # to the terms of a commercial license agreement with RStudio, then
@@ -40,8 +40,8 @@ add_definitions(-DBOOST_ENABLE_ASSERT_HANDLER)
 # they currently do not work with our source
 add_definitions(-D_WEBSOCKETPP_NO_CPP11_MEMORY_=1)
 
-# the non-strict masking option was identified as a potentially crashing 
-# issue due to reliance on undefined C++ behavior, and was removed entirely in 
+# the non-strict masking option was identified as a potentially crashing
+# issue due to reliance on undefined C++ behavior, and was removed entirely in
 # websocketpp 0.7 (RStudio is using 0.5.1 at this time)
 add_definitions(-DWEBSOCKETPP_STRICT_MASKING)
 
@@ -74,7 +74,7 @@ if(UNIX)
    include(CheckSymbolExists REQUIRED)
 
    # compiler flags
-   add_definitions(-Wall -pthread)
+   add_definitions(-Wall -pthread -Werror=return-type)
 
    if(RSTUDIO_ASAN)
       message(STATUS "Compiling with Address Sanitizer (ASAN) support")
@@ -114,7 +114,7 @@ if(UNIX)
          message(STATUS "Set CMAKE_OSX_DEPLOYMENT_TARGET to ${CMAKE_OSX_DEPLOYMENT_TARGET}")
       endif()
 
-      # Figure out what version of Mac OS X this is. Unfortunately 
+      # Figure out what version of Mac OS X this is. Unfortunately
       # CMAKE_SYSTEM_VERSION does not match uname -r, so get the Mac OS
       # version number another way.
       execute_process(COMMAND /usr/bin/sw_vers -productVersion OUTPUT_VARIABLE MACOSX_VERSION OUTPUT_STRIP_TRAILING_WHITESPACE)
@@ -188,6 +188,42 @@ if(RSTUDIO_PACKAGE_BUILD)
    add_definitions(-DRSTUDIO_PACKAGE_BUILD)
 endif()
 
+# yaml-cpp
+if(WIN32)
+
+   if(RSTUDIO_SESSION_WIN32)
+      set(YAML_CPP_ARCH "x86")
+   else()
+      set(YAML_CPP_ARCH "x64")
+   endif()
+
+   set(YAML_CPP_ROOT "${RSTUDIO_WINDOWS_DEPENDENCIES_DIR}/yaml-cpp-0.6.3")
+   set(YAML_CPP_INCLUDE_DIR "${YAML_CPP_ROOT}/include")
+
+   if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+      set(YAML_CPP_LIBRARIES "${YAML_CPP_ROOT}/lib/${YAML_CPP_ARCH}/libyaml-cppmdd.lib")
+  else()
+      set(YAML_CPP_LIBRARIES "${YAML_CPP_ROOT}/lib/${YAML_CPP_ARCH}/libyaml-cppmd.lib")
+  endif()
+
+elseif(NOT RSTUDIO_USE_SYSTEM_YAML_CPP)
+
+   set(YAML_CPP_INCLUDE_DIR "${RSTUDIO_TOOLS_ROOT}/yaml-cpp/0.6.3/include")
+   set(YAML_CPP_LIBRARIES   "${RSTUDIO_TOOLS_ROOT}/yaml-cpp/0.6.3/build/libyaml-cpp.a")
+
+else()
+   # NOTE: defines the following CMake variables:
+   # - YAML_CPP_INCLUDE_DIR
+   # - YAML_CPP_LIBRARIES
+   find_package(yaml-cpp REQUIRED)
+endif()
+
+if(NOT EXISTS "${YAML_CPP_INCLUDE_DIR}")
+   message(FATAL_ERROR "yaml-cpp not found (re-run dependencies script to install)")
+endif()
+
+include_directories(SYSTEM "${YAML_CPP_INCLUDE_DIR}")
+
 # determine whether we should statically link boost. we always do this
 # unless we are building a non-packaged build on linux (in which case
 # boost dynamic libraries are presumed to be installed on the system ldpath)
@@ -224,7 +260,7 @@ list(APPEND BOOST_LIBS
 # UNIX BOOST
 if(UNIX)
    # prefer static link to our custom built version
-   set(RSTUDIO_TOOLS_BOOST /opt/rstudio-tools/boost/boost_1_69_0)
+   set(RSTUDIO_TOOLS_BOOST "${RSTUDIO_TOOLS_ROOT}/boost/boost_1_69_0")
    if(NOT RSTUDIO_USE_SYSTEM_BOOST AND EXISTS ${RSTUDIO_TOOLS_BOOST})
       add_definitions(-DRSTUDIO_BOOST_NAMESPACE=rstudio_boost)
 
@@ -276,95 +312,94 @@ else()
    message(STATUS "Using RStudio-provided Boost ${RSTUDIO_BOOST_REQUESTED_VERSION}: ${BOOST_ROOT}")
 endif()
 
-# allow opt-in to using Boost.Signals2
-# TODO: remove this in RStudio v1.3 and port to signals2
-if(NOT RSTUDIO_BOOST_SIGNALS_VERSION)
-   if (Boost_VERSION LESS 106900)
-      set(RSTUDIO_BOOST_SIGNALS_VERSION 1)
-   else()
-      set(RSTUDIO_BOOST_SIGNALS_VERSION 2)
-   endif()
-endif()
-
-message(STATUS "Using Boost.Signals version ${RSTUDIO_BOOST_SIGNALS_VERSION}")
-add_definitions(-DRSTUDIO_BOOST_SIGNALS_VERSION=${RSTUDIO_BOOST_SIGNALS_VERSION})
+set(RSTUDIO_BOOST_SIGNALS_VERSION 2)
+add_definitions(-DRSTUDIO_BOOST_SIGNALS_VERSION=2)
 
 # add boost as system include directory
 include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
 
+if(NOT DEFINED RSTUDIO_CRASHPAD_ENABLED AND APPLE AND UNAME_M STREQUAL arm64)
+   message(STATUS "Crashpad not yet supported on M1 macOS machines; disabling Crashpad")
+   set(RSTUDIO_CRASHPAD_ENABLED FALSE)
+endif()
+
 # Crashpad
-if(UNIX)
-   set(RSTUDIO_TOOLS_CRASHPAD "/opt/rstudio-tools/crashpad")
-   set(CRASHPAD_INCLUDE_DIR "${RSTUDIO_TOOLS_CRASHPAD}")
-   set(CRASHPAD_INNER_DIR "${RSTUDIO_TOOLS_CRASHPAD}/crashpad")
-   include_directories(SYSTEM ${CRASHPAD_INCLUDE_DIR})
-   include_directories(SYSTEM ${CRASHPAD_INNER_DIR})
-   include_directories(SYSTEM "${CRASHPAD_INNER_DIR}/third_party/mini_chromium/mini_chromium")
-   set(CRASHPAD_OUTPUT_DIR "${CRASHPAD_INNER_DIR}/out/Default")
-   set(CRASHPAD_LIBRARY_DIR "${CRASHPAD_OUTPUT_DIR}/obj")
-else()
-   if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-      set(RSTUDIO_TOOLS_CRASHPAD "${RSTUDIO_WINDOWS_DEPENDENCIES_DIR}/crashpad-debug")
-   else()
-      set(RSTUDIO_TOOLS_CRASHPAD "${RSTUDIO_WINDOWS_DEPENDENCIES_DIR}/crashpad-release")
-   endif()
-   if(RSTUDIO_SESSION_WIN32)
-      set(CRASHPAD_ARCH "x86")
-   else()
-      set(CRASHPAD_ARCH "x64")
-   endif()
-   set(CRASHPAD_INCLUDE_DIR "${RSTUDIO_TOOLS_CRASHPAD}/include")
-   include_directories(SYSTEM ${CRASHPAD_INCLUDE_DIR})
-   include_directories(SYSTEM "${CRASHPAD_INCLUDE_DIR}/crashpad")
-   include_directories(SYSTEM "${CRASHPAD_INCLUDE_DIR}/mini_chromium")
-   set(CRASHPAD_OUTPUT_DIR "${RSTUDIO_TOOLS_CRASHPAD}/bin")
-   set(CRASHPAD_LIBRARY_DIR "${RSTUDIO_TOOLS_CRASHPAD}/${CRASHPAD_ARCH}/lib_md")
-endif()
-
-# find crashpad libraries, ensuring the correct link order
-if(UNIX)
-   file(GLOB_RECURSE CRASHPAD_LIBCLIENT "${CRASHPAD_LIBRARY_DIR}/*libclient.a")
-   file(GLOB_RECURSE CRASHPAD_LIBUTIL   "${CRASHPAD_LIBRARY_DIR}/*libutil.a")
-   file(GLOB_RECURSE CRASHPAD_LIBBASE   "${CRASHPAD_LIBRARY_DIR}/*libbase.a")
-   list (APPEND CRASHPAD_LIBRARIES ${CRASHPAD_LIBCLIENT} ${CRASHPAD_LIBUTIL} ${CRASHPAD_LIBBASE})
-
-   if(APPLE)
-      # add necessary macos frameworks so crashpad applications can link correctly
-      list(APPEND CRASHPAD_LIBRARIES ${APPLICATION_SERVICES_LIBRARY})
-      list(APPEND CRASHPAD_LIBRARIES ${CORE_FOUNDATION_LIBRARY})
-      list(APPEND CRASHPAD_LIBRARIES ${FOUNDATION_LIBRARY})
-      list(APPEND CRASHPAD_LIBRARIES ${IOKIT_LIBRARY})
-      list(APPEND CRASHPAD_LIBRARIES ${SECURITY_LIBRARY})
-      list(APPEND CRASHPAD_LIBRARIES ${BSM_LIBRARY})
-   endif()
-else()
-   file(GLOB_RECURSE CRASHPAD_LIBCLIENT "${CRASHPAD_LIBRARY_DIR}/*client.lib")
-   file(GLOB_RECURSE CRASHPAD_LIBUTIL   "${CRASHPAD_LIBRARY_DIR}/*util.lib")
-   file(GLOB_RECURSE CRASHPAD_LIBBASE   "${CRASHPAD_LIBRARY_DIR}/*base.lib")
-   list (APPEND CRASHPAD_LIBRARIES ${CRASHPAD_LIBCLIENT} ${CRASHPAD_LIBUTIL} ${CRASHPAD_LIBBASE})
-endif()
-list(LENGTH CRASHPAD_LIBRARIES CRASHPAD_LIB_COUNT)
-
-if (CRASHPAD_LIB_COUNT EQUAL 0)
-   message(STATUS "No Crashpad libraries found under ${CRASHPAD_LIBRARY_DIR}. Crashpad integration disabled.")
-else()
-   message(STATUS "Crashpad libraries found under ${CRASHPAD_LIBRARY_DIR}. Crashpad integration enabled.")
-   add_definitions(-DRSTUDIO_CRASHPAD_ENABLED=1)
-
-   # ensure the desired crashpad binaries are installed with the installation package
+if (NOT DEFINED RSTUDIO_CRASHPAD_ENABLED OR RSTUDIO_CRASHPAD_ENABLED)
    if(UNIX)
-      install(PROGRAMS "${CRASHPAD_OUTPUT_DIR}/crashpad_handler" DESTINATION ${RSTUDIO_INSTALL_BIN})
-      install(PROGRAMS "${CRASHPAD_OUTPUT_DIR}/crashpad_http_upload" DESTINATION ${RSTUDIO_INSTALL_BIN})
-   elseif(NOT RSTUDIO_SESSION_WIN32)
-      install(PROGRAMS "${CRASHPAD_OUTPUT_DIR}/crashpad_handler.com" DESTINATION ${RSTUDIO_INSTALL_BIN})
-      install(PROGRAMS "${CRASHPAD_OUTPUT_DIR}/crashpad_handler.exe" DESTINATION ${RSTUDIO_INSTALL_BIN})
-      install(PROGRAMS "${CRASHPAD_OUTPUT_DIR}/crashpad_http_upload.exe" DESTINATION ${RSTUDIO_INSTALL_BIN})
+      set(RSTUDIO_TOOLS_CRASHPAD "${RSTUDIO_TOOLS_ROOT}/crashpad")
+      set(CRASHPAD_INCLUDE_DIR "${RSTUDIO_TOOLS_CRASHPAD}")
+      set(CRASHPAD_INNER_DIR "${RSTUDIO_TOOLS_CRASHPAD}/crashpad")
+      include_directories(SYSTEM ${CRASHPAD_INCLUDE_DIR})
+      include_directories(SYSTEM ${CRASHPAD_INNER_DIR})
+      include_directories(SYSTEM "${CRASHPAD_INNER_DIR}/third_party/mini_chromium/mini_chromium")
+      set(CRASHPAD_OUTPUT_DIR "${CRASHPAD_INNER_DIR}/out/Default")
+      set(CRASHPAD_LIBRARY_DIR "${CRASHPAD_OUTPUT_DIR}/obj")
+   else()
+      if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+         set(RSTUDIO_TOOLS_CRASHPAD "${RSTUDIO_WINDOWS_DEPENDENCIES_DIR}/crashpad-debug")
+      else()
+         set(RSTUDIO_TOOLS_CRASHPAD "${RSTUDIO_WINDOWS_DEPENDENCIES_DIR}/crashpad-release")
+      endif()
+      if(RSTUDIO_SESSION_WIN32)
+         set(CRASHPAD_ARCH "x86")
+      else()
+         set(CRASHPAD_ARCH "x64")
+      endif()
+      set(CRASHPAD_INCLUDE_DIR "${RSTUDIO_TOOLS_CRASHPAD}/include")
+      include_directories(SYSTEM ${CRASHPAD_INCLUDE_DIR})
+      include_directories(SYSTEM "${CRASHPAD_INCLUDE_DIR}/crashpad")
+      include_directories(SYSTEM "${CRASHPAD_INCLUDE_DIR}/mini_chromium")
+      set(CRASHPAD_OUTPUT_DIR "${RSTUDIO_TOOLS_CRASHPAD}/bin")
+      set(CRASHPAD_LIBRARY_DIR "${RSTUDIO_TOOLS_CRASHPAD}/${CRASHPAD_ARCH}/lib_md")
    endif()
+
+   # find crashpad libraries, ensuring the correct link order
+   if(UNIX)
+      file(GLOB_RECURSE CRASHPAD_LIBCLIENT "${CRASHPAD_LIBRARY_DIR}/*libclient.a")
+      file(GLOB_RECURSE CRASHPAD_LIBUTIL   "${CRASHPAD_LIBRARY_DIR}/*libutil.a")
+      file(GLOB_RECURSE CRASHPAD_LIBBASE   "${CRASHPAD_LIBRARY_DIR}/*libbase.a")
+      list (APPEND CRASHPAD_LIBRARIES ${CRASHPAD_LIBCLIENT} ${CRASHPAD_LIBUTIL} ${CRASHPAD_LIBBASE})
+
+      if(APPLE)
+         # add necessary macos frameworks so crashpad applications can link correctly
+         list(APPEND CRASHPAD_LIBRARIES ${APPLICATION_SERVICES_LIBRARY})
+         list(APPEND CRASHPAD_LIBRARIES ${CORE_FOUNDATION_LIBRARY})
+         list(APPEND CRASHPAD_LIBRARIES ${FOUNDATION_LIBRARY})
+         list(APPEND CRASHPAD_LIBRARIES ${IOKIT_LIBRARY})
+         list(APPEND CRASHPAD_LIBRARIES ${SECURITY_LIBRARY})
+         list(APPEND CRASHPAD_LIBRARIES ${BSM_LIBRARY})
+      endif()
+   else()
+      file(GLOB_RECURSE CRASHPAD_LIBCLIENT "${CRASHPAD_LIBRARY_DIR}/*client.lib")
+      file(GLOB_RECURSE CRASHPAD_LIBUTIL   "${CRASHPAD_LIBRARY_DIR}/*util.lib")
+      file(GLOB_RECURSE CRASHPAD_LIBBASE   "${CRASHPAD_LIBRARY_DIR}/*base.lib")
+      list (APPEND CRASHPAD_LIBRARIES ${CRASHPAD_LIBCLIENT} ${CRASHPAD_LIBUTIL} ${CRASHPAD_LIBBASE})
+   endif()
+   list(LENGTH CRASHPAD_LIBRARIES CRASHPAD_LIB_COUNT)
+
+   if (CRASHPAD_LIB_COUNT EQUAL 0)
+      message(STATUS "No Crashpad libraries found under ${CRASHPAD_LIBRARY_DIR}. Crashpad integration disabled.")
+   else()
+      message(STATUS "Crashpad libraries found under ${CRASHPAD_LIBRARY_DIR}. Crashpad integration enabled.")
+      add_definitions(-DRSTUDIO_CRASHPAD_ENABLED=1)
+
+      # ensure the desired crashpad binaries are installed with the installation package
+      if(UNIX)
+         install(PROGRAMS "${CRASHPAD_OUTPUT_DIR}/crashpad_handler" DESTINATION ${RSTUDIO_INSTALL_BIN})
+         install(PROGRAMS "${CRASHPAD_OUTPUT_DIR}/crashpad_http_upload" DESTINATION ${RSTUDIO_INSTALL_BIN})
+      elseif(NOT RSTUDIO_SESSION_WIN32)
+         install(PROGRAMS "${CRASHPAD_OUTPUT_DIR}/crashpad_handler.com" DESTINATION ${RSTUDIO_INSTALL_BIN})
+         install(PROGRAMS "${CRASHPAD_OUTPUT_DIR}/crashpad_handler.exe" DESTINATION ${RSTUDIO_INSTALL_BIN})
+         install(PROGRAMS "${CRASHPAD_OUTPUT_DIR}/crashpad_http_upload.exe" DESTINATION ${RSTUDIO_INSTALL_BIN})
+      endif()
+   endif()
+else()
+   message(STATUS "Crashpad integration disabled via build parameters")
 endif()
 
 # SOCI
 if(UNIX)
-   set(RSTUDIO_TOOLS_SOCI "/opt/rstudio-tools/soci")
+   set(RSTUDIO_TOOLS_SOCI "${RSTUDIO_TOOLS_ROOT}/soci")
    set(SOCI_INCLUDE_BUILD_DIR "${RSTUDIO_TOOLS_SOCI}/build/include")
 else()
    set(RSTUDIO_TOOLS_SOCI "${RSTUDIO_WINDOWS_DEPENDENCIES_DIR}/install-soci/soci")
@@ -378,21 +413,17 @@ endif()
 
 set(SOCI_INCLUDE_DIR "${RSTUDIO_TOOLS_SOCI}/include")
 if(NOT RSTUDIO_USE_SYSTEM_SOCI)
-   include_directories(SYSTEM ${SOCI_INCLUDE_DIR})
-   include_directories(SYSTEM ${SOCI_INCLUDE_BUILD_DIR})
+   include_directories(BEFORE SYSTEM ${SOCI_INCLUDE_DIR})
+   include_directories(BEFORE SYSTEM ${SOCI_INCLUDE_BUILD_DIR})
 endif()
 
 # database library includes
-if (UNIX)
-   if (APPLE)
-      # We assume that libpq is available under the default brew install location
-      # since we install postgresql via brew in install-dependencies-osx
-      include_directories(SYSTEM "/usr/local/opt/postgresql/include")
-      include_directories(SYSTEM "/usr/local/opt/postgresql/include/libpq")
-   else()
-      include_directories(SYSTEM "/usr/include/postgresql")
-      include_directories(SYSTEM "/usr/include/pgsql")
-   endif()
+if(APPLE)
+   include_directories(BEFORE SYSTEM "${HOMEBREW_PREFIX}/opt/postgresql/include")
+   include_directories(BEFORE SYSTEM "${HOMEBREW_PREFIX}/opt/postgresql/include/libpq")
+elseif(UNIX)
+   include_directories(SYSTEM "/usr/include/postgresql")
+   include_directories(SYSTEM "/usr/include/pgsql")
 elseif(WIN32)
    include_directories(SYSTEM "${RSTUDIO_WINDOWS_DEPENDENCIES_DIR}/install-soci/sqlite/sqlite-amalgamation-3310100")
    include_directories(SYSTEM "${RSTUDIO_WINDOWS_DEPENDENCIES_DIR}/install-soci/postgresql/include")
@@ -409,7 +440,10 @@ if(UNIX)
    find_library(SOCI_POSTGRESQL_LIB NAMES "libsoci_postgresql.a" "soci_postgresql" PATHS "${SOCI_LIBRARY_DIR}" NO_DEFAULT_PATH)
    find_library(DL_LIB "dl")
    find_library(SQLITE_LIB "sqlite3")
-   find_library(PQ_LIB "pq")
+   get_filename_component(SQLITE_LIB "${SQLITE_LIB}" REALPATH)
+   find_library(PQ_LIB "pq" HINTS ${HOMEBREW_PREFIX}/opt/libpq/lib)
+   get_filename_component(PQ_LIB "${PQ_LIB}" REALPATH)
+   list(APPEND SOCI_DEPENDENCIES ${SQLITE_LIB} ${PQ_LIB})
    list(APPEND SOCI_LIBRARIES ${SOCI_SQLITE_LIB} ${SOCI_POSTGRESQL_LIB} ${SQLITE_LIB} ${PQ_LIB} ${SOCI_CORE_LIB} ${DL_LIB})
 else()
    set(SOCI_LIBRARY_DIR "${RSTUDIO_TOOLS_SOCI}/build/${SOCI_ARCH}/lib")
@@ -439,6 +473,11 @@ endif()
 
 message(STATUS "SOCI libraries found under ${SOCI_LIBRARY_DIR}")
 
+if(UNIX)
+   find_package(OpenSSL REQUIRED)
+   include_directories(SYSTEM "${OPENSSL_INCLUDE_DIR}")
+endif()
+
 if(WIN32)
      # winpty - pseudoterminal support on Windows
      if(RSTUDIO_SESSION_WIN32)
@@ -467,7 +506,7 @@ if(WIN32)
         set(OPENSSL_BITNESS "64")
      endif()
 
-     set(OPENSSL_NAME "openssl-1.1.1d")
+     set(OPENSSL_NAME "openssl-1.1.1i")
      set(OPENSSL_ROOT_DIR "${RSTUDIO_WINDOWS_DEPENDENCIES_DIR}/${OPENSSL_NAME}/${OPENSSL_NAME}-${OPENSSL_BUILD_TYPE}-${OPENSSL_BITNESS}")
      set(OPENSSL_INCLUDE_DIR "${OPENSSL_ROOT_DIR}/include")
      set(OPENSSL_LIBRARY_DIR "${OPENSSL_ROOT_DIR}/lib")
@@ -557,7 +596,7 @@ else()
              COMMAND "${LIBR_EXECUTABLE}" "--vanilla" "--slave" "-e" "cat(as.character(getRversion()))"
              OUTPUT_VARIABLE LIBR_VERSION)
          if (LIBR_VERSION VERSION_LESS "3.0.1")
-            message(FATAL_ERROR "Minimum R version (${RSTUDIO_R_MAJOR_VERSION_REQUIRED}.${RSTUDIO_R_MINOR_VERSION_REQUIRED}.${RSTUDIO_R_PATCH_VERSION_REQUIRED}) not found.")
+            message(FATAL_ERROR "Minimum R version (${RSTUDIO_R_MAJOR_VERSION_REQUIRED}.${RSTUDIO_R_MINOR_VERSION_REQUIRED}.${RSTUDIO_R_PATCH_VERSION_REQUIRED}) not found; detected version is ${LIBR_VERSION}")
          endif()
       endif()
 
@@ -569,7 +608,19 @@ else()
 
       # test runner script
       if(NOT WIN32)
-         configure_file(rstudio-tests.in ${CMAKE_CURRENT_BINARY_DIR}/rstudio-tests)
+
+         configure_file(
+            "${CMAKE_CURRENT_SOURCE_DIR}/rstudio-tests.in"
+            "${CMAKE_CURRENT_BINARY_DIR}/rstudio-tests"
+            @ONLY)
+
+         if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/rstudio-pro-tests.in")
+            configure_file(
+               "${CMAKE_CURRENT_SOURCE_DIR}/rstudio-pro-tests.in"
+               "${CMAKE_CURRENT_BINARY_DIR}/rstudio-pro-tests"
+               @ONLY)
+         endif()
+
       endif()
 
       # add desktop subprojects if we aren't building in server only mode

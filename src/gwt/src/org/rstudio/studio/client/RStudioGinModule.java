@@ -1,7 +1,7 @@
 /*
  * RStudioGinModule.java
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -83,7 +83,14 @@ import org.rstudio.studio.client.htmlpreview.ui.HTMLPreviewApplicationView;
 import org.rstudio.studio.client.htmlpreview.ui.HTMLPreviewApplicationWindow;
 import org.rstudio.studio.client.htmlpreview.ui.HTMLPreviewPanel;
 import org.rstudio.studio.client.packrat.model.PackratServerOperations;
+import org.rstudio.studio.client.palette.CommandPaletteLauncher;
 import org.rstudio.studio.client.panmirror.pandoc.PanmirrorPandocServerOperations;
+import org.rstudio.studio.client.panmirror.server.PanmirrorCrossrefServerOperations;
+import org.rstudio.studio.client.panmirror.server.PanmirrorDOIServerOperations;
+import org.rstudio.studio.client.panmirror.server.PanmirrorDataCiteServerOperations;
+import org.rstudio.studio.client.panmirror.server.PanmirrorPubMedServerOperations;
+import org.rstudio.studio.client.panmirror.server.PanmirrorXRefServerOperations;
+import org.rstudio.studio.client.panmirror.server.PanmirrorZoteroServerOperations;
 import org.rstudio.studio.client.pdfviewer.PDFViewer;
 import org.rstudio.studio.client.plumber.PlumberAPI;
 import org.rstudio.studio.client.plumber.PlumberAPIPresenter;
@@ -131,6 +138,7 @@ import org.rstudio.studio.client.workbench.model.Session;
 import org.rstudio.studio.client.workbench.model.WorkbenchListsServerOperations;
 import org.rstudio.studio.client.workbench.model.WorkbenchServerOperations;
 import org.rstudio.studio.client.workbench.prefs.model.PrefsServerOperations;
+import org.rstudio.studio.client.workbench.prefs.views.PythonServerOperations;
 import org.rstudio.studio.client.workbench.snippets.SnippetServerOperations;
 import org.rstudio.studio.client.workbench.ui.PaneManager;
 import org.rstudio.studio.client.workbench.ui.WorkbenchScreen;
@@ -326,6 +334,7 @@ public class RStudioGinModule extends AbstractGinModule
       bind(JobManager.class).asEagerSingleton();
       bind(HtmlMessageListener.class).asEagerSingleton();
       bind(BrowserEventWorkarounds.class).asEagerSingleton();
+      bind(CommandPaletteLauncher.class).asEagerSingleton();
 
       bind(ApplicationView.class).to(ApplicationWindow.class)
             .in(Singleton.class);
@@ -456,6 +465,12 @@ public class RStudioGinModule extends AbstractGinModule
       bind(ProfilerServerOperations.class).to(RemoteServer.class);
       bind(RMarkdownServerOperations.class).to(RemoteServer.class);
       bind(PanmirrorPandocServerOperations.class).to(RemoteServer.class);
+      bind(PanmirrorCrossrefServerOperations.class).to(RemoteServer.class);
+      bind(PanmirrorDataCiteServerOperations.class).to(RemoteServer.class);
+      bind(PanmirrorPubMedServerOperations.class).to(RemoteServer.class);
+      bind(PanmirrorXRefServerOperations.class).to(RemoteServer.class);
+      bind(PanmirrorDOIServerOperations.class).to(RemoteServer.class);
+      bind(PanmirrorZoteroServerOperations.class).to(RemoteServer.class);
       bind(DependencyServerOperations.class).to(RemoteServer.class);
       bind(PackratServerOperations.class).to(RemoteServer.class);
       bind(RenvServerOperations.class).to(RemoteServer.class);
@@ -472,6 +487,7 @@ public class RStudioGinModule extends AbstractGinModule
       bind(SecondaryReposServerOperations.class).to(RemoteServer.class);
       bind(ThemeServerOperations.class).to(RemoteServer.class);
       bind(TutorialServerOperations.class).to(RemoteServer.class);
+      bind(PythonServerOperations.class).to(RemoteServer.class);
 
       bind(WorkbenchMainView.class).to(WorkbenchScreen.class);
 

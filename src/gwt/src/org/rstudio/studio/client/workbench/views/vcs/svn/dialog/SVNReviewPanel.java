@@ -1,7 +1,7 @@
 /*
  * SVNReviewPanel.java
  *
- * Copyright (C) 2009-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -98,6 +98,7 @@ public class SVNReviewPanel extends ResizeComposite implements Display
       String contextLabel();
       String diffToolbar();
       String diffViewOptions();
+      String diffContextLines();
    }
 
    @SuppressWarnings("unused")
@@ -193,7 +194,6 @@ public class SVNReviewPanel extends ResizeComposite implements Display
       private final HandlerManager handlers_ = new HandlerManager(this);
    }
 
-
    interface Binder extends UiBinder<Widget, SVNReviewPanel>
    {
    }
@@ -227,9 +227,9 @@ public class SVNReviewPanel extends ResizeComposite implements Display
       switchViewButton_ = new LeftRightToggleButton("Changes", "History", true);
       switchViewButton_.getElement().getStyle().setMarginRight(8, Unit.PX);
       topToolbar_.addLeftWidget(switchViewButton_);
-      
+
       topToolbar_.addLeftSeparator();
-      
+
       topToolbar_.addLeftWidget(new ToolbarButton(
             "Refresh", ToolbarButton.NoTitle, commands.vcsRefresh().getImageResource(),
             new ClickHandler() {
@@ -240,9 +240,9 @@ public class SVNReviewPanel extends ResizeComposite implements Display
                   commands_.vcsRefresh().execute();
                }
             }));
-      
+
       topToolbar_.addLeftSeparator();
-      
+
       topToolbar_.addLeftWidget(commands.vcsAddFiles().createToolbarButton());
       topToolbar_.addLeftWidget(commands.vcsRemoveFiles().createToolbarButton());
       topToolbar_.addLeftSeparator();
@@ -252,8 +252,8 @@ public class SVNReviewPanel extends ResizeComposite implements Display
       topToolbar_.addLeftWidget(commands.vcsResolve().createToolbarButton());
       topToolbar_.addLeftSeparator();
       topToolbar_.addLeftWidget(commands.vcsCommit().createToolbarButton());
-      
-      
+
+
       commands.vcsPull().setButtonLabel("Update");
       commands.vcsPull().setMenuLabel("Update");
       topToolbar_.addRightWidget(commands.vcsPull().createToolbarButton());
@@ -266,6 +266,7 @@ public class SVNReviewPanel extends ResizeComposite implements Display
       discardAllButton_ = diffToolbar_.addLeftWidget(new ToolbarButton(
             "Discard All", ToolbarButton.NoTitle,  new ImageResource2x(RES.discard2x())));
 
+      contextLines_.addStyleName(RES.styles().diffContextLines());
       lblContext_.setFor(contextLines_);
       listBoxAdapter_ = new ListBoxAdapter(contextLines_);
 
@@ -372,7 +373,7 @@ public class SVNReviewPanel extends ResizeComposite implements Display
    {
       return changelist_.getSelectedPaths();
    }
-   
+
    @Override
    public ArrayList<StatusAndPath> getSelectedItems()
    {
@@ -423,11 +424,11 @@ public class SVNReviewPanel extends ResizeComposite implements Display
    }
 
    @Override
-   public void showContextMenu(final int clientX, 
+   public void showContextMenu(final int clientX,
                                final int clientY)
    {
       final ToolbarPopupMenu menu = new ToolbarPopupMenu();
-      
+
       menu.addItem(commands_.vcsAddFiles().createMenuItem(false));
       menu.addItem(commands_.vcsRemoveFiles().createMenuItem(false));
       menu.addSeparator();
@@ -437,12 +438,12 @@ public class SVNReviewPanel extends ResizeComposite implements Display
       menu.addItem(commands_.vcsResolve().createMenuItem(false));
       menu.addSeparator();
       menu.addItem(commands_.vcsOpen().createMenuItem(false));
-    
+
       menu.setPopupPositionAndShow(new PositionCallback() {
          @Override
          public void setPosition(int offsetWidth, int offsetHeight)
          {
-            menu.setPopupPosition(clientX, clientY);     
+            menu.setPopupPosition(clientX, clientY);
          }
       });
    }
@@ -478,7 +479,7 @@ public class SVNReviewPanel extends ResizeComposite implements Display
    ScrollPanel diffScroll_;
 
    private final Commands commands_;
-   
+
    private ListBoxAdapter listBoxAdapter_;
 
    private ToolbarButton discardAllButton_;

@@ -1,7 +1,7 @@
 /*
  * ChunkChangeEvent.java
  *
- * Copyright (C) 2009-16 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -29,8 +29,7 @@ public class ChunkChangeEvent
       void onChunkChange(ChunkChangeEvent event);
    }
 
-   public static final GwtEvent.Type<ChunkChangeEvent.Handler> TYPE =
-      new GwtEvent.Type<ChunkChangeEvent.Handler>();
+   public static final GwtEvent.Type<ChunkChangeEvent.Handler> TYPE = new GwtEvent.Type<>();
    
    public ChunkChangeEvent()
    {

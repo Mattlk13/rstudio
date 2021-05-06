@@ -1,7 +1,7 @@
 /*
  * VcsState.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -30,11 +30,9 @@ import org.rstudio.studio.client.common.vcs.StatusAndPath;
 import org.rstudio.studio.client.common.vcs.StatusAndPathInfo;
 import org.rstudio.studio.client.workbench.model.Session;
 import org.rstudio.studio.client.workbench.views.files.events.FileChangeEvent;
-import org.rstudio.studio.client.workbench.views.files.events.FileChangeHandler;
 import org.rstudio.studio.client.workbench.views.files.model.FileChange;
 import org.rstudio.studio.client.workbench.views.vcs.common.events.VcsRefreshEvent;
 import org.rstudio.studio.client.workbench.views.vcs.common.events.VcsRefreshEvent.Reason;
-import org.rstudio.studio.client.workbench.views.vcs.common.events.VcsRefreshHandler;
 
 import java.util.ArrayList;
 
@@ -48,7 +46,7 @@ public abstract class VcsState
       globalDisplay_ = globalDisplay;
       session_ = session;
       final HandlerRegistrations registrations = new HandlerRegistrations();
-      registrations.add(eventBus_.addHandler(VcsRefreshEvent.TYPE, new VcsRefreshHandler()
+      registrations.add(eventBus_.addHandler(VcsRefreshEvent.TYPE, new VcsRefreshEvent.Handler()
       {
          @Override
          public void onVcsRefresh(VcsRefreshEvent event)
@@ -82,7 +80,7 @@ public abstract class VcsState
             }
          }
       }));
-      registrations.add(eventBus_.addHandler(FileChangeEvent.TYPE, new FileChangeHandler()
+      registrations.add(eventBus_.addHandler(FileChangeEvent.TYPE, new FileChangeEvent.Handler()
       {
          @Override
          public void onFileChange(FileChangeEvent event)
@@ -138,7 +136,7 @@ public abstract class VcsState
    }
 
    public void bindRefreshHandler(Widget owner,
-                                  final VcsRefreshHandler handler)
+                                  final VcsRefreshEvent.Handler handler)
    {
       new WidgetHandlerRegistration(owner)
       {
@@ -150,12 +148,12 @@ public abstract class VcsState
       };
    }
 
-   public HandlerRegistration addVcsRefreshHandler(VcsRefreshHandler handler)
+   public HandlerRegistration addVcsRefreshHandler(VcsRefreshEvent.Handler handler)
    {
       return addVcsRefreshHandler(handler, true);
    }
 
-   public HandlerRegistration addVcsRefreshHandler(VcsRefreshHandler handler,
+   public HandlerRegistration addVcsRefreshHandler(VcsRefreshEvent.Handler handler,
                                                    boolean fireOnAdd)
    {
       HandlerRegistration hreg = handlers_.addHandler(

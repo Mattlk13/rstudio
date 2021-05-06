@@ -1,7 +1,7 @@
 /*
  * ThemeResources.java
  *
- * Copyright (C) 2009-17 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -271,12 +271,6 @@ public interface ThemeResources extends ClientBundle
    @Source("radioButtonOn_2x.png")
    DataResource radioButtonOn2x();
 
-   @Source("handCursor.png")
-   DataResource handCursor();
-
-   @Source("handCursor_2x.png")
-   DataResource handCursor2x();
-   
    @Source("executeChunk_2x.png")
    ImageResource executeChunk2x();
    

@@ -1,7 +1,7 @@
 /*
  * ShowHTMLPreviewEvent.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -14,36 +14,41 @@
  */
 package org.rstudio.studio.client.htmlpreview.events;
 
+import com.google.gwt.event.shared.EventHandler;
 import org.rstudio.studio.client.htmlpreview.model.HTMLPreviewParams;
 
 import com.google.gwt.event.shared.GwtEvent;
 
-public class ShowHTMLPreviewEvent extends GwtEvent<ShowHTMLPreviewHandler>
-{ 
-   public static final GwtEvent.Type<ShowHTMLPreviewHandler> TYPE =
-      new GwtEvent.Type<ShowHTMLPreviewHandler>();
-   
+public class ShowHTMLPreviewEvent extends GwtEvent<ShowHTMLPreviewEvent.Handler>
+{
+   public static final Type<Handler> TYPE = new Type<>();
+
+   public interface Handler extends EventHandler
+   {
+      void onShowHTMLPreview(ShowHTMLPreviewEvent event);
+   }
+
    public ShowHTMLPreviewEvent(HTMLPreviewParams params)
    {
       params_ = params;
    }
-   
+
    public HTMLPreviewParams getParams()
    {
       return params_;
    }
-   
+
    @Override
-   protected void dispatch(ShowHTMLPreviewHandler handler)
+   protected void dispatch(Handler handler)
    {
       handler.onShowHTMLPreview(this);
    }
 
    @Override
-   public GwtEvent.Type<ShowHTMLPreviewHandler> getAssociatedType()
+   public Type<Handler> getAssociatedType()
    {
       return TYPE;
    }
-   
+
    private HTMLPreviewParams params_;
 }

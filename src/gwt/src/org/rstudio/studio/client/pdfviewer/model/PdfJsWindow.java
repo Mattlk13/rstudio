@@ -1,7 +1,7 @@
 /*
  * PdfJsWindow.java
  *
- * Copyright (C) 2009-14 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -374,7 +374,7 @@ public class PdfJsWindow extends WindowEx
       final double w = pdfLocation.getWidth() * factor;
       final double h = pdfLocation.getHeight() * factor;
       
-      final Value<Integer> retries = new Value<Integer>(0);
+      final Value<Integer> retries = new Value<>(0);
 
       // Sometimes pageContainer is null during load, so retry every 100ms
       // until it's not, or we've tried 40 times.

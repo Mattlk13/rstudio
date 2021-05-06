@@ -1,7 +1,7 @@
 /*
  * ChunkHeaderParser.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -37,7 +37,7 @@ class ChunkHeaderParser
          return null;
 
       // match atCount many ranges
-      ArrayList<Range> ranges = new ArrayList<Range>(atCount);
+      ArrayList<Range> ranges = new ArrayList<>(atCount);
       for (int i = 0; i < atCount; i++)
       {
          matchWhitespace();

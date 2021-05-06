@@ -1,7 +1,7 @@
 /*
  * transaction.ts
  *
- * Copyright (C) 2019-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -20,10 +20,14 @@ import { ReplaceStep, Step, Transform } from 'prosemirror-transform';
 
 import { sliceContentLength } from './slice';
 
+export const kPasteTransaction = 'paste';
 export const kSetMarkdownTransaction = 'setMarkdown';
 export const kAddToHistoryTransaction = 'addToHistory';
 export const kFixupTransaction = 'docFixup';
 export const kRestoreLocationTransaction = 'restoreLocation';
+export const kNavigationTransaction = 'navigationTransaction';
+export const kInsertSymbolTransaction = 'insertSymbol';
+export const kInsertCompletionTransaction = 'insertCompletion';
 
 export type TransactionsFilter = (transactions: Transaction[], oldState: EditorState, newState: EditorState) => boolean;
 
@@ -76,7 +80,7 @@ export class MarkTransaction {
 
 export interface AppendMarkTransactionHandler {
   name: string;
-  filter: (node: ProsemirrorNode) => boolean;
+  filter: (node: ProsemirrorNode, transactions: Transaction[]) => boolean;
   append: (tr: MarkTransaction, node: ProsemirrorNode, pos: number, state: EditorState) => void;
 }
 
@@ -106,7 +110,7 @@ export function appendMarkTransactionsPlugin(handlers: readonly AppendMarkTransa
             node = tr.doc.nodeAt(pos)!;
 
             // call the handler
-            if (handler.filter(node)) {
+            if (handler.filter(node, transactions)) {
               handler.append(markTr, node, pos, newState);
             }
           }

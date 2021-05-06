@@ -1,7 +1,7 @@
 /*
  * GlassPanel.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -40,13 +40,13 @@ public class GlassPanel extends ResizeComposite
    {
       glass_.setGlass(enabled);
    }
-   
+
    public Element getChildContainerElement()
    {
       return panel_.getWidgetContainerElement(child_);
    }
 
-   private LayoutPanel panel_;
-   private GlassAttacher glass_;
+   private final LayoutPanel panel_;
+   private final GlassAttacher glass_;
    private final Widget child_;
 }

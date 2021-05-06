@@ -55,6 +55,7 @@ var $alignCase                 = true; // case 'a':
    };
 
    this.checkOutdent = function(state, line, input) {
+      
       if (Utils.endsWith(state, "start")) {
 
          // private: / public: / protected
@@ -157,7 +158,6 @@ var $alignCase                 = true; // case 'a':
       var prevLine = null;
       if (row > 0)
          prevLine = doc.getLine(row - 1);
-      var indent = this.$getIndent(line);
 
       // Check for '<<', '.'alignment
       if ($alignStreamOut && this.alignStartToken("<<", session, row, line, prevLine))
@@ -366,7 +366,7 @@ var $alignCase                 = true; // case 'a':
                row: row,
                column: line.length
             },
-            new RegExp(/paren\.keyword\.operator/)
+            Utils.getTokenTypeRegex("paren")
          );
 
          if (openBracePos) {
@@ -397,7 +397,8 @@ var $alignCase                 = true; // case 'a':
             {
                row: row,
                column: /(\S)/.exec(line).index + 1
-            }
+            },
+            Utils.getTokenTypeRegex("paren")
          );
 
          if (openBracePos) {

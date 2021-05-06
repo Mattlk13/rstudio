@@ -1,7 +1,7 @@
 /*
  * FindInFilesState.java
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -50,6 +50,10 @@ public class FindInFilesState extends JavaScriptObject
       return this.path;
    }-*/;
 
+   public native final boolean isWholeWord() /*-{
+      return this.wholeWord;
+   }-*/;
+   
    public native final boolean isRegex() /*-{
       return this.regex;
    }-*/;

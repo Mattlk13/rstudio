@@ -1,7 +1,7 @@
 /*
  * ConnectionsPresenter.java
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * This program is licensed to you under the terms of version 3 of the
  * GNU Affero General Public License. This program is distributed WITHOUT
@@ -614,8 +614,8 @@ public class ConnectionsPresenter extends BasePresenter
    private Connection exploredConnection_;
    private Connection lastExploredConnection_;
    
-   private ArrayList<Connection> allConnections_ = new ArrayList<Connection>();
-   private ArrayList<ConnectionId> activeConnections_ = new ArrayList<ConnectionId>();
+   private ArrayList<Connection> allConnections_ = new ArrayList<>();
+   private ArrayList<ConnectionId> activeConnections_ = new ArrayList<>();
    
    private static boolean installersUpdated_ = false;
    private static String installersWarning_ = null;

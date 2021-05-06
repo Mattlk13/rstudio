@@ -1,7 +1,7 @@
 /*
  * LocalRepositoriesWidget.java
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -80,7 +80,7 @@ public class LocalRepositoriesWidget extends Composite
    }
    
    public ArrayList<String> getItems() {
-      ArrayList<String> items = new ArrayList<String>();
+      ArrayList<String> items = new ArrayList<>();
       int numItems = listBox_.getItemCount();
       for (int i = 0; i < numItems; ++i) {
          items.add(listBox_.getItemText(i));

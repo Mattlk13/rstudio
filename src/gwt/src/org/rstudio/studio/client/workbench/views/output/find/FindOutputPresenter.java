@@ -1,7 +1,7 @@
 /*
  * FindOutputPresenter.java
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -30,14 +30,12 @@ import org.rstudio.core.client.command.Handler;
 import org.rstudio.core.client.events.HasEnsureHiddenHandlers;
 import org.rstudio.core.client.events.HasSelectionCommitHandlers;
 import org.rstudio.core.client.events.SelectionCommitEvent;
-import org.rstudio.core.client.events.SelectionCommitHandler;
 import org.rstudio.core.client.files.FileSystemItem;
 import org.rstudio.core.client.js.JsObject;
 import org.rstudio.core.client.widget.Operation;
 import org.rstudio.core.client.widget.OperationWithInput;
 import org.rstudio.core.client.widget.ProgressBar;
 import org.rstudio.core.client.widget.events.SelectionChangedEvent;
-import org.rstudio.core.client.widget.events.SelectionChangedHandler;
 import org.rstudio.studio.client.application.events.EventBus;
 import org.rstudio.studio.client.common.GlobalDisplay;
 import org.rstudio.studio.client.common.SimpleRequestCallback;
@@ -82,22 +80,22 @@ public class FindOutputPresenter extends BasePresenter
 
       void ensureSelectedRowIsVisible();
 
-      HandlerRegistration addSelectionChangedHandler(SelectionChangedHandler handler);
+      HandlerRegistration addSelectionChangedHandler(SelectionChangedEvent.Handler handler);
 
       void showOverflow();
-      
+
       void showSearchCompleted();
 
-      void updateSearchLabel(String query, String path);
-      void updateSearchLabel(String query, String path, String replace);
-      void updateSearchLabel(String query, String path, String replace, int successCount,
-        int errorCount);
+      void updateSearchLabel(String query, String path, boolean wholeWord);
+      void updateSearchLabel(String query, String path, String replace, boolean wholeWord);
+      void updateSearchLabel(String query, String path, String replace, boolean wholeWord,
+                             int successCount, int errorCount);
       void clearSearchLabel();
 
       boolean getRegexPreviewMode();
       boolean getReplaceMode();
-      public void setRegexPreviewMode(boolean value);
-      public void setReplaceMode(boolean value);
+      void setRegexPreviewMode(boolean value);
+      void setReplaceMode(boolean value);
       HasClickHandlers getReplaceAllButton();
       String getReplaceText();
 
@@ -136,27 +134,19 @@ public class FindOutputPresenter extends BasePresenter
       workbenchContext_ = workbenchContext;
       fileServer_ = fileServer;
 
-      view_.addSelectionChangedHandler(new SelectionChangedHandler()
+      view_.addSelectionChangedHandler(selectionChangedEvent ->
       {
-         @Override
-         public void onSelectionChanged(SelectionChangedEvent e)
-         {
-            view_.ensureSelectedRowIsVisible();
-         }
+         view_.ensureSelectedRowIsVisible();
       });
 
-      view_.addSelectionCommitHandler(new SelectionCommitHandler<CodeNavigationTarget>()
+      view_.addSelectionCommitHandler((SelectionCommitEvent<CodeNavigationTarget> event) ->
       {
-         @Override
-         public void onSelectionCommit(SelectionCommitEvent<CodeNavigationTarget> event)
-         {
-            CodeNavigationTarget target = event.getSelectedItem();
-            if (target == null)
-               return;
+         CodeNavigationTarget target = event.getSelectedItem();
+         if (target == null)
+            return;
 
-            ftr.editFile(FileSystemItem.createFile(target.getFile()),
-                         target.getPosition());
-         }
+         ftr.editFile(FileSystemItem.createFile(target.getFile()),
+                      target.getPosition());
       });
 
       view_.getStopSearchButton().addClickHandler(new ClickHandler()
@@ -173,7 +163,7 @@ public class FindOutputPresenter extends BasePresenter
          @Override
          public void onFindResult(FindResultEvent event)
          {
-            if (event.getHandle() != currentFindHandle_)
+            if (!StringUtil.equals(event.getHandle(), currentFindHandle_))
                return;
 
             view_.ensureVisible(true);
@@ -197,7 +187,7 @@ public class FindOutputPresenter extends BasePresenter
          public void onFindOperationEnded(
                FindOperationEndedEvent event)
          {
-            if (event.getHandle() == currentFindHandle_)
+            if (StringUtil.equals(event.getHandle(), currentFindHandle_))
             {
                if (view_.getProgress().isVisible()) // check if a replace is in progress
                   events_.fireEvent(new ReplaceOperationEndedEvent(currentFindHandle_));
@@ -207,10 +197,7 @@ public class FindOutputPresenter extends BasePresenter
                view_.showSearchCompleted();
                // replace may have been previously disabled
                view_.enableReplace();
-               if (dialogState_.isRegex())
-                  view_.setRegexPreviewMode(true);
-               else
-                  view_.setRegexPreviewMode(false);
+               view_.setRegexPreviewMode(dialogState_.isRegex());
             }
          }
       });
@@ -280,6 +267,9 @@ public class FindOutputPresenter extends BasePresenter
          @Override
          public void onClick(ClickEvent event)
          {
+            if (dialogState_ == null)
+               return;
+
             String message = "Are you sure you wish to permanently replace all? This will ";
             if (StringUtil.isNullOrEmpty(view_.getReplaceText()))
                message += "remove ";
@@ -329,6 +319,7 @@ public class FindOutputPresenter extends BasePresenter
                                                       currentFindHandle_ = handle;
                                                       updateSearchLabel(dialogState_.getQuery(),
                                                                         dialogState_.getPath(),
+                                                                        dialogState_.isWholeWord(),
                                                                         dialogState_.isRegex(),
                                                                         view_.getReplaceText());
                                                    }
@@ -354,7 +345,7 @@ public class FindOutputPresenter extends BasePresenter
          @Override
          public void onReplaceResult(ReplaceResultEvent event)
          {
-            if (event.getHandle() != currentFindHandle_)
+            if (!StringUtil.equals(event.getHandle(), currentFindHandle_))
                return;
 
             // toggle replace mode so matches get added to context
@@ -376,7 +367,7 @@ public class FindOutputPresenter extends BasePresenter
             view_.setReplaceMode(false);
             view_.addMatches(results);
             view_.setReplaceMode(true);
-            
+
             view_.ensureVisible(true);
             view_.disableReplace();
          }
@@ -388,14 +379,18 @@ public class FindOutputPresenter extends BasePresenter
          public void onReplaceOperationEnded(
                ReplaceOperationEndedEvent event)
          {
-            if (event.getHandle() == currentFindHandle_)
+            if (StringUtil.equals(event.getHandle(), currentFindHandle_))
             {
                currentFindHandle_ = null;
                view_.hideProgress();
                view_.setStopReplaceButtonVisible(false);
-               updateSearchLabel(dialogState_.getQuery(), dialogState_.getPath(),
-                  dialogState_.isRegex(), view_.getReplaceText(), dialogState_.getErrorCount(),
-                  dialogState_.getResultsCount());
+               updateSearchLabel(dialogState_.getQuery(),
+                                 dialogState_.getPath(),
+                                 dialogState_.isWholeWord(),
+                                 dialogState_.isRegex(),
+                                 view_.getReplaceText(),
+                                 dialogState_.getErrorCount(),
+                                 dialogState_.getResultsCount());
             }
          }
       });
@@ -413,12 +408,12 @@ public class FindOutputPresenter extends BasePresenter
                dialogState_ = null;
                return;
             }
-            
+
             // convert project-relative path if needed
             boolean relative = false;
             if (value.hasKey("projectRelative"))
                relative = value.getBoolean("projectRelative");
-            
+
             if (relative)
             {
                FileSystemItem projDir = session_.getSessionInfo().getActiveProjectDir();
@@ -428,18 +423,18 @@ public class FindOutputPresenter extends BasePresenter
                   value.setString("path", projPath + value.getString("path"));
                }
             }
-            
+
             dialogState_ = value.cast();
          }
 
          @Override
          protected JsObject getValue()
          {
-            if (dialogState_ != null)
+            if (dialogState_ == null)
                return dialogState_.cast();
-            
+
             JsObject object = dialogState_.<JsObject>cast().clone();
-            
+
             // convert path to relative if path is project-relative
             FileSystemItem projDir = session_.getSessionInfo().getActiveProjectDir();
             if (projDir != null)
@@ -452,7 +447,7 @@ public class FindOutputPresenter extends BasePresenter
                   object.setBoolean("projectRelative", true);
                }
             }
-            
+
             return object;
          }
       };
@@ -466,7 +461,7 @@ public class FindOutputPresenter extends BasePresenter
       view_.clearMatches();
       view_.addMatches(state.getResults().toArrayList());
 
-      updateSearchLabel(state.getInput(), state.getPath(), state.isRegex());
+      updateSearchLabel(state.getInput(), state.getPath(), state.isWholeWord(), state.isRegex());
 
       if (state.isRunning())
          view_.setStopSearchButtonVisible(true);
@@ -498,10 +493,14 @@ public class FindOutputPresenter extends BasePresenter
 
             // find result always starts with !replaceMode
             view_.setReplaceMode(false);
-
             view_.disableReplace();
-            server_.beginFind(input.getQuery(),
-                              input.isRegex(),
+            
+            String serverQuery = input.getQuery();
+            if (input.isWholeWord())
+               serverQuery = "\\b" + serverQuery + "\\b";
+            
+            server_.beginFind(serverQuery,
+                              input.isRegex() || input.isWholeWord(),
                               !input.isCaseSensitive(),
                               searchPath,
                               includeFilePatterns,
@@ -514,6 +513,7 @@ public class FindOutputPresenter extends BasePresenter
                                     currentFindHandle_ = handle;
                                     updateSearchLabel(input.getQuery(),
                                                       input.getPath(),
+                                                      input.isWholeWord(),
                                                       input.isRegex());
                                     view_.setStopSearchButtonVisible(true);
 
@@ -572,7 +572,7 @@ public class FindOutputPresenter extends BasePresenter
 
       if (!StringUtil.isNullOrEmpty(event.getSearchPattern()))
          dialog.setSearchPattern(event.getSearchPattern());
-      
+
       if (dialogState_ == null)
       {
          dialog.setDirectory(
@@ -602,16 +602,16 @@ public class FindOutputPresenter extends BasePresenter
       view_.bringToFront();
    }
 
-   private void updateSearchLabel(String query, String path, boolean regex)
+   private void updateSearchLabel(String query, String path, boolean wholeWord, boolean regex)
    {
       if (regex)
          query = "/" + query + "/";
       else
          query = "\"" + query + "\"";
-      view_.updateSearchLabel(query, path);
+      view_.updateSearchLabel(query, path, wholeWord);
    }
 
-   private void updateSearchLabel(String query, String path, boolean regex,
+   private void updateSearchLabel(String query, String path, boolean wholeWord, boolean regex,
       String replace)
    {
       if (regex)
@@ -625,10 +625,10 @@ public class FindOutputPresenter extends BasePresenter
          replace = "\"" + replace + "\"";
       }
 
-      view_.updateSearchLabel(query, path, replace);
+      view_.updateSearchLabel(query, path, replace, wholeWord);
    }
 
-   private void updateSearchLabel(String query, String path, boolean regex,
+   private void updateSearchLabel(String query, String path, boolean wholeWord, boolean regex,
       String replace, int errorCount, int resultsCount)
    {
       if (regex)
@@ -642,7 +642,7 @@ public class FindOutputPresenter extends BasePresenter
          replace = "\"" + replace + "\"";
       }
       int successCount = resultsCount - errorCount;
-      view_.updateSearchLabel(query, path, replace, successCount, errorCount);
+      view_.updateSearchLabel(query, path, replace, wholeWord, successCount, errorCount);
    }
 
    private void stopAndClear()
@@ -663,7 +663,7 @@ public class FindOutputPresenter extends BasePresenter
       }
       view_.setStopSearchButtonVisible(false);
    }
-   
+
    private void stopReplace()
    {
       if (currentFindHandle_ != null)
@@ -685,9 +685,9 @@ public class FindOutputPresenter extends BasePresenter
    private final WorkbenchContext workbenchContext_;
    private final FilesServerOperations fileServer_;
    private final Commands commands_;
-   private EventBus events_;
+   private final EventBus events_;
 
    private static final String GROUP_FIND_IN_FILES = "find-replace-in-files";
    private static final String KEY_DIALOG_STATE = "dialog-state";
-   private GlobalDisplay globalDisplay_;
+   private final GlobalDisplay globalDisplay_;
 }

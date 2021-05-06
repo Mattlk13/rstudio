@@ -1,7 +1,7 @@
 /*
  * RpcRequest.java
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -166,15 +166,19 @@ public class RpcRequest
                   // default error message
                   String message = "Status code " + 
                                    Integer.toString(status) + 
-                                   " returned";
+                                   " returned by " +
+                                   (Desktop.isDesktop() ? "R session" : "RStudio Server") +
+                                   " when executing '" +
+                                   getMethod() + "'";
                   
                   // override error message for status code 0
                   if (status == 0)
                   {
-                     message = "Unable to establish connection with R session"; 
+                     message = "Unable to establish connection with " +
+                        (Desktop.isDesktop() ? "R session" : "RStudio Server") +
+                        " when executing '" + getMethod() + "'";
                   }
-                  
-                 
+
                   requestLogEntry_.logResponse(ResponseType.Unknown,
                                               message);
                   RpcError error = RpcError.create(

@@ -1,7 +1,7 @@
 /*
  * DocPropMenuItem.java
  *
- * Copyright (C) 2009-16 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -72,7 +72,7 @@ public class DocPropMenuItem extends CheckableMenuItem
    @Override
    public void onInvoked()
    {
-      HashMap<String, String> props = new HashMap<String, String>();
+      HashMap<String, String> props = new HashMap<>();
       String target = targetValue_;
       
       // toggle behavior for boolean values: if our target was true but the
@@ -95,6 +95,7 @@ public class DocPropMenuItem extends CheckableMenuItem
          public void onCompleted()
          {
             onStateChanged();
+            onUpdateComplete();
          }
          
          @Override
@@ -112,6 +113,10 @@ public class DocPropMenuItem extends CheckableMenuItem
          {
          }
       });
+   }
+   
+   protected void onUpdateComplete()
+   {
    }
    
    private DocUpdateSentinel docUpdate_;

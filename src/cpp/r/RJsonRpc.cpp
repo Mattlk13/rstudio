@@ -1,7 +1,7 @@
 /*
  * RJsonRpc.cpp
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -47,7 +47,7 @@
 #define R_INTERNAL_FUNCTIONS
 #include <r/RJsonRpc.hpp>
 
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 
 #include <shared_core/Error.hpp>
 #include <shared_core/FilePath.hpp>
@@ -57,7 +57,8 @@
 #include <r/RErrorCategory.hpp>
 #include <r/RJson.hpp>
 
-using namespace rstudio::core ;
+using namespace rstudio::core;
+using namespace boost::placeholders;
 
 namespace rstudio {
 namespace r {
@@ -68,10 +69,10 @@ namespace {
 Error setJsonResult(SEXP resultSEXP, core::json::JsonRpcResponse* pResponse)
 {   
    // get the result
-   core::json::Value resultValue ;
+   core::json::Value resultValue;
    Error error = jsonValueFromObject(resultSEXP, &resultValue);
    if (error)
-      return error ;
+      return error;
    
    // set the result and return success
    pResponse->setResult(resultValue);
@@ -88,18 +89,38 @@ Error callRHandler(const std::string& functionName,
    
    // add params
    const core::json::Array& params = request.params;
-   for (size_t i=0; i < params.getSize(); i++)
-      rFunction.addParam(params[i]);
+   for (size_t i = 0; i < params.getSize(); i++)
+   {
+      const core::json::Value& param = params[i];
+      if (param.isString())
+      {
+         rFunction.addUtf8Param(param.getString());
+      }
+      else
+      {
+         rFunction.addParam(param);
+      }
+   }
    
    // add kwparams
    const core::json::Object& kwparams = request.kwparams;
    for (const core::json::Object::Member& member : kwparams)
    {
-      rFunction.addParam(member.getName(), member.getValue());
+      const std::string& name = member.getName();
+      const core::json::Value& value = member.getValue();
+
+      if (value.isString())
+      {
+         rFunction.addUtf8Param(name, value.getString());
+      }
+      else
+      {
+         rFunction.addParam(name, value);
+      }
    }
    
    // call the function
-   return rFunction.call(pResult, pProtect);   
+   return rFunction.call(pResult, pProtect);
 }
 
 Error handleRequest(const std::string& rFunctionName,
@@ -132,8 +153,7 @@ Error getRpcMethods(core::json::JsonRpcMethods* pMethods)
    // populate function map
    pMethods->clear();
    std::string rpcPrefix(".rs.rpc.");
-   for (std::vector<std::string>::const_iterator 
-        it = rpcHandlers.begin();
+   for (auto it = rpcHandlers.begin();
         it != rpcHandlers.end();
         ++it)
    {

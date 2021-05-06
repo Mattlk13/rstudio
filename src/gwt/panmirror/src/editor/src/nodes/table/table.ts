@@ -1,7 +1,7 @@
 /*
  * table.ts
  *
- * Copyright (C) 2019-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -22,10 +22,13 @@ import { tableEditing, columnResizing, goToNextCell, deleteColumn, deleteRow } f
 import { findChildrenByType } from 'prosemirror-utils';
 
 import { EditorUI } from '../../api/ui';
-import { Extension } from '../../api/extension';
+import { Extension, ExtensionContext } from '../../api/extension';
 import { PandocExtensions } from '../../api/pandoc';
 import { BaseKey } from '../../api/basekeys';
 import { ProsemirrorCommand, EditorCommandId, exitNode } from '../../api/command';
+import { TableCapabilities } from '../../api/table';
+import { trTransform } from '../../api/transaction';
+import { PandocCapabilities } from '../../api/pandoc_capabilities';
 
 import {
   insertTable,
@@ -39,6 +42,7 @@ import {
   TableToggleHeaderCommand,
   TableToggleCaptionCommand,
   CssAlignment,
+  insertTableOmniInsert,
 } from './table-commands';
 
 import {
@@ -51,21 +55,14 @@ import {
 } from './table-nodes';
 
 import { fixupTableWidths } from './table-columns';
-
+import { TableContextMenuPlugin } from './table-contextmenu';
 import { tablePaste } from './table-paste';
 
 import 'prosemirror-tables/style/tables.css';
 import './table-styles.css';
-import { TableCapabilities } from '../../api/table';
-import { trTransform } from '../../api/transaction';
-import { tableContextMenu } from './table-contextmenu';
-import { PandocCapabilities } from '../../api/pandoc_capabilities';
 
-const extension = (
-  pandocExtensions: PandocExtensions, 
-  _caps: PandocCapabilities, 
-  ui: EditorUI)
-: Extension | null => {
+const extension = (context: ExtensionContext): Extension | null => {
+  const { pandocExtensions, ui } = context;
 
   // not enabled if there are no tables enabled
   if (
@@ -96,7 +93,12 @@ const extension = (
 
     commands: (_schema: Schema) => {
       const commands = [
-        new ProsemirrorCommand(EditorCommandId.TableInsertTable, ['Alt-Mod-t'], insertTable(capabilities, ui)),
+        new ProsemirrorCommand(
+          EditorCommandId.TableInsertTable,
+          ['Alt-Mod-t'],
+          insertTable(capabilities, ui),
+          insertTableOmniInsert(ui),
+        ),
         new ProsemirrorCommand(EditorCommandId.TableNextCell, ['Tab'], goToNextCell(1)),
         new ProsemirrorCommand(EditorCommandId.TablePreviousCell, ['Shift-Tab'], goToNextCell(-1)),
         new TableColumnCommand(EditorCommandId.TableAddColumnAfter, [], addColumns(true)),
@@ -127,7 +129,7 @@ const extension = (
         }),
         tableEditing(),
         tablePaste(),
-        tableContextMenu(schema, ui)
+        new TableContextMenuPlugin(schema, ui),
       ];
     },
 

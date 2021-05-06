@@ -1,7 +1,7 @@
 /*
  * DataImportColumnTypesMenu.java
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -82,9 +82,9 @@ public class DataImportColumnTypesMenu extends PopupPanel
       super(true);
       setWidget(uiBinder.createAndBindUi(this));
       
-      menuItemsMap_ = new HashMap<String, MenuItem>();
+      menuItemsMap_ = new HashMap<>();
       
-      menuItems_ = new ArrayList<MenuItem>();
+      menuItems_ = new ArrayList<>();
       menuItems_.add(new MenuItem("include", (Widget)include_));
       menuItems_.add(new MenuItem("skip", (Widget)skip_));
       menuItems_.add(new MenuItem("only", (Widget)only_));

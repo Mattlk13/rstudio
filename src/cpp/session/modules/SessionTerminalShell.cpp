@@ -1,7 +1,7 @@
 /*
  * SessionTerminalShell.cpp
  *
- * Copyright (C) 2009-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -15,15 +15,17 @@
 
 #include <session/SessionTerminalShell.hpp>
 
+#include <shared_core/FilePath.hpp>
+
 #include <core/Algorithm.hpp>
-#include <core/system/System.hpp>
+#include <core/FileUtils.hpp>
 #include <core/StringUtils.hpp>
+#include <core/system/System.hpp>
 
 #include <session/SessionModuleContext.hpp>
-#include "SessionGit.hpp"
 #include <session/prefs/UserPrefs.hpp>
-#include <shared_core/FilePath.hpp>
-#include <core/FileUtils.hpp>
+
+#include "SessionGit.hpp"
 
 namespace rstudio {
 namespace session {
@@ -305,11 +307,9 @@ core::FilePath getGitBashShell()
       gitBashPath = gitExePath.getParent().getParent().completePath("usr/bin/bash.exe");
       if (gitBashPath.exists())
          return gitBashPath;
-      else
-         return core::FilePath();
    }
-   else
-       return core::FilePath();
+   
+   return core::FilePath();
 }
 
 bool AvailableTerminalShells::getSystemShell(TerminalShell* pShellInfo)
@@ -319,12 +319,16 @@ bool AvailableTerminalShells::getSystemShell(TerminalShell* pShellInfo)
    pShellInfo->type = TerminalShell::ShellType::Cmd64;
    pShellInfo->name = "Command Prompt";
 #else
+   
+   // use default bash shell
    pShellInfo->name = "Bash";
    pShellInfo->type = TerminalShell::ShellType::PosixBash;
    pShellInfo->path = core::FilePath("/usr/bin/env");
    pShellInfo->args.emplace_back("bash");
-   pShellInfo->args.emplace_back("-l"); // act like a login shell
+   pShellInfo->args.emplace_back("-l");  // act like a login shell
+   
 #endif
+   
    return true;
 }
 

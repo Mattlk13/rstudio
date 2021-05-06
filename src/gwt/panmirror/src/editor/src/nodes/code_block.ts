@@ -1,7 +1,7 @@
 /*
  * code_block.ts
  *
- * Copyright (C) 2019-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -14,7 +14,6 @@
  */
 
 import { Node as ProsemirrorNode, Schema } from 'prosemirror-model';
-import { textblockTypeInputRule, InputRule } from 'prosemirror-inputrules';
 import { newlineInCode, exitCode } from 'prosemirror-commands';
 import { EditorState, Transaction } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
@@ -22,25 +21,22 @@ import { EditorView } from 'prosemirror-view';
 import { findParentNodeOfType } from 'prosemirror-utils';
 
 import { BlockCommand, EditorCommandId, ProsemirrorCommand, toggleBlockType } from '../api/command';
-import { Extension } from '../api/extension';
+import { Extension, ExtensionContext } from '../api/extension';
 import { BaseKey } from '../api/basekeys';
 import { codeNodeSpec } from '../api/code';
 import { PandocOutput, PandocTokenType, PandocExtensions } from '../api/pandoc';
 import { pandocAttrSpec, pandocAttrParseDom, pandocAttrToDomAttr } from '../api/pandoc_attr';
 import { PandocCapabilities } from '../api/pandoc_capabilities';
-import { EditorUI, CodeBlockProps } from '../api/ui';
+import { EditorUI } from '../api/ui';
+import { CodeBlockProps } from '../api/ui-dialogs';
 import { hasFencedCodeBlocks } from '../api/pandoc_format';
 import { precedingListItemInsertPos, precedingListItemInsert } from '../api/list';
-import { EditorFormat } from '../api/format';
 import { EditorOptions } from '../api/options';
+import { OmniInsertGroup } from '../api/omni_insert';
 
-const extension = (
-  pandocExtensions: PandocExtensions,
-  pandocCapabilities: PandocCapabilities,
-  ui: EditorUI,
-  _format: EditorFormat,
-  options: EditorOptions,
-): Extension => {
+const extension = (context: ExtensionContext): Extension => {
+  const { pandocExtensions, pandocCapabilities, ui, options } = context;
+
   const hasAttr = hasFencedCodeBlocks(pandocExtensions);
 
   return {
@@ -128,16 +124,24 @@ const extension = (
         { key: BaseKey.ShiftEnter, command: exitCode },
       ];
     },
-
-    inputRules: (schema: Schema) => {
-      return [textblockTypeInputRule(/^```$/, schema.nodes.code_block), codeBlockListItemInputRule(schema)];
-    },
   };
 };
 
 class CodeBlockFormatCommand extends ProsemirrorCommand {
   constructor(pandocExtensions: PandocExtensions, ui: EditorUI, languages: string[]) {
-    super(EditorCommandId.CodeBlockFormat, ['Shift-Mod-\\'], codeBlockFormatCommandFn(pandocExtensions, ui, languages));
+    super(
+      EditorCommandId.CodeBlockFormat,
+      ['Shift-Mod-\\'],
+      codeBlockFormatCommandFn(pandocExtensions, ui, languages),
+      {
+        name: ui.context.translateText('Code Block...'),
+        description: ui.context.translateText('Source code display'),
+        group: OmniInsertGroup.Blocks,
+        priority: 7,
+        image: () =>
+          ui.prefs.darkMode() ? ui.images.omni_insert?.code_block_dark! : ui.images.omni_insert?.code_block!,
+      },
+    );
   }
 }
 
@@ -224,7 +228,7 @@ function propsWithLangClass(props: CodeBlockProps) {
   return newProps;
 }
 
-// determine the code block language. if it's an Rmd example (i.e. with `r ''`) and 
+// determine the code block language. if it's an Rmd example (i.e. with `r ''`) and
 // we have rmdExampleHighlight enabled then use the Rmd chunk language for highlighting
 function codeBlockLang(node: ProsemirrorNode, options: EditorOptions) {
   if (node.attrs.classes && node.attrs.classes.length) {
@@ -253,7 +257,7 @@ function codeBlockAttrEdit(pandocExtensions: PandocExtensions, pandocCapabilitie
           }
           if (node.attrs.classes && node.attrs.classes.length) {
             const lang = node.attrs.classes[0];
-            if (pandocCapabilities.highlight_languages.includes(lang)) {
+            if (pandocCapabilities.highlight_languages.includes(lang) || lang === 'tex') {
               tags.push(lang);
             } else {
               tags.push(`.${lang}`);
@@ -261,27 +265,16 @@ function codeBlockAttrEdit(pandocExtensions: PandocExtensions, pandocCapabilitie
           }
           return tags;
         },
+        offset: {
+          top: 3,
+          right: 0,
+        },
         editFn: () => codeBlockFormatCommandFn(pandocExtensions, ui, pandocCapabilities.highlight_languages),
       };
     } else {
       return null;
     }
   };
-}
-
-function codeBlockListItemInputRule(schema: Schema) {
-  return new InputRule(/^```$/, (state: EditorState, match: string[], start: number, end: number) => {
-    const prevListItemPos = precedingListItemInsertPos(state.doc, state.selection, '``');
-    if (!prevListItemPos) {
-      return null;
-    }
-
-    const tr = state.tr;
-    tr.deleteRange(start, end);
-    const block = state.schema.nodes.code_block.create();
-    precedingListItemInsert(tr, prevListItemPos, block);
-    return tr;
-  });
 }
 
 export default extension;

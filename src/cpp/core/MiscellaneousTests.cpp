@@ -1,7 +1,7 @@
 /*
  * MiscellaneousTests.cpp
  *
- * Copyright (C) 2009-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -29,6 +29,7 @@
 #include <core/system/Types.hpp>
 
 namespace rstudio {
+namespace core {
 namespace unit_tests {
 
 using namespace core::collection;
@@ -52,6 +53,18 @@ private:
    std::streambuf* pCoutBuf_;
    std::streambuf* pCerrBuf_;
 };
+
+test_context("Errors")
+{
+   test_that("Success() can be logged")
+   {
+      // attempts to log default-constructed Error objects could segfault
+      // https://github.com/rstudio/rstudio/issues/9113
+      Error error;
+      LOG_ERROR(error);
+      LOG_ERROR(Success());
+   }
+}
 
 test_context("Position")
 {
@@ -277,4 +290,5 @@ test_context("Options")
 }
 
 } // namespace unit_tests
+} // namespace core
 } // namespace rstudio

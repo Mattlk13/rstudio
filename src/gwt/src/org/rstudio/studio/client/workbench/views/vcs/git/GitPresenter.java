@@ -1,7 +1,7 @@
 /*
  * GitPresenter.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -36,14 +36,12 @@ import org.rstudio.studio.client.common.SimpleRequestCallback;
 import org.rstudio.studio.client.common.satellite.SatelliteManager;
 import org.rstudio.studio.client.common.vcs.StatusAndPath;
 import org.rstudio.studio.client.common.vcs.GitServerOperations;
-import org.rstudio.studio.client.server.Void;
 import org.rstudio.studio.client.vcs.VCSApplicationParams;
 import org.rstudio.studio.client.workbench.WorkbenchView;
 import org.rstudio.studio.client.workbench.commands.Commands;
 import org.rstudio.studio.client.workbench.views.vcs.BaseVcsPresenter;
 import org.rstudio.studio.client.workbench.views.vcs.common.VCSFileOpener;
 import org.rstudio.studio.client.workbench.views.vcs.common.events.VcsRefreshEvent;
-import org.rstudio.studio.client.workbench.views.vcs.common.events.VcsRefreshHandler;
 import org.rstudio.studio.client.workbench.views.vcs.common.model.GitHubViewRequest;
 import org.rstudio.studio.client.workbench.views.vcs.git.model.GitState;
 
@@ -66,7 +64,7 @@ public class GitPresenter extends BaseVcsPresenter implements IsWidget
                                           SelectionChangeEvent.Handler handler);
 
       GitChangelistTable getChangelistTable();
-      
+
       void showContextMenu(int clientX, int clientY);
    }
 
@@ -93,7 +91,7 @@ public class GitPresenter extends BaseVcsPresenter implements IsWidget
 
       commandBinder.bind(commands, this);
 
-      gitState_.addVcsRefreshHandler(new VcsRefreshHandler()
+      gitState_.addVcsRefreshHandler(new VcsRefreshEvent.Handler()
       {
          @Override
          public void onVcsRefresh(VcsRefreshEvent event)
@@ -141,13 +139,13 @@ public class GitPresenter extends BaseVcsPresenter implements IsWidget
             }
          }
       });
-      
+
       view_.getChangelistTable().addContextMenuHandler(new ContextMenuHandler(){
          @Override
          public void onContextMenu(ContextMenuEvent event)
          {
             NativeEvent nativeEvent = event.getNativeEvent();
-            view_.showContextMenu(nativeEvent.getClientX(), 
+            view_.showContextMenu(nativeEvent.getClientX(),
                                   nativeEvent.getClientY());
          }
       });
@@ -184,28 +182,28 @@ public class GitPresenter extends BaseVcsPresenter implements IsWidget
    {
       showChanges(view_.getSelectedItems());
    }
-   
+
    private void showChanges(ArrayList<StatusAndPath> items)
    {
       showReviewPane(false, null, items);
    }
-   
-   private void showReviewPane(boolean showHistory, 
+
+   private void showReviewPane(boolean showHistory,
                                FileSystemItem historyFileFilter,
                                ArrayList<StatusAndPath> items)
    {
       // setup params
       VCSApplicationParams params = VCSApplicationParams.create(
-                                          showHistory, 
+                                          showHistory,
                                           historyFileFilter,
                                           items);
-      
-      // open the window 
-      satelliteManager_.openSatellite("review_changes",     
+
+      // open the window
+      satelliteManager_.openSatellite("review_changes",
                                       params,
-                                      new Size(1000,1200)); 
+                                      new Size(1000,1200));
    }
-   
+
    @Handler
    void onVcsRevert()
    {
@@ -220,17 +218,16 @@ public class GitPresenter extends BaseVcsPresenter implements IsWidget
             view_.getChangelistTable().selectNextUnselectedItem();
             view_.getChangelistTable().focus();
          }
-         
+
       });
    }
-   
+
    @Handler
    void onVcsOpen()
    {
       openSelectedFiles();
    }
 
- 
    @Override
    public void onVcsCommit()
    {
@@ -242,13 +239,13 @@ public class GitPresenter extends BaseVcsPresenter implements IsWidget
    {
       showHistory(null);
    }
-   
+
    @Override
    public void onVcsPull()
    {
       gitPresenterCore_.onVcsPull();
    }
-   
+
    @Override
    public void onVcsPullRebase()
    {
@@ -260,24 +257,24 @@ public class GitPresenter extends BaseVcsPresenter implements IsWidget
    {
       gitPresenterCore_.onVcsPush();
    }
-   
+
    @Override
    public void onVcsIgnore()
    {
       gitPresenterCore_.onVcsIgnore(view_.getSelectedItems());
    }
-   
+
    @Override
    public void showHistory(FileSystemItem fileFilter)
    {
-      showReviewPane(true, fileFilter, new ArrayList<StatusAndPath>());
+      showReviewPane(true, fileFilter, new ArrayList<>());
    }
-   
+
    @Override
    public void showDiff(FileSystemItem file)
    {
       // build an ArrayList<StatusAndPath> so we can call the core helper
-      ArrayList<StatusAndPath> diffList = new ArrayList<StatusAndPath>();
+      ArrayList<StatusAndPath> diffList = new ArrayList<>();
       for (StatusAndPath item :  gitState_.getStatus())
       {
          if (item.getRawPath() == file.getPath())
@@ -286,7 +283,7 @@ public class GitPresenter extends BaseVcsPresenter implements IsWidget
             break;
          }
       }
-      
+
       if (diffList.size() > 0)
       {
          showChanges(diffList);
@@ -294,18 +291,18 @@ public class GitPresenter extends BaseVcsPresenter implements IsWidget
       else
       {
          globalDisplay_.showMessage(MessageDialog.INFO,
-                                    "No Changes to File", 
-                                    "There are no changes to the file \"" + 
+                                    "No Changes to File",
+                                    "There are no changes to the file \"" +
                                     file.getName() + "\" to diff.");
       }
-      
+
    }
-   
+
    @Override
    public void revertFile(FileSystemItem file)
    {
       // build an ArrayList<String> so we can call the core helper
-      ArrayList<String> revertList = new ArrayList<String>();
+      ArrayList<String> revertList = new ArrayList<>();
       for (StatusAndPath item :  gitState_.getStatus())
       {
          if (item.getRawPath() == file.getPath())
@@ -314,7 +311,7 @@ public class GitPresenter extends BaseVcsPresenter implements IsWidget
             break;
          }
       }
-      
+
       if (revertList.size() > 0)
       {
          doRevert(revertList, null);
@@ -322,16 +319,15 @@ public class GitPresenter extends BaseVcsPresenter implements IsWidget
       else
       {
          globalDisplay_.showMessage(MessageDialog.INFO,
-                                    "No Changes to Revert", 
-                                    "There are no changes to the file \"" + 
+                                    "No Changes to Revert",
+                                    "There are no changes to the file \"" +
                                     file.getName() + "\" to revert.");
       }
-      
-      
+
+
    }
-   
-  
-   private void doRevert(final ArrayList<String> revertList, 
+
+   private void doRevert(final ArrayList<String> revertList,
                          final Command onRevertConfirmed)
    {
       String noun = revertList.size() == 1 ? "file" : "files";
@@ -347,16 +343,16 @@ public class GitPresenter extends BaseVcsPresenter implements IsWidget
                {
                   if (onRevertConfirmed != null)
                      onRevertConfirmed.execute();
-                  
+
                   server_.gitRevert(
                         revertList,
-                        new SimpleRequestCallback<Void>("Revert Changes"));
-                  
+                        new SimpleRequestCallback<>("Revert Changes"));
+
                }
             },
             false);
    }
-   
+
    @Override
    public void viewOnGitHub(final GitHubViewRequest viewRequest)
    {
@@ -365,19 +361,19 @@ public class GitPresenter extends BaseVcsPresenter implements IsWidget
          view = "blob";
       else if (viewRequest.getViewType() == GitHubViewRequest.VCS_BLAME)
          view = "blame";
-      
+
       final String path = viewRequest.getFile().getPath();
-      server_.gitGithubRemoteUrl(view, 
-                                 path, 
+      server_.gitGithubRemoteUrl(view,
+                                 path,
                                  new SimpleRequestCallback<String>() {
-         
+
          @Override
          public void onResponseReceived(String url)
          {
             if (url.length() == 0)
             {
                globalDisplay_.showErrorMessage(
-                     "Error", 
+                     "Error",
                      "Unable to view " + path + " on GitHub.\n\n" +
                      "Are you sure that this file is on GitHub and is " +
                      "contained in the currently active project?");
@@ -388,18 +384,18 @@ public class GitPresenter extends BaseVcsPresenter implements IsWidget
                   url += "#L" + viewRequest.getStartLine();
                if (viewRequest.getEndLine() != viewRequest.getStartLine())
                   url += "-L" + viewRequest.getEndLine();
-               
+
                globalDisplay_.openWindow(url);
             }
          }
       });
    }
-   
+
    @Override
    public void onVcsCleanup()
    {
       // svn specific, not supported by git
-      
+
    }
 
    private final Display view_;
@@ -409,5 +405,5 @@ public class GitPresenter extends BaseVcsPresenter implements IsWidget
    private final GitState gitState_;
    private final GlobalDisplay globalDisplay_;
    private final SatelliteManager satelliteManager_;
-   private final VCSFileOpener vcsFileOpener_; 
+   private final VCSFileOpener vcsFileOpener_;
 }

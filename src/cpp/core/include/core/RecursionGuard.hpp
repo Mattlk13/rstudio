@@ -1,7 +1,7 @@
 /*
  * RecursionGuard.hpp
  *
- * Copyright (C) 2009-14 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -12,6 +12,9 @@
  * AGPL (http://www.gnu.org/licenses/agpl-3.0.txt) for more details.
  *
  */
+
+#ifndef CORE_RECURSION_GUARD_HPP
+#define CORE_RECURSION_GUARD_HPP
 
 #include <boost/utility.hpp>
 
@@ -39,3 +42,5 @@ private:
 
 }
 }
+
+#endif /* CORE_RECURSION_GUARD_HPP */

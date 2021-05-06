@@ -1,7 +1,7 @@
 /*
  * cite-highlight.ts
  *
- * Copyright (C) 2019-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -23,6 +23,6 @@ const key = new PluginKey<DecorationSet>('cite-highlight');
 
 export function citeHighlightPlugin(schema: Schema) {
   return markHighlightPlugin(key, schema.marks.cite, (text, _attrs, markRange) => {
-    return markHighlightDecorations(markRange, text, /(^\[|\]$)/g, 'pm-markup-text-color pm-fixedwidth-font');
+    return markHighlightDecorations(markRange, text, /([\[\]])/g, 'pm-link-text-color pm-fixedwidth-font');
   });
 }

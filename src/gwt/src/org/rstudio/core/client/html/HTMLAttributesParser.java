@@ -1,7 +1,7 @@
 /*
  * HTMLAttributesParser.java
  *
- * Copyright (C) 2009-16 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -63,9 +63,9 @@ public class HTMLAttributesParser
       public Parser(String attributes)
       {
          attributes_ = StringUtil.notNull(attributes).trim();
-         map_ = new HashMap<String, String>();
+         map_ = new HashMap<>();
          identifier_ = "";
-         classes_ = new ArrayList<String>();
+         classes_ = new ArrayList<>();
          
          index_ = 0;
          n_ = attributes.length();

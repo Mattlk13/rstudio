@@ -1,7 +1,7 @@
 /*
  * SessionHTMLPreview.cpp
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -16,17 +16,15 @@
 
 #include "SessionHTMLPreview.hpp"
 
-#include <boost/bind.hpp>
 #include <boost/format.hpp>
 #include <boost/enable_shared_from_this.hpp>
-
+#include <boost/algorithm/string/join.hpp>
+#include <boost/algorithm/string/predicate.hpp>
 #include <boost/iostreams/copy.hpp>
 #include <boost/iostreams/concepts.hpp>
 #include <boost/iostreams/filter/regex.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
-
-#include <boost/algorithm/string/join.hpp>
-#include <boost/algorithm/string/predicate.hpp>
+#include <boost/bind/bind.hpp>
 
 #include <shared_core/Error.hpp>
 #include <core/Exec.hpp>
@@ -57,6 +55,7 @@
 #define kHTMLPreviewLocation "/" kHTMLPreview "/"
 
 using namespace rstudio::core;
+using namespace boost::placeholders;
 
 namespace rstudio {
 namespace session {
@@ -871,7 +870,7 @@ void handleInternalMarkdownPreviewRequest(
       std::istringstream previewInputStream(previewTemplate);
       std::stringstream previewStrStream;
       previewStrStream.exceptions(std::istream::failbit | std::istream::badbit);
-      boost::iostreams::filtering_ostream previewOutputStream ;
+      boost::iostreams::filtering_ostream previewOutputStream;
       previewOutputStream.push(templateFilter);
       previewOutputStream.push(imageFilter);
       previewOutputStream.push(previewStrStream);
@@ -1144,7 +1143,7 @@ Error initialize()
 
    using boost::bind;
    using namespace module_context;
-   ExecBlock initBlock ;
+   ExecBlock initBlock;
    initBlock.addFunctions()
       (bind(sourceModuleRFile, "SessionHTMLPreview.R"))
       (bind(registerRpcMethod, "preview_html", previewHTML))

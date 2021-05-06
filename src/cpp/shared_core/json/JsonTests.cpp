@@ -1,7 +1,7 @@
 /*
  * JsonTests.cpp
  *
- * Copyright (C) 2018-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -83,12 +83,6 @@ json::Object returnObject()
    REQUIRE(!val.parse(jsonStr));
 
    return val.getValue<json::Object>();
-}
-
-json::Value createValue()
-{
-   json::Object obj = createObject();
-   return std::move(obj);
 }
 
 json::Value getValue()
@@ -453,14 +447,6 @@ TEST_CASE("Json")
          arr.end());
 
       REQUIRE(arr.getSize() == 0);
-   }
-
-   SECTION("Test self assignment")
-   {
-      json::Value val = createValue();
-      val = val;
-
-      REQUIRE(val.getObject()["a"].getBool());
    }
 
    SECTION("Unicode string test")

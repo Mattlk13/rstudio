@@ -1,7 +1,7 @@
 /*
  * JavaScriptSerializerGenerator.java
  *
- * Copyright (C) 2009-15 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -40,7 +40,7 @@ public class JavaScriptSerializerGenerator extends Generator
                             String typeName) throws UnableToCompleteException
     {
        TypeOracle oracle = context.getTypeOracle();
-       List<JClassType> classes = new ArrayList<JClassType>();
+       List<JClassType> classes = new ArrayList<>();
        
        // locate all the types annotated with JavaScriptSerializable
        for (JClassType classType : oracle.getTypes())

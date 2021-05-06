@@ -1,7 +1,7 @@
 /*
  * PanmirrorLangSuggestBox.java
  *
- * Copyright (C) 2009-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -59,7 +59,7 @@ public class PanmirrorLangSuggestBox extends SuggestBox
          {
             String query = request.getQuery();
             
-            ArrayList<Suggestion> suggestions = new ArrayList<Suggestion>();
+            ArrayList<Suggestion> suggestions = new ArrayList<>();
             for (int i=0; i<languages.length; i++)
             {
                String language = languages[i];

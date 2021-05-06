@@ -1,7 +1,7 @@
 #
 # SessionConnectionsInstaller.R
 #
-# Copyright (C) 2009-18 by RStudio, PBC
+# Copyright (C) 2021 by RStudio, PBC
 #
 # Unless you have received this program directly from RStudio pursuant
 # to the terms of a commercial license agreement with RStudio, then
@@ -354,6 +354,11 @@
 })
 
 .rs.addFunction("odbcBundleReadIni", function(odbcinstPath) {
+
+   # return nothing if file doesn't exist
+   if (!file.exists(odbcinstPath))
+      return(list())
+
    lines <- readLines(odbcinstPath)
    data <- list()
    
@@ -361,7 +366,7 @@
    
    for (line in lines) {
       # Is header?
-      if (grepl(" *\\[[^]]+\\] *", line)) {
+      if (grepl("^ *\\[[^]]+\\] *", line)) {
          currentDriver <- gsub("^ *\\[|\\] *", "", line)
          data[[currentDriver]] <- ""
       }

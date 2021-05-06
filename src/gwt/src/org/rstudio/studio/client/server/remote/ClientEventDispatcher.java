@@ -1,7 +1,7 @@
 /*
  * ClientEventDispatcher.java
  *
- * Copyright (C) 2009-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -18,9 +18,11 @@ package org.rstudio.studio.client.server.remote;
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.core.client.JavaScriptObject;
 import com.google.gwt.core.client.JsArray;
+import com.google.gwt.core.client.JsArrayString;
 import com.google.gwt.core.client.Scheduler;
 import com.google.gwt.core.client.Scheduler.RepeatingCommand;
 
+import org.rstudio.core.client.command.CommandCallbacksChangedEvent;
 import org.rstudio.core.client.events.ExecuteAppCommandEvent;
 import org.rstudio.core.client.events.HighlightEvent;
 import org.rstudio.core.client.files.FileSystemItem;
@@ -55,6 +57,8 @@ import org.rstudio.studio.client.common.synctex.events.SynctexEditFileEvent;
 import org.rstudio.studio.client.common.synctex.model.SourceLocation;
 import org.rstudio.studio.client.events.EditorCommandDispatchEvent;
 import org.rstudio.studio.client.events.EditorCommandEvent;
+import org.rstudio.studio.client.events.RStudioApiRequestEvent;
+import org.rstudio.studio.client.events.ReticulateEvent;
 import org.rstudio.studio.client.htmlpreview.events.HTMLPreviewCompletedEvent;
 import org.rstudio.studio.client.htmlpreview.events.HTMLPreviewOutputEvent;
 import org.rstudio.studio.client.htmlpreview.events.HTMLPreviewStartedEvent;
@@ -95,6 +99,7 @@ import org.rstudio.studio.client.rsconnect.events.RSConnectDeploymentCompletedEv
 import org.rstudio.studio.client.rsconnect.events.RSConnectDeploymentFailedEvent;
 import org.rstudio.studio.client.rsconnect.events.RSConnectDeploymentOutputEvent;
 import org.rstudio.studio.client.server.Bool;
+import org.rstudio.studio.client.server.model.DocumentCloseAllNoSaveEvent;
 import org.rstudio.studio.client.server.model.RequestDocumentCloseEvent;
 import org.rstudio.studio.client.server.model.RequestDocumentSaveEvent;
 import org.rstudio.studio.client.shiny.events.ShinyApplicationStatusEvent;
@@ -135,6 +140,7 @@ import org.rstudio.studio.client.workbench.views.edit.model.ShowEditorData;
 import org.rstudio.studio.client.workbench.views.environment.events.*;
 import org.rstudio.studio.client.workbench.views.environment.model.DebugSourceResult;
 import org.rstudio.studio.client.workbench.views.environment.model.EnvironmentContextData;
+import org.rstudio.studio.client.workbench.views.environment.model.MemoryUsage;
 import org.rstudio.studio.client.workbench.views.environment.model.RObject;
 import org.rstudio.studio.client.workbench.views.files.events.DirectoryNavigateEvent;
 import org.rstudio.studio.client.workbench.views.files.events.FileChangeEvent;
@@ -591,6 +597,11 @@ public class ClientEventDispatcher
             String objectName = event.getData();
             eventBus_.dispatchEvent(new EnvironmentObjectRemovedEvent(objectName));
          }
+         else if (type == ClientEvent.EnvironmentChanged)
+         {
+            EnvironmentChangedEvent.Data data = event.getData();
+            eventBus_.dispatchEvent(new EnvironmentChangedEvent(data));
+         }
          else if (type == ClientEvent.BrowserLineChanged)
          {
             LineData lineData = event.getData();
@@ -740,6 +751,11 @@ public class ClientEventDispatcher
          {
             SessionCountChangedEvent.Data data = event.getData();
             eventBus_.dispatchEvent(new SessionCountChangedEvent(data));
+         }
+         else if (type == ClientEvent.SessionLabelChanged)
+         {
+            SessionLabelChangedEvent.Data data = event.getData();
+            eventBus_.dispatchEvent(new SessionLabelChangedEvent(data));
          }
          else if (type == ClientEvent.CollabEditEnded)
          {
@@ -1061,6 +1077,30 @@ public class ClientEventDispatcher
             TutorialLaunchEvent.Data data = event.getData();
             eventBus_.dispatchEvent(new TutorialLaunchEvent(data));
          }
+         else if (type == ClientEvent.ReticulateEvent)
+         {
+            ReticulateEvent.Data data = event.getData();
+            eventBus_.dispatchEvent(new ReticulateEvent(data));
+         }
+         else if (type == ClientEvent.RStudioApiRequest)
+         {
+            RStudioApiRequestEvent.Data data = event.getData();
+            eventBus_.dispatchEvent(new RStudioApiRequestEvent(data));
+         }
+         else if (type == ClientEvent.DocumentCloseAllNoSave)
+         {
+            eventBus_.dispatchEvent(new DocumentCloseAllNoSaveEvent());
+         }
+         else if (type == ClientEvent.MemoryUsageChanged)
+         {
+            MemoryUsage data = event.getData();
+            eventBus_.dispatchEvent(new MemoryUsageChangedEvent(data));
+         }
+         else if (type == ClientEvent.CommandCallbacksChanged)
+         {
+            JsArrayString commands = event.getData();
+            eventBus_.dispatchEvent(new CommandCallbacksChangedEvent(commands));
+         }
          else
          {
             GWT.log("WARNING: Server event not dispatched: " + type, null);
@@ -1075,7 +1115,7 @@ public class ClientEventDispatcher
 
    private final EventBus eventBus_;
 
-   private final ArrayList<ClientEvent> pendingEvents_ = new ArrayList<ClientEvent>();
-   
+   private final ArrayList<ClientEvent> pendingEvents_ = new ArrayList<>();
+
 
 }

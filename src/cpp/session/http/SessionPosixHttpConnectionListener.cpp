@@ -1,7 +1,7 @@
 /*
  * SessionPosixHttpConnectionListener.cpp
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -23,11 +23,12 @@
 #include <session/SessionConstants.hpp>
 #include <session/SessionOptions.hpp>
 #include <session/SessionLocalStreams.hpp>
+#include <session/SessionPersistentState.hpp>
 
 #include "SessionTcpIpHttpConnectionListener.hpp"
 #include "SessionLocalStreamHttpConnectionListener.hpp"
 
-using namespace rstudio::core ;
+using namespace rstudio::core;
 
 namespace rstudio {
 namespace session {
@@ -75,7 +76,7 @@ void initializeHttpConnectionListener()
          // simply bind to all ipv6 interfaces. we prefer non-loopback ipv4 or non-link local ipv6
          if (wwwAddress == "0.0.0.0")
          {
-            std::vector<core::system::IpAddress> addrs;
+            std::vector<core::system::posix::IpAddress> addrs;
             Error error = core::system::ipAddresses(&addrs, true);
             if (!error)
             {
@@ -84,10 +85,10 @@ void initializeHttpConnectionListener()
                bool hasIpv4 = false;
                bool hasIpv6 = false;
 
-               for (const core::system::IpAddress& ip : addrs)
+               for (const core::system::posix::IpAddress& ip : addrs)
                {
                   boost::system::error_code ec;
-                  boost::asio::ip::address addr = boost::asio::ip::address::from_string(ip.addr);
+                  boost::asio::ip::address addr = boost::asio::ip::address::from_string(ip.Address);
 
                   if (addr.is_v4())
                   {
@@ -98,7 +99,7 @@ void initializeHttpConnectionListener()
                   else if (addr.is_v6())
                   {
                      hasIpv6 = true;
-                     if (!addr.is_loopback() && ip.addr.find("%") == std::string::npos)
+                     if (!addr.is_loopback() && ip.Address.find("%") == std::string::npos)
                         hasNonLocalIpv6 = true;
                   }
                }
@@ -111,7 +112,17 @@ void initializeHttpConnectionListener()
             }
          }
 
-         s_pHttpConnectionListener = new TcpIpHttpConnectionListener(wwwAddress, options.wwwPort(), "");
+         // reuse the port we were bound to before restart if specified - this is done
+         // to enable smooth session restarts for launcher sessions
+         std::string bindPort = options.wwwPort();
+         if (bindPort == "0" && options.wwwReusePorts())
+         {
+            std::string reusedPort = persistentState().reusedStandalonePort();
+            if (!reusedPort.empty())
+               bindPort = reusedPort;
+         }
+
+         s_pHttpConnectionListener = new TcpIpHttpConnectionListener(wwwAddress, bindPort, "");
       }
       else
       {

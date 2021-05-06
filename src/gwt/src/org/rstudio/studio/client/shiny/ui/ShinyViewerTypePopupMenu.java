@@ -1,7 +1,7 @@
 /*
  * ShinyViewerTypePopupMenu.java
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -41,9 +41,9 @@ public class ShinyViewerTypePopupMenu extends ToolbarPopupMenu
       addSeparator();
       addItem(commands.shinyRunInBrowser().createMenuItem(false));
       addSeparator();
-      addItem(new UserPrefMenuItem<Boolean>(prefs.shinyBackgroundJobs(), 
+      addItem(new UserPrefMenuItem<>(prefs.shinyBackgroundJobs(), 
             false, "In R Console", prefs));
-      addItem(new UserPrefMenuItem<Boolean>(prefs.shinyBackgroundJobs(), 
+      addItem(new UserPrefMenuItem<>(prefs.shinyBackgroundJobs(), 
             true, "In Background Job", prefs));
       addSeparator();
       addItem(commands.shinyRecordTest().createMenuItem(false));

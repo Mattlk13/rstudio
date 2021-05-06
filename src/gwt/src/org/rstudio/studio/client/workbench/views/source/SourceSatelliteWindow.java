@@ -1,7 +1,7 @@
 /*
  * SourceSatelliteWindow.java
  *
- * Copyright (C) 2009-17 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -43,12 +43,13 @@ public class SourceSatelliteWindow extends SatelliteWindow
 
    @Inject
    public SourceSatelliteWindow(Provider<EventBus> pEventBus,
-                                Provider<FontSizeManager> pFSManager, 
+                                Provider<FontSizeManager> pFSManager,
                                 Provider<SourceSatellitePresenter> pPresenter,
                                 Provider<SourceWindowManager> pWindowManager,
                                 Provider<SourceWindow> pSourceWindow,
                                 Provider<FileMRUList> pFileMRUList,
                                 Provider<ProjectMRUList> pProjectMRUList,
+                                Provider<Source> pSource,
                                 CodeSearchLauncher launcher)
    {
       super(pEventBus, pFSManager);
@@ -57,12 +58,15 @@ public class SourceSatelliteWindow extends SatelliteWindow
       pWindowManager_ = pWindowManager;
       pSourceWindow_ = pSourceWindow;
       pFileMRUList_ = pFileMRUList;
+      pSource_ = pSource;
       pProjectMRUList_ = pProjectMRUList;
    }
 
    @Override
    protected void onInitialize(LayoutPanel mainPanel, JavaScriptObject params)
    {
+      pSource_.get().load();
+      pSource_.get().loadDisplay();
       // read the params and set up window ordinal / title
       SourceWindowParams windowParams = params.cast();
       String title = null;
@@ -78,7 +82,7 @@ public class SourceSatelliteWindow extends SatelliteWindow
          title += " - ";
       title += "RStudio Source Editor";
       Window.setTitle(title);
-      
+
       // set up the source window
       SourceWindow sourceWindow = pSourceWindow_.get();
       if (windowParams != null &&
@@ -86,25 +90,25 @@ public class SourceSatelliteWindow extends SatelliteWindow
           windowParams.getSourcePosition() != null)
       {
          // if this source window is being opened to pop out a particular doc,
-         // read that doc's ID and current position so we can restore it 
-         sourceWindow.setInitialDoc(windowParams.getDocId(), 
+         // read that doc's ID and current position so we can restore it
+         sourceWindow.setInitialDoc(windowParams.getDocId(),
                windowParams.getSourcePosition());
       }
-      
+
       SourceSatellitePresenter appPresenter = pPresenter_.get();
-      
+
       // initialize build commands (we want these to work from source windows)
       BuildCommands.setBuildCommandState(
-            RStudioGinjector.INSTANCE.getCommands(), 
+            RStudioGinjector.INSTANCE.getCommands(),
             RStudioGinjector.INSTANCE.getSession().getSessionInfo());
 
       // initialize working directory
-      if (!StringUtil.isNullOrEmpty(windowParams.getWorkingDir())) 
+      if (!StringUtil.isNullOrEmpty(windowParams.getWorkingDir()))
       {
          pEventBus_.get().fireEvent(new WorkingDirChangedEvent(
                windowParams.getWorkingDir()));
       }
-      
+
       // make it fill the containing layout panel
       Widget presWidget = appPresenter.asWidget();
       mainPanel.add(presWidget);
@@ -116,8 +120,8 @@ public class SourceSatelliteWindow extends SatelliteWindow
    public void reactivate(JavaScriptObject params)
    {
    }
-   
-   @Override 
+
+   @Override
    public Widget getWidget()
    {
       return this;
@@ -128,11 +132,12 @@ public class SourceSatelliteWindow extends SatelliteWindow
    {
       return true;
    }
-   
+
    private final Provider<EventBus> pEventBus_;
    private final Provider<SourceSatellitePresenter> pPresenter_;
    private final Provider<SourceWindowManager> pWindowManager_;
    private final Provider<SourceWindow> pSourceWindow_;
+   private final Provider<Source> pSource_;
    @SuppressWarnings("unused") private final Provider<FileMRUList> pFileMRUList_;
    @SuppressWarnings("unused") private final Provider<ProjectMRUList> pProjectMRUList_;
 }

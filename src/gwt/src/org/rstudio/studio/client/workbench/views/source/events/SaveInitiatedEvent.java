@@ -1,7 +1,7 @@
 /*
  * SaveInitiatedEvent.java
  *
- * Copyright (C) 2009-17 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -25,8 +25,7 @@ public class SaveInitiatedEvent extends GwtEvent<SaveInitiatedEvent.Handler>
       void onSaveInitiated(SaveInitiatedEvent event);
    }
 
-   public static final GwtEvent.Type<SaveInitiatedEvent.Handler> TYPE =
-      new GwtEvent.Type<SaveInitiatedEvent.Handler>();
+   public static final GwtEvent.Type<SaveInitiatedEvent.Handler> TYPE = new GwtEvent.Type<>();
    
    public SaveInitiatedEvent(String path, String id)
    {

@@ -1,7 +1,7 @@
 /*
  * PanimrrorEditRawDialog.java
  *
- * Copyright (C) 2020 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -59,11 +59,9 @@ public class PanmirrorEditRawDialog extends ModalDialog<PanmirrorRawFormatResult
    
       rawFormatSelect_.setFormats(outputFormats, raw.format);
       rawFormatSelect_.setValue(StringUtil.notNull(raw.format));
-      rawFormatSelect_.getListBox().getElement().setId(ElementIds.VISUAL_MD_RAW_FORMAT_SELECT);
       
       rawContent_.setValue(raw.content);
       PanmirrorDialogsUtil.setFullWidthStyles(rawContent_);
-      rawContent_.getElement().setId(ElementIds.VISUAL_MD_RAW_FORMAT_CONTENT);
       
       if (!inline_)
       {
@@ -108,7 +106,7 @@ public class PanmirrorEditRawDialog extends ModalDialog<PanmirrorRawFormatResult
    }
    
    @Override
-   protected void focusFirstControl()
+   protected void focusInitialControl()
    {
       if (rawFormatSelect_.getValue().length() > 0)
       {

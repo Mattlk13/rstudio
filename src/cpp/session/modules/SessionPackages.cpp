@@ -1,7 +1,7 @@
 /*
  * SessionPackages.cpp
  *
- * Copyright (C) 2009-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -20,9 +20,8 @@
 
 #include "SessionPackages.hpp"
 
-#include <boost/bind.hpp>
-#include <boost/regex.hpp>
 #include <boost/format.hpp>
+#include <boost/bind/bind.hpp>
 
 #include <shared_core/Error.hpp>
 #include <core/Exec.hpp>
@@ -43,6 +42,7 @@
 #include "session-config.h"
 
 using namespace rstudio::core;
+using namespace boost::placeholders;
 
 namespace rstudio {
 namespace session {
@@ -63,9 +63,7 @@ public:
 
 private:
 
-   AvailablePackagesCache()
-   {
-   }
+   AvailablePackagesCache() = default;
 
 public:
 
@@ -181,12 +179,13 @@ Error availablePackages(const core::json::JsonRpcRequest&,
 
    // order and remove duplicates
    std::stable_sort(availablePackages.begin(), availablePackages.end());
-   std::unique(availablePackages.begin(), availablePackages.end());
+   availablePackages.erase(std::unique(availablePackages.begin(), availablePackages.end()),
+                           availablePackages.end());
 
    // return as json
    json::Array jsonResults;
-   for (size_t i = 0; i < availablePackages.size(); i++)
-      jsonResults.push_back(json::Value(availablePackages.at(i)));
+   for (std::string& availablePackage : availablePackages)
+      jsonResults.push_back(json::Value(availablePackage));
    pResponse->setResult(jsonResults);
    return Success();
 }
@@ -318,7 +317,7 @@ void onDetectChanges(module_context::ChangeSource source)
       detectLibPathsChanges();
 }
 
-void onDeferredInit(bool newSession)
+void onDeferredInit(bool /* newSession */)
 {
    // Ensure we have a writeable user library
    Error error = r::exec::RFunction(".rs.ensureWriteableUserLibrary").call();
@@ -373,7 +372,7 @@ Error initialize()
 
    using boost::bind;
    using namespace module_context;
-   ExecBlock initBlock ;
+   ExecBlock initBlock;
    initBlock.addFunctions()
       (bind(sourceModuleRFile, "SessionPackages.R"))
       (bind(registerRpcMethod, "available_packages", availablePackages))

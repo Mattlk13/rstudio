@@ -1,7 +1,7 @@
 /*
  * RequestLog.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -45,8 +45,7 @@ public class RequestLog
       return entries;
    }
 
-   private static final ArrayList<RequestLogEntry> entries_ =
-         new ArrayList<RequestLogEntry>();
+   private static final ArrayList<RequestLogEntry> entries_ = new ArrayList<>();
 
    private static final int MAX_ENTRIES = 50;
 }

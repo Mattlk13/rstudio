@@ -1,7 +1,7 @@
 /*
  * NewConnectionContext.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -36,7 +36,7 @@ public class NewConnectionContext extends JavaScriptObject
 
    public final ArrayList<NewConnectionInfo> getConnectionsList()
    {
-      ArrayList<NewConnectionInfo> result = new ArrayList<NewConnectionInfo>(getConnectionsLength());
+      ArrayList<NewConnectionInfo> result = new ArrayList<>(getConnectionsLength());
       for (int i = 0; i < getConnectionsLength(); i++)
          result.add(getConnectionsItem(i));
 
