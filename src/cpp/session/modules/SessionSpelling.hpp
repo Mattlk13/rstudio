@@ -1,7 +1,7 @@
 /*
  * SessionSpelling.hpp
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -21,6 +21,7 @@
 namespace rstudio {
 namespace core {
    class Error;
+   class FilePath;
 }
 }
  
@@ -28,6 +29,12 @@ namespace rstudio {
 namespace session {
 namespace modules { 
 namespace spelling {
+
+core::FilePath userDictionariesDir();
+core::FilePath legacyAllLanguagesDir();
+core::FilePath allDictionariesDir();
+core::FilePath allLanguagesDir();
+core::FilePath customDictionariesDir();
 
 core::json::Object spellingPrefsContextAsJson();
 

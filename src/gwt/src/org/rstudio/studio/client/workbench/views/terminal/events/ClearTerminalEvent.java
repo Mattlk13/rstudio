@@ -1,7 +1,7 @@
 /*
  * ClearTerminalEvent.java
  *
- * Copyright (C) 2009-18 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -32,10 +32,10 @@ public class ClearTerminalEvent extends CrossWindowEvent<Handler>
    public static class Data extends JavaScriptObject
    {
       protected Data() {}
-      
+
       public final native String getId() /*-{ return this["id"]; }-*/;
    }
-  
+
    public ClearTerminalEvent()
    {
    }
@@ -44,7 +44,7 @@ public class ClearTerminalEvent extends CrossWindowEvent<Handler>
    {
       this(data.getId());
    }
-   
+
    public ClearTerminalEvent(String id)
    {
       id_ = id;

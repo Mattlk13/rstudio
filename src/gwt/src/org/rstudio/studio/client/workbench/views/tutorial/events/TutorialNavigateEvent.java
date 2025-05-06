@@ -1,7 +1,7 @@
 /*
  * TutorialNavigateEvent.java
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -19,7 +19,6 @@ import com.google.gwt.event.shared.GwtEvent;
 
 public class TutorialNavigateEvent extends GwtEvent<TutorialNavigateEvent.Handler>
 {
-   
 
    // Boilerplate ----
 
@@ -40,6 +39,5 @@ public class TutorialNavigateEvent extends GwtEvent<TutorialNavigateEvent.Handle
       handler.onTutorialNavigate(this);
    }
 
-   public static final Type<Handler> TYPE = new Type<Handler>();
+   public static final Type<Handler> TYPE = new Type<>();
 }
-

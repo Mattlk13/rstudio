@@ -1,7 +1,7 @@
 /*
  * PanmirrorMenuItem.java
  *
- * Copyright (C) 2009-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -15,6 +15,8 @@
 
 package org.rstudio.studio.client.panmirror.command;
 
+import org.rstudio.core.client.jsinterop.JsVoidFunction;
+
 import jsinterop.annotations.JsType;
 
 @JsType
@@ -23,11 +25,12 @@ public class PanmirrorMenuItem
    @JsType
    public class SubMenu
    {
-      public String text;
       public PanmirrorMenuItem[] items;
    }
    
+   public String text;
    public String command;
+   public JsVoidFunction exec;
    public boolean separator;
    public SubMenu subMenu;
 }

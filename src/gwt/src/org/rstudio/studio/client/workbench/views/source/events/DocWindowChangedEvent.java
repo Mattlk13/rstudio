@@ -1,7 +1,7 @@
 /*
  * DocWindowChangedEvent.java
  *
- * Copyright (C) 2009-15 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -32,8 +32,7 @@ public class DocWindowChangedEvent
       void onDocWindowChanged(DocWindowChangedEvent event);
    }
 
-   public static final GwtEvent.Type<DocWindowChangedEvent.Handler> TYPE =
-      new GwtEvent.Type<DocWindowChangedEvent.Handler>();
+   public static final GwtEvent.Type<DocWindowChangedEvent.Handler> TYPE = new GwtEvent.Type<>();
    
    public DocWindowChangedEvent()
    {
@@ -42,10 +41,10 @@ public class DocWindowChangedEvent
    public DocWindowChangedEvent(String docId, String oldWindowId, 
                                 DocTabDragParams params, 
                                 CollabEditStartParams collabParams,
-                                int pos)
+                                int pos, int xpos)
    {
       this(docId, oldWindowId, SourceWindowManager.getSourceWindowId(), params, 
-           collabParams, pos);
+           collabParams, pos, xpos);
    }
    
    // this event is fired by the window on which the document was dropped; it
@@ -53,12 +52,13 @@ public class DocWindowChangedEvent
    // negotiate its end of the transfer
    public DocWindowChangedEvent(String docId, String oldWindowId, 
          String newWindowId, DocTabDragParams params, 
-         CollabEditStartParams collabParams, int pos)
+         CollabEditStartParams collabParams, int pos, int xpos)
    {
       docId_ = docId;
       oldWindowId_ = oldWindowId;
       newWindowId_ = newWindowId;
       pos_ = pos;
+      xpos_ = xpos;
       params_ = params;
       collabParams_ = collabParams;
    }
@@ -81,6 +81,11 @@ public class DocWindowChangedEvent
    public int getPos()
    {
       return pos_;
+   }
+
+   public int getXPos()
+   {
+      return xpos_;
    }
    
    public DocTabDragParams getParams()
@@ -117,4 +122,5 @@ public class DocWindowChangedEvent
    private DocTabDragParams params_;
    private CollabEditStartParams collabParams_;
    private int pos_;
+   private int xpos_;
 }

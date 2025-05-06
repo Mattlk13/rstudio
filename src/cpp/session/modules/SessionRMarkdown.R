@@ -1,7 +1,7 @@
 #
 # SessionRMarkdown.R
 #
-# Copyright (C) 2009-12 by RStudio, PBC
+# Copyright (C) 2021 by RStudio, PBC
 #
 # Unless you have received this program directly from RStudio pursuant
 # to the terms of a commercial license agreement with RStudio, then
@@ -23,6 +23,36 @@
       return(.rs.markdown.getCompletionsHref(data))
 })
 
+.rs.addFunction("markdown.resolveCompletionRoot", function(path)
+{
+   # figure out working directory
+   props <- .rs.getSourceDocumentProperties(path)
+   workingDirProp <- props$properties$working_dir
+   
+   useProject <-
+      identical(workingDirProp, "project") &&
+      is.character(props$path) &&
+      is.character(props$project_path)
+   
+   if (useProject)
+   {
+      # path refers to the full path; project_path refers
+      # to the project-relative path. use that to infer
+      # the path to the project hosting the document
+      # (just in case the user is editing a document that
+      # belongs to an alternate project)
+      substring(props$path, 1L, nchar(props$path) - nchar(props$project_path) - 1L)
+   }
+   else if (identical(workingDirProp, "current"))
+   {
+      getwd()
+   }
+   else
+   {
+      dirname(path)
+   }
+})
+
 .rs.addFunction("markdown.getCompletionsHref", function(data)
 {
    # extract parameters
@@ -34,18 +64,7 @@
       return(.rs.emptyCompletions())
    
    # figure out working directory
-   props <- .rs.getSourceDocumentProperties(path)
-   workingDirProp <- props$properties$working_dir
-   workingDir <- if (identical(workingDirProp, "project"))
-      props$project_path
-   else if (identical(workingDirProp, "current"))
-      getwd()
-   
-   # check for NULL working dir (don't include as part of if-else check above
-   # since some documents may not have an associated project and yet could
-   # be configured to use a project directory)
-   if (is.null(workingDir))
-      workingDir <- dirname(path)
+   workingDir <- .rs.markdown.resolveCompletionRoot(path)
    
    # determine dirname, basename (need to handle trailing slashes properly
    # so can't just use dirname / basename)
@@ -136,9 +155,22 @@
       list()
     }
   )
+  
+  haveQuarto <- function() {
+    nzchar(Sys.which("quarto"))
+  }
+  
+  isQuartoDoc <- function() {
+     # plain markdown file w/ "jupyter" metdata
+     (.rs.endsWith(file, ".md") && !is.null(yamlFrontMatter[["jupyter"]])) ||
+     # file with "format" yaml and no "output" yaml
+     (is.null(yamlFrontMatter[["output"]]) && !is.null(yamlFrontMatter[["format"]]))
+  }
 
   if (is.character(yamlFrontMatter[["knit"]]))
     yamlFrontMatter[["knit"]][[1]]
+  else if (isQuartoDoc() && haveQuarto())
+     "quarto render"
   else if (!is.null(yamlFrontMatter$runtime) &&
            grepl('^shiny', yamlFrontMatter$runtime)) {
     # use run as a wrapper for render when the doc requires the Shiny runtime,
@@ -426,17 +458,16 @@
   return(.rs.getRmdOutputInfo(target))
 })
 
-.rs.addFunction("inputDirToIndexFile", function(input_dir) {
-   index <- file.path(input_dir, "index.Rmd")
-   if (file.exists(index))
-      index
-   else {
-      index <- file.path(input_dir, "index.md")
-      if (file.exists(index))
-         index
-      else
-         NULL
-   }
+.rs.addFunction("inputDirToIndexFile", function(input_dir)
+{
+   paths <- c(
+      file.path(input_dir, "index.Rmd"),
+      file.path(input_dir, "index.md")
+   )
+   
+   for (path in paths)
+      if (file.exists(path))
+         return(path)
 })
 
 .rs.addFunction("getAllOutputFormats", function(input_dir, encoding) {
@@ -449,7 +480,7 @@
       character()
 })
 
-.rs.addFunction("isBookdownWebsite", function(input_dir, encoding) {
+.rs.addFunction("isBookdownDir", function(input_dir, encoding) {
    index <- .rs.inputDirToIndexFile(input_dir)
    if (!is.null(index)) {
       
@@ -460,6 +491,36 @@
    }
    else
       FALSE
+})
+
+.rs.addFunction("bookdown.SourceFiles", function(input_dir) {
+   wd <- getwd()
+   on.exit(setwd(wd), add = TRUE)
+   setwd(input_dir)
+   bookdown:::source_files()
+})
+
+
+.rs.addFunction("bookdown.frontMatterValue", function(input_dir, value) {
+   wd <- getwd()
+   on.exit(setwd(wd), add = TRUE)
+   setwd(input_dir)
+   files <- bookdown:::source_files()
+   if (length(files) > 0)
+   {
+      index <- files[[1]]
+      front_matter <- rmarkdown::yaml_front_matter(index)
+      if (is.character(front_matter[[value]]))
+         front_matter[[value]]
+      else if (is.logical(front_matter[[value]]))
+         paste0("LOGICAL:",front_matter[[value]])
+      else
+         character()
+   }
+   else
+   {
+      character()
+   }
 })
 
 .rs.addFunction("isSiteProject", function(input_dir, encoding, site) {
@@ -474,6 +535,16 @@
 
 .rs.addFunction("tinytexRoot", function()
 {
+   # check for tlmgr path set via option; the tinytex root directory is
+   # always 2 directories up from that
+   tlmgr <- getOption("tinytex.tlmgr.path", default = NULL)
+   if (!is.null(tlmgr))
+   {
+      root <- dirname(dirname(dirname(tlmgr)))
+      return(root)
+   }
+   
+   # otherwise, use default locations for different platforms
    sysname <- Sys.info()[["sysname"]]
    if (sysname == "Windows")
       file.path(Sys.getenv("APPDATA"), "TinyTeX")
@@ -485,34 +556,44 @@
 
 .rs.addFunction("tinytexBin", function()
 {
-   root <- tryCatch(
-      tinytex:::tinytex_root(),
-      error = function(e) .rs.tinytexRoot()
-   )
-   
+   root <- .rs.tinytexRoot()
    if (!file.exists(root))
       return(NULL)
    
    # NOTE: binary directory has a single arch-specific subdir;
    # rather than trying to hard-code the architecture we just
-   # infer it directly
+   # infer it directly.
+   #
+   # some users will end up with tinytex installations that
+   # 'exist', but are broken for some reason (no longer have
+   # a 'bin' directory). detect those cases properly
+   #
+   # https://github.com/rstudio/rstudio/issues/7615
    bin <- file.path(root, "bin")
+   if (!file.exists(bin))
+      return(NULL)
+
    subbin <- list.files(bin, full.names = TRUE)
+   if (length(subbin) == 0)
+      return(NULL)
+
    normalizePath(subbin[[1]], mustWork = TRUE)
 })
 
-.rs.addFunction("bookdown.renderedOutputPath", function(outputPath)
+.rs.addFunction("bookdown.renderedOutputPath", function(websiteDir, outputPath)
 {
-   # if this is a PDF, use it directly
+   # if we have a PDF for this file, use it
    if (tools::file_ext(outputPath) == "pdf")
       return(outputPath)
    
-   # if we have an index, prefer using that
-   index <- file.path(dirname(outputPath), "index.html")
+   # if that fails, use root index file
+   # note that this gets remapped as appropriate to knitted posts; see:
+   # https://github.com/rstudio/rstudio/issues/6945
+   index <- file.path(websiteDir, "index.html")
    if (file.exists(index))
       return(index)
    
-   # otherwise, return the rendered path directly
-   # (typically necessary for self-contained books)
+   # default to using output file path
+   # (necessary for self-contained books, which may not have an index)
    outputPath
 })

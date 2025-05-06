@@ -1,7 +1,7 @@
 /*
  * SecureCookie.cpp
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -30,7 +30,6 @@
 #include <core/http/Request.hpp>
 #include <core/http/Response.hpp>
 #include <core/http/Util.hpp>
-#include <core/http/Cookie.hpp>
 #include <core/r_util/RSessionContext.hpp>
 
 #include <core/system/Crypto.hpp>
@@ -50,8 +49,9 @@ namespace {
 const char * const kDelim = "|";
 
 // secure cookie key
-std::string s_secureCookieKey ;
-
+std::string s_secureCookieKey;
+std::string s_secureCookieKeyPath; // absolute path to secure-cookie-file used to obtain the key value
+std::string s_secureCookieKeyHash; // 1-way hash of the secureCookieKey value
 
 Error base64HMAC(const std::string& value,
                  const std::string& expires,
@@ -91,17 +91,16 @@ Error hashWithSecureKey(const std::string& message, std::string* pHMAC)
       return error;
 
    // base 64 encode it
-   return core::system::crypto::base64Encode(hmac, pHMAC);
+   return core::system::crypto::base64Encode(hmac, *pHMAC);
 }
 
 http::Cookie createSecureCookie(const std::string& name,
                                 const std::string& value,
                                 const core::http::Request& request,
                                 const boost::posix_time::time_duration& validDuration,
-                                const std::string& path,
-                                bool secure,
-                                bool iFrameEmbedding,
-                                bool legacyCookies)
+                                const std::string& path /* = "/"*/,
+                                bool secure /*= false*/,
+                                http::Cookie::SameSite sameSite /*= SameSite::Undefined*/)
 {
    // generate expires string
    std::string expires = http::util::httpDate(
@@ -111,7 +110,7 @@ http::Cookie createSecureCookie(const std::string& name,
    // error occurs during encoding. this will cause the application to
    // fail downstream which is what we want given that we couldn't properly
    // secure the cookie)
-   std::string signedCookieValue ;
+   std::string signedCookieValue;
    std::string hmac;
    Error error = base64HMAC(value, expires, &hmac);
    if (error)
@@ -133,17 +132,16 @@ http::Cookie createSecureCookie(const std::string& name,
                        name,
                        signedCookieValue,
                        path,
-                       http::Cookie::selectSameSite(legacyCookies, iFrameEmbedding),
+                       sameSite,
                        true, // HTTP only
                        secure);
 }
 
 std::string readSecureCookie(const core::http::Request& request,
-                             const std::string& name,
-                             bool iFrameLegacyCookies)
+                             const std::string& name)
 {
    // get the signed cookie value
-   std::string signedCookieValue = request.cookieValue(name, iFrameLegacyCookies);
+   std::string signedCookieValue = request.cookieValue(name);
    if (signedCookieValue.empty())
       return std::string();
 
@@ -214,9 +212,7 @@ void set(const std::string& name,
          const std::string& path,
          http::Response* pResponse,
          bool secure,
-         bool iFrameEmbedding,
-         bool legacyCookies,
-         bool iFrameLegacyCookies)
+         http::Cookie::SameSite sameSite)
 {
    // create secure cookie
    http::Cookie cookie = createSecureCookie(name,
@@ -225,15 +221,14 @@ void set(const std::string& name,
                                             validDuration,
                                             path,
                                             secure,
-                                            iFrameEmbedding,
-                                            legacyCookies);
+                                            sameSite);
 
    // expire from browser as requested
    if (expiresFromNow.is_initialized())
       cookie.setExpires(*expiresFromNow);
 
    // add to response
-   pResponse->addCookie(cookie, iFrameLegacyCookies);
+   pResponse->addCookie(cookie);
 }
 
 void remove(const http::Request& request,
@@ -241,9 +236,7 @@ void remove(const http::Request& request,
             const std::string& path,
             core::http::Response* pResponse,
             bool secure,
-            bool iFrameEmbedding,
-            bool legacyCookies,
-            bool iFrameLegacyCookies)
+            http::Cookie::SameSite sameSite)
 {
    // create cookie
    http::Cookie cookie(request, name, std::string(), path);
@@ -262,21 +255,29 @@ void remove(const http::Request& request,
       cookie.setSecure();
    }
 
-   cookie.setSameSite(http::Cookie::selectSameSite(legacyCookies, iFrameEmbedding));
+   cookie.setSameSite(sameSite);
 
    // add to response
-   pResponse->addCookie(cookie, iFrameLegacyCookies);
+   pResponse->addCookie(cookie);
 }
 
 const std::string& getKey()
 {
    return s_secureCookieKey;
 }
+const std::string& getKeyFileUsed()
+{
+   return s_secureCookieKeyPath;
+}
 
+const std::string& getKeyHash()
+{
+   return s_secureCookieKeyHash;
+}
 
 Error initialize()
 {
-   Error error = key_file::readSecureKeyFile("secure-cookie-key", &s_secureCookieKey);
+   Error error = key_file::readSecureKeyFile("secure-cookie-key", &s_secureCookieKey, &s_secureCookieKeyHash, &s_secureCookieKeyPath);
    if (error)
       return error;
 
@@ -288,7 +289,7 @@ Error initialize(const FilePath& secureKeyFile)
    if (secureKeyFile.isEmpty())
       return initialize();
 
-   Error error = key_file::readSecureKeyFile(secureKeyFile, &s_secureCookieKey);
+   Error error = key_file::readSecureKeyFile(secureKeyFile, &s_secureCookieKey, &s_secureCookieKeyHash, &s_secureCookieKeyPath);
    if (error)
       return error;
 

@@ -1,7 +1,7 @@
 /*
  * AddTerminalEvent.java
  *
- * Copyright (C) 2009-18 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -27,15 +27,15 @@ public class AddTerminalEvent extends GwtEvent<Handler>
    {
       protected Data() {}
 
-      public native final ConsoleProcessInfo getProcessInfo() /*-{ 
-         return this.process_info; 
+      public native final ConsoleProcessInfo getProcessInfo() /*-{
+         return this.process_info;
       }-*/;
 
-      public native final boolean getShow() /*-{ 
-         return this.show; 
+      public native final boolean getShow() /*-{
+         return this.show;
       }-*/;
    }
-   
+
    public interface Handler extends EventHandler
    {
       void onAddTerminal(AddTerminalEvent event);
@@ -51,12 +51,12 @@ public class AddTerminalEvent extends GwtEvent<Handler>
    {
       return processInfo_;
    }
-   
+
    public boolean getShow()
    {
       return show_;
    }
-   
+
    @Override
    public Type<Handler> getAssociatedType()
    {

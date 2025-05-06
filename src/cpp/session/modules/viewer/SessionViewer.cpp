@@ -1,7 +1,7 @@
 /*
  * SessionViewer.cpp
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -399,7 +399,7 @@ Error initialize()
 
    // install rpc methods
    using boost::bind;
-   ExecBlock initBlock ;
+   ExecBlock initBlock;
    initBlock.addFunctions()
       (bind(registerRpcMethod, "viewer_stopped", viewerStopped))
       (bind(registerRpcMethod, "viewer_current", viewerCurrent))

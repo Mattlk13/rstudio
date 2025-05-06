@@ -1,7 +1,7 @@
 /*
  * ExternalJavaScriptLoader.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -39,8 +39,7 @@ public class ExternalJavaScriptLoader
 
    public static void loadSequentially(String[] urls, final Callback callback)
    {
-      final LinkedList<ExternalJavaScriptLoader> loaders =
-            new LinkedList<ExternalJavaScriptLoader>();
+      final LinkedList<ExternalJavaScriptLoader> loaders = new LinkedList<>();
 
       for (String url : urls)
          loaders.add(new ExternalJavaScriptLoader(url));
@@ -62,14 +61,14 @@ public class ExternalJavaScriptLoader
    {
       this(Document.get(), url);
    }
-   
+
    public ExternalJavaScriptLoader(Document document, String url)
    {
       document_ = document;
       url_ = url;
    }
-   
-   public boolean isLoaded() 
+
+   public boolean isLoaded()
    {
       return state_ == State.Loaded;
    }
@@ -131,7 +130,7 @@ public class ExternalJavaScriptLoader
       });
    }
 
-   private LinkedList<Callback> callbacks_ = new LinkedList<Callback>();
+   private LinkedList<Callback> callbacks_ = new LinkedList<>();
    private State state_ = State.Start;
    private final String url_;
    private final Document document_;

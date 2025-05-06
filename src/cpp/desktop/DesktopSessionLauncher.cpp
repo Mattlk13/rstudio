@@ -1,7 +1,7 @@
 /*
  * DesktopSessionLauncher.cpp
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -17,7 +17,7 @@
 
 #include <iostream>
 
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 
 #include <core/Macros.hpp>
 #include <core/http/Request.hpp>
@@ -38,10 +38,13 @@
 #include "DesktopSlotBinders.hpp"
 #include "DesktopActivationOverlay.hpp"
 
+#include "desktop-config.h"
+
 #define RUN_DIAGNOSTICS_LOG(message) if (desktop::options().runDiagnostics()) \
              std::cout << (message) << std::endl;
 
 using namespace rstudio::core;
+using namespace boost::placeholders;
 
 namespace rstudio {
 namespace desktop {
@@ -68,9 +71,11 @@ void launchProcess(const std::string& absPath,
    if (rLib.exists())
    {
       QProcessEnvironment environment = QProcessEnvironment::systemEnvironment();
+      
       environment.insert(
                QStringLiteral("DYLD_INSERT_LIBRARIES"),
                QString::fromStdString(rLib.getAbsolutePathNative()));
+      
       process->setProcessEnvironment(environment);
    }
 #endif
@@ -135,6 +140,7 @@ Error SessionLauncher::launchFirstSession()
    logEnvVar("R_LIBS");
    logEnvVar("R_LIBS_USER");
    logEnvVar("DYLD_LIBRARY_PATH");
+   logEnvVar("DYLD_FALLBACK_LIBRARY_PATH");
    logEnvVar("LD_LIBRARY_PATH");
    logEnvVar("PATH");
    logEnvVar("HOME");
@@ -201,6 +207,7 @@ Error SessionLauncher::launchFirstSession()
       pAppLaunch_->activateWindow();
       pMainWindow_->loadUrl(url);
    }
+   
    qApp->setQuitOnLastWindowClosed(true);
    return Success();
 }
@@ -229,7 +236,7 @@ Error getRecentSessionLogs(std::string* pLogFile, std::string *pLogContents)
    // inverse sort so most recent logs are first
    std::sort(logs.begin(), logs.end(), [](FilePath a, FilePath b)
    {
-      return a.getLastWriteTime() < b.getLastWriteTime();
+      return a.getLastWriteTime() > b.getLastWriteTime();
    });
 
    // Loop over all the log files and stop when we find a session log
@@ -273,6 +280,14 @@ void SessionLauncher::showLaunchErrorPage()
    // String mapping of template codes to diagnostic information
    std::map<std::string,std::string> vars;
 
+   // Create version string
+   std::stringstream ss;
+   std::string gitCommit(RSTUDIO_GIT_COMMIT);
+   ss << "RStudio "  RSTUDIO_VERSION ", \"" RSTUDIO_RELEASE_NAME "\" "
+         "(" << gitCommit.substr(0, 8) << ", " RSTUDIO_BUILD_DATE ") "
+         "for " RSTUDIO_PACKAGE_OS;
+   vars["version"] = ss.str();
+
    // Collect message from the abnormal end log path
    if (abendLogPath().exists())
    {
@@ -311,7 +326,10 @@ void SessionLauncher::showLaunchErrorPage()
    if (error)
        LOG_ERROR(error);
    else
+   {
+      pMainWindow_->setErrorDisplayed();
       pMainWindow_->loadHtml(QString::fromStdString(oss.str()));
+   }
 }
 
 void SessionLauncher::onRSessionExited(int, QProcess::ExitStatus)
@@ -494,12 +512,61 @@ Error SessionLauncher::launchSession(const QStringList& argList,
    Error error = abendLogPath().removeIfExists();
    if (error)
       LOG_ERROR(error);
+   
+#ifdef __APPLE__
+   
+   // we need indirection through arch to handle arm64
+   if (sessionPath_.getFilename() == "rsession-arm64")
+   {
+      QStringList archArgList;
+
+      // run rsession-arm64 with arm64 context
+      archArgList.append(QStringLiteral("-arm64"));
+
+      // on macOS with the hardened runtime, we can no longer rely on dyld
+      // to lazy-load symbols from libR.dylib; to resolve this, we use
+      // DYLD_INSERT_LIBRARIES to inject the library we wish to use on
+      // launch 
+      FilePath rHome = FilePath(core::system::getenv("R_HOME"));
+      FilePath rLib = rHome.completeChildPath("lib/libR.dylib");
+      if (rLib.exists())
+      {
+         std::string dyldInsertLibraries("DYLD_INSERT_LIBRARIES=");
+         dyldInsertLibraries.append(rLib.getAbsolutePath());
+         archArgList.append(QStringLiteral("-e"));
+         archArgList.append(QString::fromStdString(dyldInsertLibraries));
+      }
+
+      // add rsession-arm64 path
+      archArgList.append(QString::fromStdString(sessionPath_.getAbsolutePath()));
+      
+      // forward remaining arguments
+      archArgList.append(argList);
+      
+      return parent_process_monitor::wrapFork(
+               boost::bind(launchProcess,
+                           "/usr/bin/arch",
+                           archArgList,
+                           ppRSessionProcess));
+   }
+   else
+   {
+      return parent_process_monitor::wrapFork(
+               boost::bind(launchProcess,
+                           sessionPath_.getAbsolutePath(),
+                           argList,
+                           ppRSessionProcess));
+   }
+   
+#else
 
    return parent_process_monitor::wrapFork(
          boost::bind(launchProcess,
                      sessionPath_.getAbsolutePath(),
                      argList,
                      ppRSessionProcess));
+   
+#endif
 }
 
 void SessionLauncher::onLaunchError(QString message)

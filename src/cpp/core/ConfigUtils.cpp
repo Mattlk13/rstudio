@@ -1,7 +1,7 @@
 /*
  * ConfigUtils.cpp
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -18,13 +18,15 @@
 #include <algorithm>
 
 #include <boost/regex.hpp>
-#include <boost/bind.hpp>
 #include <boost/algorithm/string/trim.hpp>
 #include <boost/algorithm/string/replace.hpp>
+#include <boost/bind/bind.hpp>
 
 #include <shared_core/Error.hpp>
 #include <shared_core/FilePath.hpp>
 #include <core/FileSerializer.hpp>
+
+using namespace boost::placeholders;
 
 namespace rstudio {
 namespace core {
@@ -35,13 +37,13 @@ namespace {
 void extractToMap(const std::string& keyAndValue,
                   std::map<std::string,std::string>* pMap)
 {
-   std::string::size_type pos = keyAndValue.find("=") ;
+   std::string::size_type pos = keyAndValue.find("=");
    if ( pos != std::string::npos )
    {
-      std::string key = keyAndValue.substr(0, pos) ;
+      std::string key = keyAndValue.substr(0, pos);
       boost::algorithm::trim(key);
-      std::string value = keyAndValue.substr(pos + 1) ;
-      boost::algorithm::trim(value) ;
+      std::string value = keyAndValue.substr(pos + 1);
+      boost::algorithm::trim(value);
       boost::algorithm::replace_all(value, "\"", "");
       pMap->operator[](key) = value;
    }

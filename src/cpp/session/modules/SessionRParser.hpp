@@ -1,7 +1,7 @@
 /*
  * SessionRParser.hpp
  *
- * Copyright (C) 2009-2019 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -40,12 +40,14 @@
 #include <r/RSexp.hpp>
 #include <r/RExec.hpp>
 
-#include <boost/bind.hpp>
-#include <boost/container/flat_set.hpp>
 #include <boost/shared_ptr.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/bind/bind.hpp>
+#include <boost/container/flat_set.hpp>
 
 #include <core/Macros.hpp>
+
+using namespace boost::placeholders;
 
 namespace rstudio {
 namespace session {
@@ -604,23 +606,21 @@ public:
                          int column,
                          const std::string& name)
    {
-      DEBUG("--- Adding defined variable '" << name << "' (" << row << ", " << column << ")");
       definedSymbols_[name].push_back(Position(row, column));
-   }
-
-   void addDefinedSymbol(const RToken& rToken)
-   {
-      DEBUG("--- Adding defined variable '" << rToken.contentAsUtf8() << "'");
-      definedSymbols_[rToken.contentAsUtf8()].push_back(
-            Position(rToken.row(), rToken.column()));
    }
    
    void addDefinedSymbol(const RToken& rToken,
                          const Position& position)
    {
-      definedSymbols_[rToken.contentAsUtf8()].push_back(position);
+      std::string name = token_utils::getSymbolName(rToken);
+      definedSymbols_[name].push_back(position);
    }
    
+   void addDefinedSymbol(const RToken& rToken)
+   {
+      addDefinedSymbol(rToken, rToken.position());
+   }
+
    void addReferencedSymbol(int row,
                             int column,
                             const std::string& name)
@@ -630,14 +630,14 @@ public:
 
    void addReferencedSymbol(const RToken& rToken)
    {
-      referencedSymbols_[rToken.contentAsUtf8()].push_back(
-            Position(rToken.row(), rToken.column()));
+      std::string name = token_utils::getSymbolName(rToken);
+      referencedSymbols_[name].push_back(rToken.position());
    }
    
    void addNseReferencedSymbol(const RToken& rToken)
    {
-      nseReferencedSymbols_[rToken.contentAsUtf8()].push_back(
-               Position(rToken.row(), rToken.column()));
+      std::string name = token_utils::getSymbolName(rToken);
+      nseReferencedSymbols_[name].push_back(rToken.position());
    }
    
    void addInternalPackageSymbol(const std::string& package,

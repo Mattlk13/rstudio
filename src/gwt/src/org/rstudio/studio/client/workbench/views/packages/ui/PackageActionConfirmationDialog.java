@@ -1,7 +1,7 @@
 /*
  * PackageActionConfirmationDialog.java
  *
- * Copyright (C) 2009-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -77,7 +77,7 @@ public abstract class PackageActionConfirmationDialog<T extends JavaScriptObject
    @Override
    protected ArrayList<T> collectInput()
    {
-      ArrayList<T> actions = new ArrayList<T>();
+      ArrayList<T> actions = new ArrayList<>();
       for (PendingAction action : actionsDataProvider_.getList())
       {
          if (action.getPerformAction().getBool())
@@ -219,7 +219,7 @@ public abstract class PackageActionConfirmationDialog<T extends JavaScriptObject
    private void setGlobalPerformAction(String label, Boolean performAction)
    {
       List<PendingAction> actions = actionsDataProvider_.getList();
-      ArrayList<PendingAction> newActions = new ArrayList<PendingAction>();
+      ArrayList<PendingAction> newActions = new ArrayList<>();
       for(PendingAction action : actions)
          newActions.add(new PendingAction(action.getActionInfo(), new LabeledBoolean(label, performAction)));
       actionsDataProvider_.setList(newActions);

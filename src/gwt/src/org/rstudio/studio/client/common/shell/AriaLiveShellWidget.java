@@ -1,7 +1,7 @@
 /*
  * AriaLiveShellWidget.java
  *
- * Copyright (C) 2020 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -34,7 +34,7 @@ public class AriaLiveShellWidget extends Widget
       A11y.setVisuallyHidden(getElement());
       Roles.getStatusRole().setAriaLiveProperty(getElement(), LiveValue.ASSERTIVE);
    }
-   
+
    public void announce(String text)
    {
       if (lineCount_ > prefs_.screenreaderConsoleAnnounceLimit().getValue())
@@ -50,7 +50,7 @@ public class AriaLiveShellWidget extends Widget
             lineCount_++;
             append(line.toString());
             line.setLength(0);
-            
+
             if (lineCount_ == prefs_.screenreaderConsoleAnnounceLimit().getValue())
             {
                append("Too much console output to announce.");

@@ -1,7 +1,7 @@
 /*
  * OpenProjectNewWindowEvent.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -14,43 +14,48 @@
  */
 package org.rstudio.studio.client.projects.events;
 
+import com.google.gwt.event.shared.EventHandler;
 import org.rstudio.studio.client.application.model.RVersionSpec;
 
 import com.google.gwt.event.shared.GwtEvent;
 
-public class OpenProjectNewWindowEvent extends GwtEvent<OpenProjectNewWindowHandler>
+public class OpenProjectNewWindowEvent extends GwtEvent<OpenProjectNewWindowEvent.Handler>
 {
-   public static final GwtEvent.Type<OpenProjectNewWindowHandler> TYPE =
-      new GwtEvent.Type<OpenProjectNewWindowHandler>();
-   
+   public static final Type<Handler> TYPE = new Type<>();
+
+   public interface Handler extends EventHandler
+   {
+      void onOpenProjectNewWindow(OpenProjectNewWindowEvent event);
+   }
+
    public OpenProjectNewWindowEvent(String project, RVersionSpec rVersion)
    {
       project_ = project;
       rVersion_ = rVersion;
    }
-   
+
    public String getProject()
    {
       return project_;
    }
-   
+
    public RVersionSpec getRVersion()
    {
       return rVersion_;
    }
-   
+
    @Override
-   protected void dispatch(OpenProjectNewWindowHandler handler)
+   protected void dispatch(Handler handler)
    {
       handler.onOpenProjectNewWindow(this);
    }
 
    @Override
-   public GwtEvent.Type<OpenProjectNewWindowHandler> getAssociatedType()
+   public Type<Handler> getAssociatedType()
    {
       return TYPE;
    }
-   
+
    private final String project_;
    private final RVersionSpec rVersion_;
 }

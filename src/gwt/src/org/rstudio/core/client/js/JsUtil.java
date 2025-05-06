@@ -1,7 +1,7 @@
 /*
  * JsUtil.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -230,9 +230,14 @@ public class JsUtil
    
    public static List<String> toList(JsArrayString array)
    {
-      List<String> list = new ArrayList<String>();
+      List<String> list = new ArrayList<>();
       for (int i = 0, n = array.length(); i < n; i++)
          list.add(array.get(i));
       return list;
    }
+   
+   public native static boolean isUndefined(int val) /*-{
+      return typeof(val) === "undefined"; 
+   }-*/;
+
 }

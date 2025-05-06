@@ -1,7 +1,7 @@
 /*
  * FileUploadToken.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -21,4 +21,24 @@ public class FileUploadToken extends JavaScriptObject
    protected FileUploadToken()
    {
    }
+
+   public final native String getFilename() /*-{
+      return this.filename;
+   }-*/;
+
+   public final native String getUploadTempFile() /*-{
+      return this.uploadedTempFile;
+   }-*/;
+
+   public final native String getTargetDirectory() /*-{
+      return this.targetDirectory;
+   }-*/;
+
+   public final native boolean getUnzipFound() /*-{
+      return this.unzipFound;
+   }-*/;
+
+   public final native boolean getIsZip() /*-{
+      return this.isZip;
+   }-*/;
 }

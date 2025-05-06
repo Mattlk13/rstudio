@@ -1,7 +1,7 @@
 /*
  * RCntxt.hpp
  *
- * Copyright (C) 2009-16 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -51,7 +51,7 @@ public:
    static void unspecified_bool_true() {};
    operator unspecified_bool_type() const 
    { 
-      return pCntxt_ ? unspecified_bool_true : 0; 
+      return pCntxt_ ? unspecified_bool_true : 0;
    }
    bool operator!() const
    {
@@ -63,7 +63,16 @@ public:
    bool isDebugHidden() const;
    bool isErrorHandler() const;
 
-   SEXP sourceRefs() const;
+   // retrieve the source references associated with the context
+   // (the source reference where this context originated)
+   SEXP contextSourceRefs() const;
+   
+   // retrieve source references associated with the calling function
+   // (where that calling function was actually defined in source)
+   SEXP callFunSourceRefs() const;
+   
+   // for traced functions, the 'real' function will be replaced by
+   // a wrapper function -- use this to find the original function
    SEXP originalFunctionCall() const;
 
    std::string shinyFunctionLabel() const;
@@ -73,9 +82,13 @@ public:
    core::Error callSummary(std::string* pCallSummary) const;
 
    // implemented by R version specific internal context classes
+   //
+   // NOTE: 'srcref()' attribute may be set to <in-bc-interp>
+   // symbol for contexts associated with bytecode evaluation!
    bool isNull() const;
    SEXP callfun() const;
    int callflag() const;
+   int evaldepth() const;
    SEXP call() const;
    SEXP srcref() const;
    SEXP cloenv() const;

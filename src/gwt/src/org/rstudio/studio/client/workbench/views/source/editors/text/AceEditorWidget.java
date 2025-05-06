@@ -1,7 +1,7 @@
 /*
  * AceEditorWidget.java
  *
- * Copyright (C) 2009-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -43,7 +43,6 @@ import org.rstudio.core.client.BrowseCap;
 import org.rstudio.core.client.CommandWithArg;
 import org.rstudio.core.client.Debug;
 import org.rstudio.core.client.StringUtil;
-import org.rstudio.core.client.events.HasContextMenuHandlers;
 import org.rstudio.core.client.widget.CanSetControlId;
 import org.rstudio.core.client.widget.FontSizer;
 import org.rstudio.studio.client.RStudioGinjector;
@@ -87,7 +86,7 @@ public class AceEditorWidget extends Composite
    {
       this(true);
    }
-    
+
    public AceEditorWidget(boolean applyNormalFontSize)
    {
       RStudioGinjector.INSTANCE.injectMembers(this);
@@ -118,7 +117,7 @@ public class AceEditorWidget extends Composite
          public void execute(AceDocumentChangeEventNative event)
          {
             // Case 3815: It appears to be possible for change events to be
-            // fired recursively, which exhausts the stack. This shouldn't 
+            // fired recursively, which exhausts the stack. This shouldn't
             // happen, but since it has in at least one setting, guard against
             // recursion here.
             if (inOnChangeHandler_)
@@ -131,10 +130,10 @@ public class AceEditorWidget extends Composite
             {
                ValueChangeEvent.fire(AceEditorWidget.this, null);
                AceEditorWidget.this.fireEvent(new DocumentChangedEvent(event));
-               
+
                updateBreakpoints(event);
                updateAnnotations(event);
-               
+
                // Immediately re-render on change if we have markers, to
                // ensure they're re-drawn in the correct locations.
                if (editor_.getSession().getMarkers(true).size() > 0)
@@ -151,7 +150,7 @@ public class AceEditorWidget extends Composite
             }
             catch (Exception ex)
             {
-               Debug.log("Exception occurred during ACE change event: " + 
+               Debug.log("Exception occurred during ACE change event: " +
                          ex.getMessage());
             }
             inOnChangeHandler_ = false;
@@ -183,29 +182,29 @@ public class AceEditorWidget extends Composite
         public void execute(AceMouseEventNative arg)
         {
            // make sure the click is actually intended for the gutter
-           com.google.gwt.dom.client.Element targetElement = 
+           com.google.gwt.dom.client.Element targetElement =
                  Element.as(arg.getNativeEvent().getEventTarget());
            if (targetElement.getClassName().indexOf("ace_gutter-cell") < 0)
            {
               return;
            }
-           
+
            NativeEvent evt = arg.getNativeEvent();
-           
+
            // right-clicking shouldn't set a breakpoint
-           if (evt.getButton() != NativeEvent.BUTTON_LEFT) 
+           if (evt.getButton() != NativeEvent.BUTTON_LEFT)
            {
               return;
            }
-           
+
            // make sure that the click was in the left half of the element--
-           // clicking on the line number itself (or the gutter near the 
+           // clicking on the line number itself (or the gutter near the
            // text) shouldn't set a breakpoint.
-           if (evt.getClientX() < 
-               (targetElement.getAbsoluteLeft() + 
-                     (targetElement.getClientWidth() / 2))) 
+           if (evt.getClientX() <
+               (targetElement.getAbsoluteLeft() +
+                     (targetElement.getClientWidth() / 2)))
            {
-              toggleBreakpointAtPosition(arg.getDocumentPosition());            
+              toggleBreakpointAtPosition(arg.getDocumentPosition());
            }
         }
       });
@@ -216,9 +215,9 @@ public class AceEditorWidget extends Composite
             AceEditorWidget.this.fireEvent(new CursorChangedEvent(arg));
          }
       });
-      
-      aceEventHandlers_ = new ArrayList<HandlerRegistration>();
-      
+
+      aceEventHandlers_ = new ArrayList<>();
+
       addAttachHandler(new AttachEvent.Handler()
       {
          @Override
@@ -317,13 +316,13 @@ public class AceEditorWidget extends Composite
             }
          }
       });
-      
+
       if (!hasEditHandlers_)
       {
          events_.addHandler(EditEvent.TYPE, this);
          hasEditHandlers_ = true;
       }
-      
+
       events_.addHandler(
             RStudioCommandExecutedFromShortcutEvent.TYPE,
             new RStudioCommandExecutedFromShortcutEvent.Handler()
@@ -335,7 +334,7 @@ public class AceEditorWidget extends Composite
                }
             });
    }
-   
+
    // When the 'keyBinding' field is initialized (the field holding all keyboard
    // handlers for an Ace editor), an associated '$data' element is used to store
    // information on keys (to allow for keyboard chaining, and so on). We refresh
@@ -345,7 +344,7 @@ public class AceEditorWidget extends Composite
       var keyBinding = editor.keyBinding;
       keyBinding.$data = {editor: editor};
    }-*/;
-   
+
    public void onEdit(EditEvent edit)
    {
       if (edit.isBeforeEdit())
@@ -353,7 +352,7 @@ public class AceEditorWidget extends Composite
       else
          remapForEdit(edit.getType());
    }
-   
+
    private final void unmapForEdit(int type)
    {
       if (type == EditEvent.TYPE_COPY)
@@ -365,7 +364,7 @@ public class AceEditorWidget extends Composite
       else if (type == EditEvent.TYPE_PASTE_WITH_INDENT)
          unmapForEditImpl("<C-S-v>", "c-s-v");
    }
-   
+
    private final void remapForEdit(int type)
    {
       if (type == EditEvent.TYPE_COPY)
@@ -377,10 +376,10 @@ public class AceEditorWidget extends Composite
       else if (type == EditEvent.TYPE_PASTE_WITH_INDENT)
          remapForEditImpl("<C-S-v>", "c-s-v");
    }
-   
+
    private static final native void unmapForEditImpl(String vimKeys, String emacsKeys)
    /*-{
-      
+
       // Handle Vim mapping
       var Vim = $wnd.require("ace/keyboard/vim").handler;
       var keymap = Vim.defaultKeymap;
@@ -390,19 +389,19 @@ public class AceEditorWidget extends Composite
             break;
          }
       }
-      
+
       // Handle Emacs mapping
       var Emacs = $wnd.require("ace/keyboard/emacs").handler;
       var bindings = Emacs.commandKeyBinding;
       bindings["DISABLED:" + emacsKeys] = bindings[emacsKeys];
       delete bindings[emacsKeys];
-      
-      
+
+
    }-*/;
-   
+
    private static final native void remapForEditImpl(String vimKeys, String emacsKeys)
    /*-{
-      
+
       // Handle Vim mapping
       var Vim = $wnd.require("ace/keyboard/vim").handler;
       var keymap = Vim.defaultKeymap;
@@ -412,7 +411,7 @@ public class AceEditorWidget extends Composite
             break;
          }
       }
-      
+
       // Handle Emacs mapping
       var Emacs = $wnd.require("ace/keyboard/emacs").handler;
       var bindings = Emacs.commandKeyBinding;
@@ -421,16 +420,15 @@ public class AceEditorWidget extends Composite
          delete bindings["DISABLED:" + emacsKeys];
       }
    }-*/;
-   
+
    @Inject
    private void initialize(EventBus events, UserPrefs uiPrefs)
    {
       events_ = events;
       uiPrefs_ = uiPrefs;
    }
-   
-   public HandlerRegistration addCursorChangedHandler(
-         CursorChangedHandler handler)
+
+   public HandlerRegistration addCursorChangedHandler(CursorChangedEvent.Handler handler)
    {
       return addHandler(handler, CursorChangedEvent.TYPE);
    }
@@ -440,13 +438,13 @@ public class AceEditorWidget extends Composite
    {
       return addHandler(handler, FoldChangeEvent.TYPE);
    }
-   
+
    public HandlerRegistration addBreakpointSetHandler
       (BreakpointSetEvent.Handler handler)
    {
       return addHandler(handler, BreakpointSetEvent.TYPE);
    }
-   
+
    public HandlerRegistration addBreakpointMoveHandler
       (BreakpointMoveEvent.Handler handler)
    {
@@ -458,7 +456,7 @@ public class AceEditorWidget extends Composite
       Position pos = editor_.getSession().getSelection().getCursor();
       toggleBreakpointAtPosition(Position.create(pos.getRow(), 0));
    }
-   
+
    public AceEditorNative getEditor() {
       return editor_;
    }
@@ -479,7 +477,7 @@ public class AceEditorWidget extends Composite
       }
 
       // This command binding has to be an anonymous inner class (not a lambda)
-      // due to an issue with using lambda bindings with Ace, which sometimes 
+      // due to an issue with using lambda bindings with Ace, which sometimes
       // results in a blocking exception on startup in devmode.
       aceEventHandlers_.add(uiPrefs_.tabKeyMoveFocus().bind(
             new CommandWithArg<Boolean>()
@@ -497,7 +495,7 @@ public class AceEditorWidget extends Composite
 
       editor_.getRenderer().updateFontSize();
       onResize();
-      
+
       fireEvent(new EditorLoadedEvent(editor_));
       events_.fireEvent(new EditorLoadedEvent(editor_));
 
@@ -570,12 +568,12 @@ public class AceEditorWidget extends Composite
    {
       return addDomHandler(handler, MouseDownEvent.getType());
    }
-   
+
    public HandlerRegistration addMouseMoveHandler(MouseMoveHandler handler)
    {
       return addDomHandler(handler, MouseMoveEvent.getType());
    }
-   
+
    public HandlerRegistration addMouseUpHandler(MouseUpHandler handler)
    {
       return addDomHandler(handler, MouseUpEvent.getType());
@@ -586,7 +584,7 @@ public class AceEditorWidget extends Composite
       return addDomHandler(handler, ClickEvent.getType());
    }
 
-   public HandlerRegistration addEditorLoadedHandler(EditorLoadedHandler handler)
+   public HandlerRegistration addEditorLoadedHandler(EditorLoadedEvent.Handler handler)
    {
       return addHandler(handler, EditorLoadedEvent.TYPE);
    }
@@ -600,12 +598,12 @@ public class AceEditorWidget extends Composite
    {
       return addHandler(handler, KeyPressEvent.getType());
    }
-   
+
    public HandlerRegistration addKeyUpHandler(KeyUpHandler handler)
    {
       return addHandler(handler, KeyUpEvent.getType());
    }
-   
+
    public HandlerRegistration addCapturingKeyDownHandler(KeyDownHandler handler)
    {
       return capturingHandlers_.addHandler(KeyDownEvent.getType(), handler);
@@ -637,7 +635,7 @@ public class AceEditorWidget extends Composite
 
    }-*/;
 
-   public HandlerRegistration addUndoRedoHandler(UndoRedoHandler handler)
+   public HandlerRegistration addUndoRedoHandler(UndoRedoEvent.Handler handler)
    {
       return addHandler(handler, UndoRedoEvent.TYPE);
    }
@@ -646,7 +644,7 @@ public class AceEditorWidget extends Composite
    {
       return addHandler(handler, PasteEvent.TYPE);
    }
-   
+
    public HandlerRegistration addAceMouseMoveHandler(AceMouseMoveEvent.Handler handler)
    {
       return addHandler(handler, AceMouseMoveEvent.TYPE);
@@ -656,7 +654,7 @@ public class AceEditorWidget extends Composite
    {
       return addHandler(handler, AceClickEvent.TYPE);
    }
-   
+
    public HandlerRegistration addSelectionChangedHandler(AceSelectionChangedEvent.Handler handler)
    {
       return addHandler(handler, AceSelectionChangedEvent.TYPE);
@@ -676,7 +674,7 @@ public class AceEditorWidget extends Composite
    {
       editor_.onCursorChange();
    }
-   
+
    public void addOrUpdateBreakpoint(Breakpoint breakpoint)
    {
       int idx = getBreakpointIdxById(breakpoint.getBreakpointId());
@@ -692,7 +690,7 @@ public class AceEditorWidget extends Composite
       }
       placeBreakpointMarker(breakpoint);
    }
-   
+
    public void removeBreakpoint(Breakpoint breakpoint)
    {
       int idx = getBreakpointIdxById(breakpoint.getBreakpointId());
@@ -702,7 +700,7 @@ public class AceEditorWidget extends Composite
          breakpoints_.remove(idx);
       }
    }
-   
+
    public void removeAllBreakpoints()
    {
       for (Breakpoint breakpoint: breakpoints_)
@@ -711,7 +709,7 @@ public class AceEditorWidget extends Composite
       }
       breakpoints_.clear();
    }
-   
+
    public void setChunkLineExecState(int start, int end, int state)
    {
       for (int i = start; i <= end; i++)
@@ -739,10 +737,9 @@ public class AceEditorWidget extends Composite
          if (state == ChunkRowExecState.LINE_QUEUED)
          {
             // queued state: introduce to the editor
-            final Value<ChunkRowExecState> execState = 
-                  new Value<ChunkRowExecState>(null);
+            final Value<ChunkRowAceExecState> execState = new Value<>(null);
             execState.setValue(
-                  new ChunkRowExecState(editor_, i, state, new Command()
+                  new ChunkRowAceExecState(editor_, i, state, new Command()
                         {
                            @Override
                            public void execute()
@@ -754,12 +751,12 @@ public class AceEditorWidget extends Composite
          }
       }
    }
-   
+
    public boolean hasBreakpoints()
    {
       return breakpoints_.size() > 0;
    }
-   
+
    private void updateBreakpoints(AceDocumentChangeEventNative changeEvent)
    {
       // if there are no breakpoints, don't do any work to move them about
@@ -767,33 +764,33 @@ public class AceEditorWidget extends Composite
       {
          return;
       }
-      
-      // see if we need to move any breakpoints around in response to 
+
+      // see if we need to move any breakpoints around in response to
       // this change to the document's text
       String action = changeEvent.getAction();
       Range range = changeEvent.getRange();
       Position start = range.getStart();
       Position end = range.getEnd();
-      
+
       // compute how many rows to shift
       int shiftedBy = (action == "insert")
             ? end.getRow() - start.getRow()
             : start.getRow() - end.getRow();
-      
+
       if (shiftedBy == 0)
          return;
-      
+
       // compute where to start shifting
-      int shiftStartRow = start.getRow() + 
-            ((action == "insert" && start.getColumn() > 0) ? 
+      int shiftStartRow = start.getRow() +
+            ((action == "insert" && start.getColumn() > 0) ?
                   1 : 0);
-      
+
       // make a pass through the breakpoints and move them as appropriate:
       // remove all the breakpoints after the row where the change
       // happened, and add them back at their new position if they were
-      // not part of a deleted range. 
-      ArrayList<Breakpoint> movedBreakpoints = new ArrayList<Breakpoint>();
-     
+      // not part of a deleted range.
+      ArrayList<Breakpoint> movedBreakpoints = new ArrayList<>();
+
       for (int idx = 0; idx < breakpoints_.size(); idx++)
       {
          Breakpoint breakpoint = breakpoints_.get(idx);
@@ -808,12 +805,12 @@ public class AceEditorWidget extends Composite
       for (Breakpoint breakpoint: movedBreakpoints)
       {
          // calculate the new position of the breakpoint
-         int oldBreakpointPosition = 
+         int oldBreakpointPosition =
                rowFromLine(breakpoint.getEditorLineNumber());
-         int newBreakpointPosition = 
+         int newBreakpointPosition =
                oldBreakpointPosition + shiftedBy;
-         
-         // add a breakpoint in this new position only if it wasn't 
+
+         // add a breakpoint in this new position only if it wasn't
          // in a deleted range, and if we don't already have a
          // breakpoint there
          if (oldBreakpointPosition >= end.getRow() &&
@@ -822,19 +819,19 @@ public class AceEditorWidget extends Composite
          {
             breakpoint.moveToLineNumber(lineFromRow(newBreakpointPosition));
             placeBreakpointMarker(breakpoint);
-            fireEvent(new BreakpointMoveEvent(breakpoint.getBreakpointId())); 
+            fireEvent(new BreakpointMoveEvent(breakpoint.getBreakpointId()));
          }
          else
          {
             breakpoints_.remove(breakpoint);
             fireEvent(new BreakpointSetEvent(
-                  breakpoint.getEditorLineNumber(), 
+                  breakpoint.getEditorLineNumber(),
                   breakpoint.getBreakpointId(),
-                  false)); 
+                  false));
          }
       }
    }
-   
+
    private void placeBreakpointMarker(Breakpoint breakpoint)
    {
       int line = breakpoint.getEditorLineNumber();
@@ -845,17 +842,17 @@ public class AceEditorWidget extends Composite
       else if (breakpoint.getEditorState() == Breakpoint.STATE_PROCESSING)
       {
         editor_.getRenderer().addGutterDecoration(
-               rowFromLine(line), 
+               rowFromLine(line),
                "ace_pending-breakpoint");
-      } 
+      }
       else if (breakpoint.getEditorState() == Breakpoint.STATE_INACTIVE)
       {
          editor_.getRenderer().addGutterDecoration(
-               rowFromLine(line), 
+               rowFromLine(line),
                "ace_inactive-breakpoint");
       }
    }
-   
+
    private void removeBreakpointMarker(Breakpoint breakpoint)
    {
       int line = breakpoint.getEditorLineNumber();
@@ -866,17 +863,17 @@ public class AceEditorWidget extends Composite
       else if (breakpoint.getEditorState() == Breakpoint.STATE_PROCESSING)
       {
         editor_.getRenderer().removeGutterDecoration(
-               rowFromLine(line), 
+               rowFromLine(line),
                "ace_pending-breakpoint");
-      } 
+      }
       else if (breakpoint.getEditorState() == Breakpoint.STATE_INACTIVE)
       {
          editor_.getRenderer().removeGutterDecoration(
-               rowFromLine(line), 
+               rowFromLine(line),
                "ace_inactive-breakpoint");
       }
    }
-   
+
    private void toggleBreakpointAtPosition(Position pos)
    {
       // rows are 0-based, but debug line numbers are 1-based
@@ -889,7 +886,7 @@ public class AceEditorWidget extends Composite
          Breakpoint breakpoint = breakpoints_.get(breakpointIdx);
          removeBreakpointMarker(breakpoint);
          fireEvent(new BreakpointSetEvent(
-               lineNumber, 
+               lineNumber,
                breakpoint.getBreakpointId(),
                false));
          breakpoints_.remove(breakpointIdx);
@@ -928,7 +925,7 @@ public class AceEditorWidget extends Composite
          {
             // If we failed at any point to fast-forward to the next line with
             // a statement, we'll try to set a breakpoint on the line the user
-            // originally clicked. 
+            // originally clicked.
          }
 
          fireEvent(new BreakpointSetEvent(
@@ -937,7 +934,7 @@ public class AceEditorWidget extends Composite
                true));
       }
    }
-   
+
    private int getBreakpointIdxById(int breakpointId)
    {
       for (int idx = 0; idx < breakpoints_.size(); idx++)
@@ -949,7 +946,7 @@ public class AceEditorWidget extends Composite
       }
       return -1;
    }
-   
+
    private int getBreakpointIdxByLine(int lineNumber)
    {
       for (int idx = 0; idx < breakpoints_.size(); idx++)
@@ -961,19 +958,19 @@ public class AceEditorWidget extends Composite
       }
       return -1;
    }
-   
+
    private int lineFromRow(int row)
    {
-      return row + 1; 
+      return row + 1;
    }
-   
+
    private int rowFromLine(int line)
    {
       return line - 1;
    }
-   
+
    // ---- Annotation related methods
-   
+
    private AnchoredRange createAnchoredRange(Position start,
                                              Position end)
    {
@@ -996,8 +993,8 @@ public class AceEditorWidget extends Composite
    // the associated marker. Ie, with some beautiful ASCII art:
    //
    //
-   //   1. | 
-   //   2. | foo <- function(apple) {    
+   //   1. |
+   //   2. | foo <- function(apple) {
    //  /!\ |   print(Apple)
    //   3. | }       ~~~~~
    //   4. |
@@ -1019,20 +1016,20 @@ public class AceEditorWidget extends Composite
                annotation.column());
          markerId_ = markerId;
       }
-      
+
       public int getMarkerId() { return markerId_; }
-      
+
       public void detach()
       {
          if (range_ != null)
             range_.detach();
-         
+
          if (anchor_ != null)
             anchor_.detach();
-         
+
          editor_.getSession().removeMarker(markerId_);
       }
-      
+
       public AceAnnotation asAceAnnotation()
       {
          return AceAnnotation.create(
@@ -1041,7 +1038,7 @@ public class AceEditorWidget extends Composite
                annotation_.text(),
                annotation_.type());
       }
-      
+
       private final AceAnnotation annotation_;
       private final AnchoredRange range_;
       private final Anchor anchor_;
@@ -1053,25 +1050,25 @@ public class AceEditorWidget extends Composite
       JsArray<AceAnnotation> annotations =
             JsArray.createArray().cast();
       annotations.setLength(annotations_.size());
-      
+
       for (int i = 0; i < annotations_.size(); i++)
          annotations.set(i, annotations_.get(i).asAceAnnotation());
-      
+
       return annotations;
    }
-   
+
    public void setAnnotations(JsArray<AceAnnotation> annotations)
    {
       clearAnnotations();
       editor_.getSession().setAnnotations(annotations);
    }
-   
+
    public void showLint(JsArray<LintItem> lint)
    {
       clearAnnotations();
       JsArray<AceAnnotation> annotations = LintItem.asAceAnnotations(lint);
       editor_.getSession().setAnnotations(annotations);
-      
+
       // Now, set (and cache) inline markers.
       for (int i = 0; i < lint.length(); i++)
       {
@@ -1079,7 +1076,7 @@ public class AceEditorWidget extends Composite
          AnchoredRange range = createAnchoredRange(
                Position.create(item.getStartRow(), item.getStartColumn()),
                Position.create(item.getEndRow(), item.getEndColumn()));
-         
+
          String clazz = "unknown";
          if (item.getType() == "error")
             clazz = lintStyles_.error();
@@ -1091,7 +1088,7 @@ public class AceEditorWidget extends Composite
             clazz = lintStyles_.style();
          else if (item.getType() == "spelling")
             clazz = lintStyles_.warning();
-         
+
          int id = editor_.getSession().addMarker(range, clazz, "text", true);
             annotations_.add(new AnchoredAceAnnotation(
                annotations.get(i),
@@ -1099,25 +1096,24 @@ public class AceEditorWidget extends Composite
                id));
       }
    }
-   
+
    public void clearLint()
    {
       clearAnnotations();
       editor_.getSession().setAnnotations(null);
    }
-   
+
    private void updateAnnotations(AceDocumentChangeEventNative event)
    {
       Range range = event.getRange();
-      
-      ArrayList<AnchoredAceAnnotation> annotations =
-            new ArrayList<AnchoredAceAnnotation>();
+
+      ArrayList<AnchoredAceAnnotation> annotations = new ArrayList<>();
 
       for (int i = 0; i < annotations_.size(); i++)
       {
          AnchoredAceAnnotation annotation = annotations_.get(i);
          Position pos = annotation.anchor_.getPosition();
-         
+
          if (!range.contains(pos))
             annotations.add(annotation);
          else
@@ -1125,14 +1121,14 @@ public class AceEditorWidget extends Composite
       }
       annotations_ = annotations;
    }
-   
+
    public void clearAnnotations()
    {
       for (int i = 0; i < annotations_.size(); i++)
          annotations_.get(i).detach();
       annotations_.clear();
    }
-   
+
    public void removeMarkersOnCursorLine()
    {
       int cursorRow = editor_.getCursorPosition().getRow();
@@ -1213,17 +1209,17 @@ public class AceEditorWidget extends Composite
          editor_.getRenderer().renderMarkers();
       });
    }
-   
+
    public void setDragEnabled(boolean enabled)
    {
       editor_.setDragEnabled(enabled);
    }
-   
+
    public LineWidgetManager getLineWidgetManager()
    {
       return editor_.getLineWidgetManager();
    }
-   
+
    public boolean isRendered()
    {
       return isRendered_;
@@ -1266,10 +1262,10 @@ public class AceEditorWidget extends Composite
    private boolean initToEmptyString_ = true;
    private boolean inOnChangeHandler_ = false;
    private boolean isRendered_ = false;
-   private ArrayList<Breakpoint> breakpoints_ = new ArrayList<>();
+   private final ArrayList<Breakpoint> breakpoints_ = new ArrayList<>();
    private ArrayList<AnchoredAceAnnotation> annotations_ = new ArrayList<>();
-   private ArrayList<ChunkRowExecState> lineExecState_ = new ArrayList<>();
-   private LintResources.Styles lintStyles_ = LintResources.INSTANCE.styles();
+   private final ArrayList<ChunkRowAceExecState> lineExecState_ = new ArrayList<>();
+   private final LintResources.Styles lintStyles_ = LintResources.INSTANCE.styles();
    private static boolean hasEditHandlers_ = false;
    private boolean tabMovesFocus_ = false;
    private TabKeyMode tabKeyMode_ = TabKeyMode.TrackUserPref;

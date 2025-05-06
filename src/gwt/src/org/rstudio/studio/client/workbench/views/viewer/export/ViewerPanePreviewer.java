@@ -1,7 +1,7 @@
 /*
  * ViewerPanePreviewer.java
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -29,13 +29,13 @@ public class ViewerPanePreviewer implements ExportPlotPreviewer
    {
       url_ = URIUtils.addQueryParam(url, "viewer_export", "1");
    }
-   
+
    @Override
    public boolean getLimitToScreen()
    {
       return true;
    }
-   
+
    @Override
    public Widget getWidget()
    {
@@ -47,7 +47,7 @@ public class ViewerPanePreviewer implements ExportPlotPreviewer
          frame_.setStylePrimaryName(
                ExportPlotResources.INSTANCE.styles().imagePreview());
       }
-      
+
       return frame_;
    }
 
@@ -56,13 +56,13 @@ public class ViewerPanePreviewer implements ExportPlotPreviewer
    {
       return frame_.getElement().<IFrameElementEx>cast();
    }
-   
+
    @Override
    public void updatePreview(int width, int height)
    {
    }
-   
+
    private RStudioFrame frame_ = null;
-   
+
    protected final String url_;
 }

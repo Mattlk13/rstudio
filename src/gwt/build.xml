@@ -3,7 +3,7 @@
 #
 # build.xml
 #
-# Copyright (C) 2009-20 by RStudio, PBC
+# Copyright (C) 2021 by RStudio, PBC
 #
 # This program is licensed to you under the terms of version 3 of the
 # GNU Affero General Public License. This program is distributed WITHOUT
@@ -64,7 +64,7 @@
    <target name="ext">
       <jscomp compilationLevel="simple" warning="default"
               debug="false" output="${ace.bin}/acesupport.js">
-              
+
           <externs dir="${src.dir}/../acesupport">
              <file name="extern.js"/>
           </externs>
@@ -94,10 +94,14 @@
    </condition>
 
    <!-- use node from /opt/rstudio-tools if installed (typical for Docker) -->
-   <available property="node.bin" value="/opt/rstudio-tools/dependencies/common/node/${node.version}/bin/node" file="/opt/rstudio-tools/dependencies/common/node/${node.version}/bin/node"/>
+   <available
+      property="node.bin"
+      value="/opt/rstudio-tools/dependencies/common/node/${node.version}/bin/node"
+      file="/opt/rstudio-tools/dependencies/common/node/${node.version}/bin/node"/>
 
    <property name="panmirror.dir" value="./panmirror/src/editor"/>
-   <property name="panmirror.build.dir" value="./www/js/panmirror"/>      
+   <property name="panmirror.build.dir" value="./www/js/panmirror"/>
+
    <target name="panmirror" description="Compile panmirror library">
       <mkdir dir="${panmirror.build.dir}"/>
       <exec executable="${node.bin}" dir="${panmirror.dir}" spawn="${panmirror.spawn}">
@@ -184,23 +188,23 @@
    <target name="desktop" description="Run desktop development mode">
       <antcall target="codeserver">
          <param name="gwt.main.module" value="org.rstudio.studio.RStudioDesktopSuperDevMode"/>
-      	 <param name="panmirror.target" value="ide-dev"/>
+         <param name="panmirror.target" value="ide-dev"/>
       </antcall>
    </target>
 
    <target name="devmode" description="Run server development mode">
       <antcall target="codeserver">
          <param name="gwt.main.module" value="org.rstudio.studio.RStudioSuperDevMode"/>
-      	 <param name="panmirror.target" value="ide-dev"/>
+         <param name="panmirror.target" value="ide-dev"/>
       </antcall>
    </target>
-	
-	<target name="devmode-panmirror" description="Run server development mode">
+
+   <target name="devmode-panmirror" description="Run server development mode">
       <antcall target="codeserver">
          <param name="gwt.main.module" value="org.rstudio.studio.RStudioSuperDevMode"/>
          <param name="panmirror.target" value="ide-dev-watch"/>
       </antcall>
-	</target>
+   </target>
 
    <target name="codeserver" depends="acesupport,javac" description="Run GWT devmode code server">
       <antcall target="panmirror">

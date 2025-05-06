@@ -16,10 +16,11 @@ set MSYS_SSH_FILE=msys-ssh-1000-18.zip
 set SUMATRA_PDF_FILE=SumatraPDF-3.1.2-64.zip
 set WINUTILS_FILE=winutils-1.0.zip
 set WINPTY_FILES=winpty-0.4.3-msys2-2.7.0.zip
-set OPENSSL_FILES=openssl-1.1.1d.zip
+set OPENSSL_FILES=openssl-1.1.1i.zip
 set BOOST_FILES=boost-1.69.0-win-msvc141.zip
+set YAML_CPP_FILES=yaml-cpp-0.6.3.zip
 
-set PANDOC_VERSION=2.9.2.1
+set PANDOC_VERSION=2.11.4
 set PANDOC_NAME=pandoc-%PANDOC_VERSION%
 set PANDOC_FILE=%PANDOC_NAME%-windows-x86_64.zip
 
@@ -93,6 +94,12 @@ if not exist %BOOST_FILES:~0,-4%* (
   echo Unzipping %BOOST_FILES%
   unzip %UNZIP_ARGS% "%BOOST_FILES%"
   del %BOOST_FILES%
+)
+
+if not exist %YAML_CPP_FILES:~0,-4%* (
+  wget %WGET_ARGS% "%BASEURL%yaml-cpp/%YAML_CPP_FILES%
+  unzip %UNZIP_ARGS% "%YAML_CPP_FILES%"
+  del %YAML_CPP_FILES%
 )
 
 if not exist sentry-cli.exe (

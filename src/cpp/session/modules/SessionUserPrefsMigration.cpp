@@ -1,7 +1,7 @@
 /*
  * SessionUserPrefsMigration.cpp
  *
- * Copyright (C) 2009-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -153,7 +153,7 @@ core::Error migratePrefs(const FilePath& src)
    json::Object destState;
 
    // Read the old settings file
-   Settings settings; 
+   Settings settings;
    Error err = settings.initialize(src);
    if (err)
       return err;
@@ -222,7 +222,7 @@ core::Error migratePrefs(const FilePath& src)
    destPrefs[kAlwaysSaveHistory] = settings.getBool("alwaysSaveHistory", true);
    destPrefs[kRemoveHistoryDuplicates] = settings.getBool("removeHistoryDuplicates", false);
 
-   // Migrate RStudio Server Pro options
+   // Migrate RStudio Workbench options
    destPrefs[kShowUserHomePage] = settings.get("showUserHomePage", kShowUserHomePageSessions);
    destPrefs[kReuseSessionsForProjectLinks] = 
       settings.getBool("reuseSessionsForProjectLinks", true);
@@ -271,7 +271,7 @@ core::Error migratePrefs(const FilePath& src)
       LOG_ERROR(err);
 
    // Write the accumulated preferences to our user prefs layer
-   return userPrefs().writeLayer(PREF_LAYER_USER, destPrefs); 
+   return userPrefs().writeLayer(PREF_LAYER_USER, destPrefs);
 }
 
 } // namespace prefs

@@ -1,7 +1,7 @@
 /*
  * SessionThemes.hpp
  *
- * Copyright (C) 2018 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -12,6 +12,9 @@
  * AGPL (http://www.gnu.org/licenses/agpl-3.0.txt) for more details.
  *
  */
+
+#ifndef SESSION_THEMES_HPP
+#define SESSION_THEMES_HPP
 
 #include <string>
 
@@ -32,3 +35,5 @@ core::Error initialize();
 } // namespace modules
 } // namespace session
 } // namespace rstudio
+
+#endif /* SESSION_THEMES_HPP */

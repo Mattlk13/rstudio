@@ -1,7 +1,7 @@
 /*
  * BrowseAddinsDialog.java
  *
- * Copyright (C) 2009-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -102,11 +102,11 @@ public class BrowseAddinsDialog extends ModalDialog<Command>
          }
       };
       
-      table_ = new RStudioDataGrid<RAddin>(1000, RES, keyProvider_);
+      table_ = new RStudioDataGrid<>(1000, RES, keyProvider_);
       table_.setWidth("500px");
       table_.setHeight("400px");
       
-      selectionModel_ = new SingleSelectionModel<RAddin>();
+      selectionModel_ = new SingleSelectionModel<>();
       selectionModel_.addSelectionChangeHandler(new SelectionChangeEvent.Handler()
       {
          @Override

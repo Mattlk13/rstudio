@@ -1,7 +1,7 @@
 #
 # CMakeLists.txt
 #
-# Copyright (C) 2020 by RStudio, PBC
+# Copyright (C) 2021 by RStudio, PBC
 #
 # Unless you have received this program directly from RStudio pursuant
 # to the terms of a commercial license agreement with RStudio, then
@@ -33,16 +33,18 @@ set (SHARED_CORE_SOURCE_FILES
    Error.cpp
    FileLogDestination.cpp
    FilePath.cpp
+   Hash.cpp
    Logger.cpp
    ReaderWriterMutex.cpp
    StderrLogDestination.cpp
    json/Json.cpp
+   system/Crypto.cpp
 )
 
 set (SHARED_INCLUDE_DIRS
    include
    ${BOOST_INCLUDEDIR}
-   )
+   ${EXT_SOURCE_DIR})
 
 # UNIX specific
 if (UNIX)
@@ -98,6 +100,7 @@ if (RSTUDIO_UNIT_TESTS_ENABLED)
 
    target_link_libraries(rstudio-shared-core-tests
       rstudio-shared-core
+      rstudio-core
       ${Boost_LIBRARIES}
    )
 endif()

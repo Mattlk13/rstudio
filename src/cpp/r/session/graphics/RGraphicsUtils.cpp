@@ -1,7 +1,7 @@
 /*
  * RGraphicsUtils.cpp
  *
- * Copyright (C) 2009-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -44,7 +44,7 @@ namespace graphics {
 
 namespace {
 
-int s_compatibleEngineVersion = 12;
+int s_compatibleEngineVersion = 13;
 
 #ifdef __APPLE__
 class QuartzStatus : boost::noncopyable
@@ -192,8 +192,13 @@ std::string extraBitmapParams()
          backend = "default";
    }
    
-   if (backend != "default")
+   // don't use the 'ragg' backend here (these parameters are normally passed
+   // to devices defined by the 'grDevices' package, and it doesn't handle
+   // 'ragg')
+   if (backend != "default" && backend != "ragg")
+   {
       params.push_back("type = \"" + backend + "\"");
+   }
    
    std::string antialias = getDefaultAntialiasing();
 
@@ -232,9 +237,12 @@ RestorePreviousGraphicsDeviceScope::~RestorePreviousGraphicsDeviceScope()
    {
       // reslect the previously selected device if we had one
       if (pImpl_->pPreviousDevice != nullptr)
-         Rf_selectDevice(Rf_ndevNumber(pImpl_->pPreviousDevice->dev));  
+      {
+         int deviceNumber = Rf_ndevNumber(pImpl_->pPreviousDevice->dev);
+         Rf_selectDevice(deviceNumber);
+      }
    }
-   catch(...)
+   catch (...)
    {
    }
 }

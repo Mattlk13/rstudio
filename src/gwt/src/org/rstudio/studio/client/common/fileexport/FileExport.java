@@ -1,7 +1,7 @@
 /*
  * FileExport.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -43,7 +43,7 @@ public class FileExport
    
    public void export(String caption, String description, FileSystemItem file)
    {
-      ArrayList<FileSystemItem> files = new ArrayList<FileSystemItem>();
+      ArrayList<FileSystemItem> files = new ArrayList<>();
       files.add(file);
       export(caption, description, null, files);
    }
@@ -111,7 +111,7 @@ public class FileExport
                   archiveName += ZIP;
                
                // build list of filenames
-               ArrayList<String> filenames = new ArrayList<String>();
+               ArrayList<String> filenames = new ArrayList<>();
                for (FileSystemItem file : files)
                   filenames.add(file.getName());
                

@@ -1,7 +1,7 @@
 /*
  * HistoryAsyncDataProvider.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -34,8 +34,8 @@ public abstract class HistoryAsyncDataProvider extends AsyncDataProvider<CommitI
    public HistoryAsyncDataProvider()
    {
       rev_ = "";
-      searchText_ = new Value<String>("");
-      fileFilter_ = new Value<FileSystemItem>(null);
+      searchText_ = new Value<>("");
+      fileFilter_ = new Value<>(null);
    }
    
    public void setHistoryStrategy(HistoryStrategy strategy)

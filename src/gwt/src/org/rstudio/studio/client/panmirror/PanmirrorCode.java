@@ -1,7 +1,7 @@
 /*
  * PanmirrorCode.java
  *
- * Copyright (C) 2009-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -16,11 +16,19 @@
 package org.rstudio.studio.client.panmirror;
 
 
+import org.rstudio.studio.client.panmirror.location.PanmirrorEditingOutlineLocation;
+
 import jsinterop.annotations.JsType;
 
 @JsType
 public class PanmirrorCode
 {    
+   public PanmirrorCode(String code)
+   {
+      this.code = code;
+   }
+   
    public String code;
-   public PanmirrorCursor cursor;
+   public boolean selection_only;
+   public PanmirrorEditingOutlineLocation location;
 }

@@ -1,7 +1,7 @@
 /*
  * SVNHistoryStrategy.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -25,7 +25,7 @@ import org.rstudio.studio.client.common.vcs.SVNServerOperations;
 import org.rstudio.studio.client.server.ServerRequestCallback;
 import org.rstudio.studio.client.workbench.views.vcs.common.Pager;
 import org.rstudio.studio.client.workbench.views.vcs.common.diff.DiffParser;
-import org.rstudio.studio.client.workbench.views.vcs.common.events.VcsRefreshHandler;
+import org.rstudio.studio.client.workbench.views.vcs.common.events.VcsRefreshEvent;
 import org.rstudio.studio.client.workbench.views.vcs.dialog.CommitInfo;
 import org.rstudio.studio.client.workbench.views.vcs.dialog.HistoryStrategy;
 import org.rstudio.studio.client.workbench.views.vcs.svn.SVNDiffParser;
@@ -94,19 +94,18 @@ public class SVNHistoryStrategy implements HistoryStrategy
       int rev = parseRevision(revision);
       server_.svnShowFile(rev, filename, requestCallback);
    }
-   
+
    @Override
-   public void saveFileAs(String revision, 
-                          String source, 
+   public void saveFileAs(String revision,
+                          String source,
                           String destination,
                           ProgressIndicator indicator)
    {
       // no-op
    }
 
-
    @Override
-   public HandlerRegistration addVcsRefreshHandler(VcsRefreshHandler handler)
+   public HandlerRegistration addVcsRefreshHandler(VcsRefreshEvent.Handler handler)
    {
       return vcsState_.addVcsRefreshHandler(handler, false);
    }
@@ -165,10 +164,10 @@ public class SVNHistoryStrategy implements HistoryStrategy
    {
       return new SVNDiffParser(commitDiff);
    }
-   
+
    @Override
    public boolean getShowHistoryErrors()
-   { 
+   {
       return false;
    }
 

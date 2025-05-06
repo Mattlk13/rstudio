@@ -1,7 +1,7 @@
 /*
  * HelpStrategy.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -38,7 +38,7 @@ public class HelpStrategy
    public HelpStrategy(CodeToolsServerOperations server)
    {
       server_ = server;
-      cache_ = new HashMap<QualifiedName, ParsedInfo>();
+      cache_ = new HashMap<>();
    }
    
    public void showHelpTopic(final QualifiedName selectedItem)
@@ -70,6 +70,10 @@ public class HelpStrategy
          case RCompletionType.ARGUMENT:
          case RCompletionType.OPTION:
             showParameterHelp(item, display);
+            break;
+         case RCompletionType.FILE:
+         case RCompletionType.DIRECTORY:
+         case RCompletionType.STRING:
             break;
          default:
             showDefaultHelp(item, display);

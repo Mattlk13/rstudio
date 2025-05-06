@@ -1,7 +1,7 @@
 /*
  * ShortcutInfo.java
  *
- * Copyright (C) 2009-13 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -22,19 +22,25 @@ public class ShortcutInfo
 {
    public ShortcutInfo (KeyboardShortcut shortcut, AppCommand command)
    {
-      shortcuts_ = new ArrayList<String>(); 
+      shortcuts_ = new ArrayList<>();
       description_ = shortcut.getTitle().length() > 0 ?
                         shortcut.getTitle() :
-                        command != null ? 
+                        command != null ?
                            command.getMenuLabel(false) :
                            "";
       groupName_ = shortcut.getGroupName();
-      isActive_ = command != null ? 
+      isActive_ = command != null ?
                      (command.isEnabled() && command.isVisible()) :
                      true;
       order_ = shortcut.getOrder();
       disableModes_ = shortcut.getDisableModes();
+      command_ = command;
       addShortcut(shortcut);
+   }
+
+   public AppCommand getCommand()
+   {
+      return command_;
    }
 
    public String getDescription()
@@ -44,39 +50,50 @@ public class ShortcutInfo
 
    public List<String> getShortcuts()
    {
+      List<String> shortcuts = new ArrayList<>();
+      for (KeyboardShortcut shortcut: shortcuts_)
+      {
+         shortcuts.add(shortcut.toString(true));
+      }
+      return shortcuts;
+   }
+
+   public List<KeyboardShortcut> getKeyboardShortcuts()
+   {
       return shortcuts_;
    }
-   
+
    public void addShortcut(KeyboardShortcut shortcut)
    {
       shortcuts_.clear();
-      shortcuts_.add(shortcut.toString(true));
+      shortcuts_.add(shortcut);
    }
-   
+
    public String getGroupName()
    {
       return groupName_;
    }
-   
+
    public boolean isActive()
    {
       return isActive_;
    }
-   
+
    public int getOrder()
    {
       return order_;
    }
-   
+
    public int getDisableModes()
    {
       return disableModes_;
    }
-   
-   private List<String> shortcuts_;
+
+   private List<KeyboardShortcut> shortcuts_;
    private String description_;
    private String groupName_;
    private boolean isActive_;
    private int order_;
    private int disableModes_;
+   private final AppCommand command_;
 }

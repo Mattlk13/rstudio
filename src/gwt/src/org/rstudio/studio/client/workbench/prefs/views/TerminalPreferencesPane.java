@@ -1,7 +1,7 @@
 /*
  * TerminalPreferencesPane.java
  *
- * Copyright (C) 2009-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -97,6 +97,7 @@ public class TerminalPreferencesPane extends PreferencesPane
       general.add(terminalShell_);
       terminalShell_.setEnabled(false);
       terminalShell_.addChangeHandler(event -> manageCustomShellControlVisibility());
+      terminalShell_.addChangeHandler(event -> managePythonIntegrationControlVisibility());
 
       // custom shell exe path chooser
       Command onShellExePathChosen = new Command()
@@ -104,6 +105,8 @@ public class TerminalPreferencesPane extends PreferencesPane
          @Override
          public void execute()
          {
+            managePythonIntegrationControlVisibility();
+            
             if (BrowseCap.isWindowsDesktop())
             {
                String shellExePath = customShellChooser_.getText();
@@ -111,7 +114,7 @@ public class TerminalPreferencesPane extends PreferencesPane
                {
                   String message = "The program '" + shellExePath + "'" +
                      " is unlikely to be a valid shell executable.";
-                  
+
                   globalDisplay.showMessage(
                         GlobalDisplay.MSG_WARNING,
                         "Invalid Shell Executable",
@@ -138,8 +141,19 @@ public class TerminalPreferencesPane extends PreferencesPane
       customShellOptions_.setEnabled(false);
       customShellOptionsLabel_ = new FormLabel("Custom shell command-line options:", customShellOptions_);
       general.add(spacedBefore(customShellOptionsLabel_));
-      general.add(customShellOptions_);
-
+      general.add(spaced(customShellOptions_));
+      
+      
+      chkPythonIntegration_ = checkboxPref(
+            "Enable Python integration",
+            prefs_.terminalPythonIntegration());
+      
+      chkPythonIntegration_.setTitle(
+            "When enabled, the active version of Python will be placed on the PATH for new terminal sessions. " +
+            "Only bash and zsh are supported.");
+      
+      general.add(chkPythonIntegration_);
+      
       Label perfLabel = headerLabel("Connection");
       perfLabel.getElement().getStyle().setMarginTop(8, Unit.PX);
       general.add(perfLabel);
@@ -148,7 +162,7 @@ public class TerminalPreferencesPane extends PreferencesPane
       if (haveLocalEchoPref())
       {
          CheckBox chkTerminalLocalEcho = checkboxPref("Local terminal echo",
-               prefs_.terminalLocalEcho(), 
+               prefs_.terminalLocalEcho(),
                "Local echo is more responsive but may get out of sync with some line-editing modes or custom shells.");
          general.add(chkTerminalLocalEcho);
          showPerfLabel = true;
@@ -156,7 +170,7 @@ public class TerminalPreferencesPane extends PreferencesPane
       if (haveWebsocketPref())
       {
          CheckBox chkTerminalWebsocket = checkboxPref("Connect with WebSockets",
-               prefs_.terminalWebsockets(), 
+               prefs_.terminalWebsockets(),
                "WebSockets are generally more responsive; try turning off if terminal won't connect.");
          general.add(chkTerminalWebsocket);
          showPerfLabel = true;
@@ -170,7 +184,9 @@ public class TerminalPreferencesPane extends PreferencesPane
       chkHardwareAcceleration_ = new CheckBox("Hardware acceleration");
       general.add(lessSpaced(chkHardwareAcceleration_));
       chkAudibleBell_ = new CheckBox("Audible bell");
-      general.add(chkAudibleBell_);
+      general.add(lessSpaced(chkAudibleBell_));
+      chkWebLinks_ = new CheckBox("Clickable web links");
+      general.add(chkWebLinks_);
 
       HelpLink helpLink = new HelpLink("Using the RStudio terminal", "rstudio_terminal", false);
       nudgeRight(helpLink);
@@ -230,7 +246,7 @@ public class TerminalPreferencesPane extends PreferencesPane
       }
 
       DialogTabLayoutPanel tabPanel = new DialogTabLayoutPanel("Terminal");
-      tabPanel.setSize("435px", "498px");
+      tabPanel.setSize("435px", "533px");
       tabPanel.add(general, "General", general.getBasePanelId());
       tabPanel.add(closing, "Closing", closing.getBasePanelId());
       tabPanel.selectTab(0);
@@ -304,7 +320,7 @@ public class TerminalPreferencesPane extends PreferencesPane
          busyMode_.addChoice("Never", UserPrefs.BUSY_DETECTION_NEVER);
          busyMode_.addChoice("Always except for whitelist", UserPrefs.BUSY_DETECTION_WHITELIST);
          busyMode_.setEnabled(true);
-         
+
          prefs_.busyDetection().getValue();
          for (int i = 0; i < busyMode_.getListBox().getItemCount(); i++)
          {
@@ -313,10 +329,10 @@ public class TerminalPreferencesPane extends PreferencesPane
                busyMode_.getListBox().setSelectedIndex(i);
             }
          }
-         
+
          List<String> whitelistArray = JsArrayUtil.fromJsArrayString(
                prefs_.busyWhitelist().getValue());
-         
+
          StringBuilder whitelist = new StringBuilder();
          for (String entry: whitelistArray)
          {
@@ -338,6 +354,7 @@ public class TerminalPreferencesPane extends PreferencesPane
       }
 
       chkAudibleBell_.setValue(prefs_.terminalBellStyle().getValue() == UserPrefsAccessor.TERMINAL_BELL_STYLE_SOUND);
+      chkWebLinks_.setValue(prefs_.terminalWeblinks().getValue());
       chkHardwareAcceleration_.setValue(prefs_.terminalRenderer().getValue() == UserPrefsAccessor.TERMINAL_RENDERER_CANVAS);
 
       if (!initialDirectory_.setValue(prefs.terminalInitialDirectory().getValue()))
@@ -351,13 +368,13 @@ public class TerminalPreferencesPane extends PreferencesPane
    public RestartRequirement onApply(UserPrefs rPrefs)
    {
       RestartRequirement restartRequirement = super.onApply(rPrefs);
-     
+
       if (haveBusyDetectionPref())
       {
          prefs_.busyWhitelist().setGlobalValue(StringUtil.split(busyWhitelist_.getText(), " "));
          prefs_.busyDetection().setGlobalValue(selectedBusyMode());
-      } 
-      
+      }
+
       if (BrowseCap.isWindowsDesktop())
          prefs_.windowsTerminalShell().setGlobalValue(selectedShellType());
       else
@@ -370,6 +387,7 @@ public class TerminalPreferencesPane extends PreferencesPane
             UserPrefsAccessor.TERMINAL_BELL_STYLE_SOUND : UserPrefsAccessor.TERMINAL_BELL_STYLE_NONE);
       prefs_.terminalRenderer().setGlobalValue(chkHardwareAcceleration_.getValue() ?
             UserPrefsAccessor.TERMINAL_RENDERER_CANVAS : UserPrefsAccessor.TERMINAL_RENDERER_DOM);
+      prefs_.terminalWeblinks().setGlobalValue(chkWebLinks_.getValue());
 
       prefs_.terminalInitialDirectory().setGlobalValue(initialDirectory_.getValue());
       prefs_.terminalCloseBehavior().setGlobalValue(autoClosePref_.getValue());
@@ -410,6 +428,44 @@ public class TerminalPreferencesPane extends PreferencesPane
       customShellOptionsLabel_.setVisible(customEnabled);
       customShellOptions_.setVisible(customEnabled);
    }
+   
+   private boolean pythonIntegrationSupported()
+   {
+      String shell = terminalShell_.getValue();
+      if (StringUtil.equals(shell, "bash") ||
+          StringUtil.equals(shell, "zsh"))
+      {
+         return true;
+      }
+      
+      if (StringUtil.equals(shell, "custom"))
+      {
+         String shellPath = customShellChooser_.getText();
+         if (shellPath.endsWith("bash") ||
+             shellPath.endsWith("zsh") ||
+             shellPath.endsWith("bash.exe") ||
+             shellPath.endsWith("zsh.exe"))
+         {
+            return true;
+         }
+      }
+      
+      return false;
+   }
+   
+   private void managePythonIntegrationControlVisibility()
+   {
+      if (pythonIntegrationSupported())
+      {
+         chkPythonIntegration_.setEnabled(true);
+         chkPythonIntegration_.setVisible(true);
+      }
+      else
+      {
+         chkPythonIntegration_.setEnabled(false);
+         chkPythonIntegration_.setVisible(false);
+      }
+   }
 
    private String selectedBusyMode()
    {
@@ -423,7 +479,7 @@ public class TerminalPreferencesPane extends PreferencesPane
       busyWhitelistLabel_.setVisible(whitelistEnabled);
       busyWhitelist_.setVisible(whitelistEnabled);
    }
-   
+
    private void addTextBoxChooser(Panel panel, String textWidth, FormLabel captionLabel, TextBoxWithButton chooser)
    {
       HorizontalPanel captionPanel = new HorizontalPanel();
@@ -451,6 +507,8 @@ public class TerminalPreferencesPane extends PreferencesPane
 
    private final CheckBox chkHardwareAcceleration_;
    private final CheckBox chkAudibleBell_;
+   private final CheckBox chkWebLinks_;
+   private final CheckBox chkPythonIntegration_;
 
    private SelectWidget autoClosePref_;
    private SelectWidget busyMode_;

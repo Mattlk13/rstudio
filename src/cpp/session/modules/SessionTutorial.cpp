@@ -1,7 +1,7 @@
 /*
  * SessionTutorial.cpp
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -24,6 +24,7 @@
 
 #include <r/RExec.hpp>
 #include <r/RJson.hpp>
+#include <r/RRoutines.hpp>
 #include <r/RSexp.hpp>
 
 #include <session/projects/SessionProjects.hpp>
@@ -252,7 +253,7 @@ void handleTutorialHomeRequest(const http::Request& request,
             << ">"
                
             << "<span class=\"rstudio-tutorials-run-button-label\">Start Tutorial</span>"
-            << "<span class=\"rstudio-tutorials-run-button-icon\">\u25b6</span>"
+            << "<span class=\"rstudio-tutorials-run-button-icon\">&#x25b6</span>"
             << "</button>"
             << "</span>";
          
@@ -387,14 +388,13 @@ void onResume(const Settings& settings)
    if (error)
       LOG_ERROR(error);
 }
-   
 
 } // end anonymous namespace
 
 Error initialize()
 {
    using namespace module_context;
-
+   
    ppe::indexer().addWorker(tutorialWorker());
  
    events().onDeferredInit.connect(onDeferredInit);

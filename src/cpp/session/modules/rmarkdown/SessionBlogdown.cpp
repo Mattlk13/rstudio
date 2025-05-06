@@ -1,7 +1,7 @@
 /*
  * SessionBlogdown.cpp
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -18,6 +18,8 @@
 #include <shared_core/Error.hpp>
 #include <core/system/Process.hpp>
 #include <core/system/ShellUtils.hpp>
+#include <core/FileSerializer.hpp>
+#include <core/StringUtils.hpp>
 
 #include <core/RegexUtils.hpp>
 #include <core/ConfigUtils.hpp>
@@ -82,20 +84,64 @@ std::string runHugo(const Args& args, bool logErrors = true)
    }
 }
 
+std::string hugoConfigStr(std::string value)
+{
+   core::string_utils::stripQuotes(&value);
+   return value;
+}
+
+bool usingTexMathDollarsInCode(const FilePath& hugoRootPath,
+                               std::map<std::string,std::string> hugoConfig)
+{
+   const std::string themeDir = hugoConfigStr(hugoConfig["themesdir"]);
+   const std::string theme = hugoConfigStr(hugoConfig["theme"]);
+   const FilePath footerMathjax = hugoRootPath
+      .completePath(themeDir)
+      .completePath(theme)
+      .completePath("layouts")
+      .completePath("partials")
+      .completePath("footer_mathjax.html");
+
+   if (footerMathjax.exists())
+   {
+      std::string footer;
+      Error error = core::readStringFromFile(footerMathjax, &footer);
+      if (error)
+         LOG_ERROR(error);
+      return footer.find("math-code.js") != std::string::npos;
+   }
+   else
+   {
+      return false;
+   }
+
+}
+
+const char* const kIsBlogdownProject = "is_blogdown_project";
+const char* const kIsHugoProject = "is_hugo_project";
 
 } // anonymous namespace
 
-core::json::Object blogdownConfig()
+bool isHugoProject()
 {
+   json::Object config = blogdownConfig(false);
+   return config[kIsHugoProject].isBool() && config[kIsHugoProject].getBool();
+}
 
-   const char* const kIsBlogdownProject = "is_blogdown_project";
-   const char* const kIsHugoProject = "is_hugo_project";
+core::json::Object blogdownConfig(bool refresh)
+{
+   static core::json::Object lastConfig;
+   if (!refresh && lastConfig.getSize() > 0)
+      return lastConfig;
+
    const char* const kSiteDir = "site_dir";
    const char* const kStaticDirs = "static_dirs";
    const char* const kMarkdownEngine = "markdown_engine";
    const char* const kMarkdownEngineGoldmark = "goldmark";
    const char* const kMarkdownEngineBlackfriday = "blackfriday";
    const char* const kMarkdownExtensions = "markdown_extensions";
+   const char* const kRmdExtensions = "rmd_extensions";
+   const char* const kRmdTexMathDollarsInCode = "tex_math_dollars_in_code";
 
    json::Object config;
 
@@ -159,6 +205,7 @@ core::json::Object blogdownConfig()
       // set defaults to start with
       std::string markdownEngine = defaultMarkdownEngine;
       std::string markdownExtensions = "";
+      std::string rmdExtensions = "";
 
       // get the hugo config
       std::string hugoConfig = runHugo("config");
@@ -182,6 +229,12 @@ core::json::Object blogdownConfig()
             it++;
          }
 
+         // see if there is an enableEmoji variable
+         const std::string enableEmoji = variables["enableemoji"];
+         if (enableEmoji == "true") {
+            markdownExtensions += "+emoji";
+         }
+
          // see if there is a markup variable
          const std::string markup = variables["markup"];
          if (markup.size() > 0)
@@ -195,17 +248,16 @@ core::json::Object blogdownConfig()
                std::string matchedEngine = handlerMatch[1];
                if (matchedEngine == kMarkdownEngineBlackfriday || matchedEngine == kMarkdownEngineGoldmark)
                   markdownEngine = matchedEngine;
+            }
 
-               // if we are goldmark check to see if unsafe is enabled. in that case
-               // add the raw_html extension
-               if (markdownEngine == kMarkdownEngineGoldmark)
-               {
-                  boost::regex unsafeRegex("unsafe\\:true");
-                  boost::smatch unsafeMatch;
-                  if (regex_utils::search(markup, unsafeMatch, unsafeRegex))
-                     markdownExtensions += "+raw_html";
-               }
-
+            // if we are goldmark check to see if unsafe is enabled. in that case
+            // add the raw_html extension
+            if (markdownEngine == kMarkdownEngineGoldmark)
+            {
+               boost::regex unsafeRegex("unsafe\\:true");
+               boost::smatch unsafeMatch;
+               if (regex_utils::search(markup, unsafeMatch, unsafeRegex))
+                  markdownExtensions += "+raw_html";
             }
          }
 
@@ -230,17 +282,26 @@ core::json::Object blogdownConfig()
             }
             config[kStaticDirs] = staticDirs;
          }
+
+         // see if we are using the math-code.js hack
+         if (usingTexMathDollarsInCode(hugoRootPath(), variables))
+            rmdExtensions += ("+" + std::string(kRmdTexMathDollarsInCode));
       }
 
       // populate config
       config[kMarkdownEngine] = markdownEngine;
       config[kMarkdownExtensions] = markdownExtensions;
+      config[kRmdExtensions] = rmdExtensions;
    }
    else
    {
       config[kIsBlogdownProject] = false;
    }
 
+   // cache for callers that don't want to refresh
+   lastConfig = config;
+
+   // return config
    return config;
 }
 

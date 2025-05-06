@@ -1,7 +1,7 @@
 /*
  * NotebookQueueUnit.java
  *
- * Copyright (C) 2009-16 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -130,7 +130,7 @@ public class NotebookQueueUnit extends JavaScriptObject
    private final List<Integer> linesFromRanges(
          JsArray<NotebookExecRange> ranges)
    {
-      List<Integer> lines = new ArrayList<Integer>();
+      List<Integer> lines = new ArrayList<>();
       final String code = getCode();
       int line = 0, last = -1;
       for (int i = 0; i < code.length(); i++)

@@ -1,7 +1,7 @@
 /*
  * Functional.java
  *
- * Copyright (C) 2009-17 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -26,7 +26,7 @@ public class Functional
    {
       public boolean test(T t);
    }
-   
+
    public static <T> T find(Collection<T> collection,
                             Predicate<T> predicate)
    {
@@ -35,7 +35,7 @@ public class Functional
             return t;
       return null;
    }
-   
+
    public static <T extends JavaScriptObject> T find(JsArray<T> array,
                                                      Predicate<T> predicate)
    {
@@ -44,7 +44,7 @@ public class Functional
             return array.get(i);
       return null;
    }
-   
+
    public static String find(JsArrayString array, Predicate<String> predicate)
    {
       for (int i = 0, n = array.length(); i < n; i++)

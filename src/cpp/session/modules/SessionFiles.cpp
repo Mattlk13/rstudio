@@ -1,7 +1,7 @@
 /*
  * SessionFiles.cpp
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -63,7 +63,7 @@
 #include "SessionFilesListingMonitor.hpp"
 #include "SessionGit.hpp"
 
-using namespace rstudio::core ;
+using namespace rstudio::core;
 
 namespace rstudio {
 namespace session {
@@ -123,18 +123,18 @@ Error extractFilePaths(const json::Array& files,
                        std::vector<FilePath>* pFilePaths)
 {   
    for(json::Array::Iterator
-         it = files.begin(); 
+         it = files.begin();
          it != files.end();
          ++it)
    {
       if ((*it).getType() != json::Type::STRING)
          return Error(json::errc::ParamTypeMismatch, ERROR_LOCATION);
 
-      std::string file = (*it).getString() ;
-      pFilePaths->push_back(module_context::resolveAliasedPath(file)) ;
+      std::string file = (*it).getString();
+      pFilePaths->push_back(module_context::resolveAliasedPath(file));
    }
 
-   return Success() ;
+   return Success();
 }
 
 core::Error stat(const json::JsonRpcRequest& request,
@@ -232,7 +232,7 @@ Error listFiles(const json::JsonRpcRequest& request, json::JsonRpcResponse* pRes
    Error error = json::readParams(request.params, &path, &monitor, &includeHidden);
    if (error)
       return error;
-   FilePath targetPath = module_context::resolveAliasedPath(path) ;
+   FilePath targetPath = module_context::resolveAliasedPath(path);
 
    json::Object result;
    
@@ -289,22 +289,22 @@ core::Error createFolder(const core::json::JsonRpcRequest& request,
    std::string path;
    Error error = json::readParam(request.params, 0, &path);
    if (error)
-      return error ;   
+      return error;
    
    // create the directory
-   FilePath folderPath = module_context::resolveAliasedPath(path) ;
+   FilePath folderPath = module_context::resolveAliasedPath(path);
    if (folderPath.exists())
    {
       return fileExistsError(ERROR_LOCATION);
    }
    else
    {
-      Error createError = folderPath.ensureDirectory() ;
+      Error createError = folderPath.ensureDirectory();
       if (createError)
-         return createError ;
+         return createError;
    }
 
-   return Success() ;
+   return Success();
 }
 
 
@@ -336,16 +336,16 @@ core::Error deleteFiles(const core::json::JsonRpcRequest& request,
    json::Array files;
    Error error = json::readParam(request.params, 0, &files);
    if (error)
-      return error ;
+      return error;
    
    // extract vector of FilePath
-   std::vector<FilePath> filePaths ;
-   Error extractError = extractFilePaths(files, &filePaths) ;
+   std::vector<FilePath> filePaths;
+   Error extractError = extractFilePaths(files, &filePaths);
    if (extractError)
-      return extractError ;
+      return extractError;
 
    // delete each file
-   Error deleteError ;
+   Error deleteError;
    for (std::vector<FilePath>::const_iterator 
          it = filePaths.begin();
          it != filePaths.end();
@@ -354,10 +354,10 @@ core::Error deleteFiles(const core::json::JsonRpcRequest& request,
       // attempt to send the file to the recycle bin
       deleteError = deleteFile(*it);
       if (deleteError)
-         return deleteError ;
+         return deleteError;
    }
 
-   return Success() ;
+   return Success();
 }
    
 
@@ -398,7 +398,7 @@ Error copyFile(const core::json::JsonRpcRequest& request,
    FilePath sourceFilePath = module_context::resolveAliasedPath(sourcePath);
    
    // copy directories recursively
-   Error copyError ;
+   Error copyError;
    if (sourceFilePath.isDirectory())
    {
       copyError = file_utils::copyDirectory(sourceFilePath, targetFilePath);
@@ -424,13 +424,13 @@ Error moveFiles(const core::json::JsonRpcRequest& request,
    std::string targetPath;
    Error error = json::readParams(request.params, &files, &targetPath);
    if (error)
-      return error ;
+      return error;
    
    // extract vector of FilePath
-   std::vector<FilePath> filePaths ;
-   Error extractError = extractFilePaths(files, &filePaths) ;
+   std::vector<FilePath> filePaths;
+   Error extractError = extractFilePaths(files, &filePaths);
    if (extractError)
-      return extractError ;
+      return extractError;
 
    // create FilePath for target directory
    FilePath targetDirPath = module_context::resolveAliasedPath(targetPath);
@@ -444,13 +444,13 @@ Error moveFiles(const core::json::JsonRpcRequest& request,
          ++it)
    {      
       // move the file
-      FilePath targetPath = targetDirPath.completeChildPath(it->getFilename()) ;
-      Error moveError = it->move(targetPath) ;
+      FilePath targetPath = targetDirPath.completeChildPath(it->getFilename());
+      Error moveError = it->move(targetPath);
       if (moveError)
-         return moveError ;
+         return moveError;
    }
 
-   return Success() ;
+   return Success();
 }
 
 // IN: String path, String targetPath
@@ -544,6 +544,8 @@ void handleFilesRequest(const http::Request& request,
 const char * const kUploadFilename = "filename";
 const char * const kUploadedTempFile = "uploadedTempFile";
 const char * const kUploadTargetDirectory = "targetDirectory";
+const char * const kIsZip = "isZip";
+const char * const kUnzipFound = "unzipFound";
 
 Error writeTmpData(const FilePath& tmpFile,
                    const char* buffer,
@@ -576,17 +578,19 @@ Error completeUpload(const core::json::JsonRpcRequest& request,
 {
    // read params
    json::Object token;
-   bool commit ;
+   bool commit;
    Error error = json::readParams(request.params, &token, &commit);
    if (error)
-      return error ;
+      return error;
    
    // parse fields out of token object
    std::string filename, uploadedTempFile, targetDirectory;
+   bool unzipFound = false;
    error = json::readObject(token, 
                             kUploadFilename, filename,
                             kUploadedTempFile, uploadedTempFile,
-                            kUploadTargetDirectory, targetDirectory);
+                            kUploadTargetDirectory, targetDirectory,
+                            kUnzipFound, unzipFound);
    if (error)
       return error;
    
@@ -598,7 +602,7 @@ Error completeUpload(const core::json::JsonRpcRequest& request,
    {
       FilePath targetDirectoryPath(targetDirectory);
 
-      if (boost::ends_with(filename, "zip"))
+      if (boost::ends_with(filename, "zip") && unzipFound)
       {
          // expand the archive
          r::exec::RFunction unzip("unzip");
@@ -633,9 +637,13 @@ Error completeUpload(const core::json::JsonRpcRequest& request,
          
          // move the source to the destination, falling back to a copy
          // if the move cannot be completed
-         Error copyError = uploadedTempFilePath.move(targetPath);
+         Error copyError = uploadedTempFilePath.move(targetPath, FilePath::MoveCrossDevice, true);
          if (copyError)
             return copyError;
+
+         // update permissions (handles case where an uploaded file does not inherit shared project
+         // permissions correctly in RStudio Workbench)
+         module_context::events().onPermissionsChanged(targetPath);
       }
       
       // check quota after uploads
@@ -656,41 +664,73 @@ Error completeUpload(const core::json::JsonRpcRequest& request,
    
 Error detectZipFileOverwrites(const FilePath& uploadedZipFile,
                               const FilePath& destDir,
-                              json::Array* pOverwritesJson)
+                              const std::string& originalFilename,
+                              json::Array* pOverwritesJson,
+                              bool* pUnzipfound)
 {
-   // query for all of the paths in the zip file
-   core::system::ProcessResult result;
-   Error error = core::system::runCommand("unzip -Z1 " + uploadedZipFile.getAbsolutePath(),
-                                          core::system::ProcessOptions(),
-                                          &result);
-   if (error)
-      return error;
-
-   if (result.exitStatus == 0)
+   // unable to use R's unzip here in worker thread, using system's unzip instead
+   // try a couple locations for unzip, in case it's not on user's PATH
+   std::vector<std::string> pathsToTry({
+      "unzip",
+      "/usr/bin/unzip"});
+   for (auto& path : pathsToTry)
    {
-      std::vector<std::string> zipFileListing;
-      boost::split(zipFileListing, result.stdOut, boost::is_any_of("\n"));
+      core::system::ProcessResult result;
+      Error error = core::system::runCommand(path + " -Z1 " + uploadedZipFile.getAbsolutePath(),
+                                             core::system::ProcessOptions(),
+                                             &result);
 
-      // check for overwrites
-      for (std::vector<std::string>::const_iterator
-           it = zipFileListing.begin();
-           it != zipFileListing.end();
-           ++it)
+      if (error)
+         return error;
+
+      // If any of the paths were valid, check for overwrites and return
+      if (result.exitStatus == 0)
       {
-         // don't count empty lines
-         if ((*it).empty()) continue;
+         *pUnzipfound = true;
 
-         FilePath filePath = destDir.completePath(*it);
-         if (filePath.exists())
-            pOverwritesJson->push_back(module_context::createFileSystemItem(filePath));
+         std::vector<std::string> zipFileListing;
+         boost::split(zipFileListing, result.stdOut, boost::is_any_of("\n"));
+
+         // check for overwrites
+         for (std::vector<std::string>::const_iterator
+              it = zipFileListing.begin();
+              it != zipFileListing.end();
+              ++it)
+         {
+            // don't count empty lines
+            if ((*it).empty()) continue;
+
+            FilePath filePath = destDir.completePath(*it);
+            if (filePath.exists())
+               pOverwritesJson->push_back(module_context::createFileSystemItem(filePath));
+         }
+
+         return Success();
+      }
+      else if (result.exitStatus == 127)
+      {
+         // bash return code 127 - "command not found"
+         // try another unzip location
+         continue;
+      }
+      else
+      {
+         return unknownError("Unexpected result for unzip command: " +
+                            std::to_string(result.exitStatus) +
+                            " - " +
+                            result.stdOut +
+                            ": " +
+                            result.stdErr,
+                            ERROR_LOCATION);
       }
    }
-   else
-   {
-      return systemError(result.exitStatus,
-                         "Unexpected result for unzip command",
-                         ERROR_LOCATION);
-   }
+
+   // If we get here, there were no serious errors, but unzip was not found
+   // Try uploading just the .zip file, without unzipping
+   *pUnzipfound = false;
+   FilePath zipPath = destDir.completePath(originalFilename);
+   if (zipPath.exists())
+      pOverwritesJson->push_back(module_context::createFileSystemItem(zipPath));
    
    return Success();
 }
@@ -1046,9 +1086,10 @@ bool handleFileUploadRequestAsync(const http::Request& request,
    FilePath destPath = destDir.completeChildPath(pUploadState->fileName);
 
    json::Array overwritesJson;
+   bool unzipFound = false;
    if (isZip)
    {
-      Error error = detectZipFileOverwrites(pUploadState->tmpFile, destDir, &overwritesJson);
+      Error error = detectZipFileOverwrites(pUploadState->tmpFile, destDir, pUploadState->fileName, &overwritesJson, &unzipFound);
       if (error)
       {
          writeError(error);
@@ -1066,6 +1107,8 @@ bool handleFileUploadRequestAsync(const http::Request& request,
    uploadTokenJson[kUploadFilename] = pUploadState->fileName;
    uploadTokenJson[kUploadedTempFile] = pUploadState->tmpFile.getAbsolutePath();
    uploadTokenJson[kUploadTargetDirectory] = destDir.getAbsolutePath();
+   uploadTokenJson[kUnzipFound] = unzipFound;
+   uploadTokenJson[kIsZip] = isZip;
 
    json::Object uploadJson;
    uploadJson["token"] = uploadTokenJson;
@@ -1307,7 +1350,7 @@ Error initialize()
 
    // install handlers
    using boost::bind;
-   ExecBlock initBlock ;
+   ExecBlock initBlock;
    initBlock.addFunctions()
       (bind(registerRpcMethod, "stat", stat))
       (bind(registerRpcMethod, "is_text_file", isTextFile))

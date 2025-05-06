@@ -1,7 +1,7 @@
 /*
  * strikeout.ts
  *
- * Copyright (C) 2019-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -25,6 +25,7 @@ const extension: Extension = {
     {
       name: 'strikeout',
       spec: {
+        group: 'formatting',
         parseDOM: [
           { tag: 'del' },
           { tag: 's' },
@@ -45,7 +46,7 @@ const extension: Extension = {
           },
         ],
         writer: {
-          priority: 5,
+          priority: 6,
           write: (output: PandocOutput, _mark: Mark, parent: Fragment) => {
             output.writeMark(PandocTokenType.Strikeout, parent);
           },
@@ -59,7 +60,7 @@ const extension: Extension = {
   },
 
   inputRules: (schema: Schema, filter: MarkInputRuleFilter) => {
-    return [delimiterMarkInputRule('~~', schema.marks.strikeout, filter)];
+    return [delimiterMarkInputRule('~~', schema.marks.strikeout, filter, '`', true)];
   },
 };
 

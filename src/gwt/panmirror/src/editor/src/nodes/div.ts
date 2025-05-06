@@ -1,7 +1,7 @@
 /*
  * div.ts
  *
- * Copyright (C) 2019-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -13,13 +13,14 @@
  *
  */
 
-import { Node as ProsemirrorNode, Schema } from 'prosemirror-model';
-import { EditorState, Transaction } from 'prosemirror-state';
+import { Node as ProsemirrorNode, Schema, DOMOutputSpec, ResolvedPos } from 'prosemirror-model';
+import { EditorState, Transaction, Plugin, PluginKey, NodeSelection, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import { findParentNodeOfType, ContentNodeWithPos } from 'prosemirror-utils';
-import { wrapIn, lift } from 'prosemirror-commands';
+import { wrapIn } from 'prosemirror-commands';
+import { liftTarget } from 'prosemirror-transform';
 
-import { Extension, extensionIfEnabled } from '../api/extension';
+import { ExtensionContext, Extension } from '../api/extension';
 import {
   pandocAttrSpec,
   pandocAttrToDomAttr,
@@ -27,84 +28,141 @@ import {
   pandocAttrReadAST,
   pandocAttrFrom,
   pandocAttrAvailable,
+  PandocAttr,
 } from '../api/pandoc_attr';
 import { PandocOutput, PandocTokenType, PandocToken } from '../api/pandoc';
 import { ProsemirrorCommand, EditorCommandId, toggleWrap } from '../api/command';
 import { EditorUI } from '../api/ui';
-import { precedingListItemInsertPos, precedingListItemInsert } from '../api/list';
+import { OmniInsertGroup, OmniInsert } from '../api/omni_insert';
+import { markIsActive } from '../api/mark';
+import { BaseKey } from '../api/basekeys';
+import { attrInputToProps } from '../api/ui-dialogs';
 
 import './div-styles.css';
 
 const DIV_ATTR = 0;
 const DIV_CHILDREN = 1;
 
-const extension: Extension = {
-  nodes: [
-    {
-      name: 'div',
-      spec: {
-        attrs: {
-          ...pandocAttrSpec,
-        },
-        defining: true,
-        content: 'block+',
-        group: 'block list_item_block',
-        parseDOM: [
-          {
-            tag: 'div[data-div="1"]',
-            getAttrs(dom: Node | string) {
-              const attrs: {} = { 'data-div': 1 };
-              return {
-                ...attrs,
-                ...pandocAttrParseDom(dom as Element, attrs),
-              };
+const extension = (context: ExtensionContext) : Extension | null => {
+  const { pandocExtensions, ui } = context;
+
+  if (!pandocExtensions.fenced_divs && !pandocExtensions.native_divs) {
+    return null;
+  }
+
+  return {
+    nodes: [
+      {
+        name: 'div',
+        spec: {
+          attrs: {
+            ...pandocAttrSpec,
+          },
+          defining: true,
+          content: 'block+',
+          group: 'block list_item_block',
+          parseDOM: [
+            {
+              tag: 'div[data-div="1"]',
+              getAttrs(dom: Node | string) {
+                const attrs: {} = { 'data-div': 1 };
+                return {
+                  ...attrs,
+                  ...pandocAttrParseDom(dom as Element, attrs),
+                };
+              },
             },
+          ],
+          toDOM(node: ProsemirrorNode): DOMOutputSpec {
+            const attr = {
+              'data-div': '1',
+              ...pandocAttrToDomAttr({
+                ...node.attrs,
+                classes: [...node.attrs.classes, 'pm-div', 'pm-div-background-color'],
+              }),
+            };
+            return ['div', attr, 0];
           },
-        ],
-        toDOM(node: ProsemirrorNode) {
-          const attr = {
-            'data-div': '1',
-            ...pandocAttrToDomAttr({
-              ...node.attrs,
-              classes: [...node.attrs.classes, 'pm-div', 'pm-div-background-color'],
-            }),
-          };
-          return ['div', attr, 0];
         },
-      },
 
-      attr_edit: () => ({
-        type: (schema: Schema) => schema.nodes.div,
-        editFn: (ui: EditorUI) => divCommand(ui, true),
-      }),
+        attr_edit: () => ({
+          type: (schema: Schema) => schema.nodes.div,
+          editFn: () => divCommand(ui, true),
+          offset: {
+            top: 3,
+            right: 0
+          }
+        }),
 
-      pandoc: {
-        readers: [
-          {
-            token: PandocTokenType.Div,
-            block: 'div',
-            getAttrs: (tok: PandocToken) => ({
-              ...pandocAttrReadAST(tok, DIV_ATTR),
-            }),
-            getChildren: (tok: PandocToken) => tok.c[DIV_CHILDREN],
-          },
-        ],
-        writer: (output: PandocOutput, node: ProsemirrorNode) => {
-          output.writeToken(PandocTokenType.Div, () => {
-            output.writeAttr(node.attrs.id, node.attrs.classes, node.attrs.keyvalue);
-            output.writeArray(() => {
-              output.writeNodes(node);
+        pandoc: {
+          readers: [
+            {
+              token: PandocTokenType.Div,
+              block: 'div',
+              getAttrs: (tok: PandocToken) => ({
+                ...pandocAttrReadAST(tok, DIV_ATTR),
+              }),
+              getChildren: (tok: PandocToken) => tok.c[DIV_CHILDREN],
+            },
+          ],
+          writer: (output: PandocOutput, node: ProsemirrorNode) => {
+            output.writeToken(PandocTokenType.Div, () => {
+              output.writeAttr(node.attrs.id, node.attrs.classes, node.attrs.keyvalue);
+              output.writeArray(() => {
+                output.writeNodes(node);
+              });
             });
-          });
+          },
         },
       },
-    },
-  ],
+    ],
 
-  commands: (_schema: Schema, ui: EditorUI) => {
-    return [new DivCommand(EditorCommandId.Div, ui, true), new DivCommand(EditorCommandId.InsertDiv, ui, false)];
-  },
+    baseKeys: () => {
+      return [
+        { key: BaseKey.Enter, command: divInputRuleEnter() },
+      ];
+    },
+
+    commands: () => {
+      return [
+        // turn current block into a div
+        new DivCommand(EditorCommandId.Div, ui, true),
+
+        // insert a div
+        new DivCommand(EditorCommandId.InsertDiv, ui, false, {
+          name: ui.context.translateText('Div...'),
+          description: ui.context.translateText('Block containing other content'),
+          group: OmniInsertGroup.Blocks,
+          priority: 1,
+          image: () => (ui.prefs.darkMode() ? ui.images.omni_insert?.div_dark! : ui.images.omni_insert?.div!),
+        }),
+      ];
+    },
+
+    plugins: (schema: Schema) => {
+      return [
+        new Plugin({
+          key: new PluginKey("div-selection"),
+          appendTransaction: (_transactions: Transaction[], _oldState: EditorState, newState: EditorState) => {
+            if (newState.selection.empty) {
+              return;
+            }
+            const divNode = findParentNodeOfType(schema.nodes.div)(newState.selection);
+            if (divNode && 
+                (newState.selection.anchor === divNode.start + 1) &&
+                 newState.selection.head === divNode.pos + divNode.node.nodeSize - 2) {
+              const tr = newState.tr;
+              const sel = TextSelection.create(tr.doc, divNode.start, divNode.start + divNode.node.nodeSize - 1);
+              tr.setSelection(sel);
+              return tr;
+            }
+          }
+        }),
+      ];
+    },
+  };
 };
+
 
 function divCommand(ui: EditorUI, allowEdit: boolean) {
   return (state: EditorState, dispatch?: (tr: Transaction) => void, view?: EditorView) => {
@@ -139,8 +197,8 @@ function divCommand(ui: EditorUI, allowEdit: boolean) {
 }
 
 class DivCommand extends ProsemirrorCommand {
-  constructor(id: EditorCommandId, ui: EditorUI, allowEdit: boolean) {
-    super(id, [], divCommand(ui, allowEdit));
+  constructor(id: EditorCommandId, ui: EditorUI, allowEdit: boolean, omniInsert?: OmniInsert) {
+    super(id, [], divCommand(ui, allowEdit), omniInsert);
   }
 }
 
@@ -153,7 +211,16 @@ async function editDiv(ui: EditorUI, state: EditorState, dispatch: (tr: Transact
       tr.setNodeMarkup(div.pos, div.node.type, result.attr);
       dispatch(tr);
     } else if (result.action === 'remove') {
-      lift(state, dispatch);
+      const fromPos = tr.doc.resolve(div.pos + 1);
+      const toPos = tr.doc.resolve(div.pos + div.node.nodeSize - 1);
+      const nodeRange = fromPos.blockRange(toPos);
+      if (nodeRange) {
+        const targetLiftDepth = liftTarget(nodeRange);
+        if (targetLiftDepth || targetLiftDepth === 0) {
+          tr.lift(nodeRange, targetLiftDepth);
+        }
+      }
+      dispatch(tr);
     }
   }
 }
@@ -165,7 +232,7 @@ async function createDiv(ui: EditorUI, state: EditorState, dispatch: (tr: Transa
       const div = findParentNodeOfType(state.schema.nodes.div)(tr.selection)!;
       tr.setNodeMarkup(div.pos, div.node.type, result.attr);
       dispatch(tr);
-    }); 
+    });
   }
 }
 
@@ -175,4 +242,81 @@ function isFullDivSelection(div: ContentNodeWithPos, state: EditorState) {
   return state.selection.from - 2 === divStart && state.selection.to + 2 === divEnd;
 }
 
-export default extensionIfEnabled(extension, ['fenced_divs', 'native_divs']);
+function divInputRuleEnter() {
+  return (state: EditorState, dispatch?: (tr: Transaction) => void) => {
+    // see if the parent consist of a pending code block input rule
+    const schema = state.schema;
+
+    // selection must be empty
+    if (!state.selection.empty) {
+      return false;
+    }
+
+    // full text of parent must meet the pattern
+    // eslint-disable-next-line no-useless-escape
+    const match = state.selection.$head.parent.textContent.match(/^:{3,}(\s+({.*?}|\S+)?[\s:]*)?$/);
+    if (!match) {
+      return false;
+    }
+
+    // no inline code marks
+    if (markIsActive(state, schema.marks.code)) {
+      return false;
+    }
+
+    // must be able to perform the replacement
+    if (!canApplyDivInputRule(state)) {
+      return false;
+    }
+
+    // execute
+    if (dispatch) {
+      // if it's just followed by whitespace then don't do it
+      if (match[1] && match[1].trim().length === 0) {
+        return false;
+      }
+
+      // parse attributes
+      const attrs: PandocAttr = pandocAttrFrom({});
+      const attribMatch = match[2];
+      if (attribMatch) {
+        const bracesMatch = attribMatch.match(/^{(.*?)}$/);
+        if (bracesMatch) {
+          const pandocAttrsText = bracesMatch[1];
+          const pandocAttrsMatch = pandocAttrsText.match(/^\s*(#\S+)?\s*((?:\.\S+\s*)*)?(.*)?$/);
+          if (pandocAttrsMatch) {
+            const attrProps = attrInputToProps({ id: pandocAttrsMatch[1], classes: pandocAttrsMatch[2] });
+            attrs.id = attrProps.id || '';
+            attrs.classes = attrProps.classes || [];
+          }
+        } else {
+          attrs.classes = [attribMatch];
+        }
+      }
+
+      wrapIn(state.schema.nodes.div)(state, (tr: Transaction) => {
+        const div = findParentNodeOfType(state.schema.nodes.div)(tr.selection)!;
+        tr.setNodeMarkup(div.pos, div.node.type, attrs);
+        const $head = tr.selection.$head;
+        const start = $head.start();
+        const end = start + $head.parent.textContent.length;
+        tr.deleteRange(start, end);
+        dispatch(tr);
+      });
+    }
+
+    return true;
+  };
+}
+
+function canReplaceNodeWithDiv(schema: Schema, $pos: ResolvedPos) {
+  return $pos.node(-1).canReplaceWith($pos.index(-1), $pos.indexAfter(-1), schema.nodes.div);
+}
+
+function canApplyDivInputRule(state: EditorState) {
+  const schema = state.schema;
+  const { $head } = state.selection;
+  return canReplaceNodeWithDiv(schema, $head);
+}
+
+export default extension;

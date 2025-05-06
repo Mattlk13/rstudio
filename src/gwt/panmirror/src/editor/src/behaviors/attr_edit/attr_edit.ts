@@ -1,7 +1,7 @@
 /*
  * attr_edit.ts
  *
- * Copyright (C) 2019-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -27,21 +27,25 @@ import { hasFencedCodeBlocks } from '../../api/pandoc_format';
 
 export const kEditAttrShortcut = 'F4';
 
-export function attrEditExtension(pandocExtensions: PandocExtensions, editors: AttrEditOptions[]): Extension {
+export function attrEditExtension(
+  pandocExtensions: PandocExtensions,
+  ui: EditorUI,
+  editors: AttrEditOptions[],
+): Extension {
   const hasAttr = pandocAttrEnabled(pandocExtensions) || hasFencedCodeBlocks(pandocExtensions);
 
   return {
-    commands: (_schema: Schema, ui: EditorUI) => {
+    commands: (_schema: Schema) => {
       if (hasAttr) {
-        return [new AttrEditCommand(ui, editors)];
+        return [new AttrEditCommand(ui, pandocExtensions, editors)];
       } else {
         return [];
       }
     },
 
-    plugins: (schema: Schema, ui: EditorUI) => {
+    plugins: (_schema: Schema) => {
       if (hasAttr) {
-        return [new AttrEditDecorationPlugin(ui, editors)];
+        return [new AttrEditDecorationPlugin(ui, pandocExtensions, editors)];
       } else {
         return [];
       }

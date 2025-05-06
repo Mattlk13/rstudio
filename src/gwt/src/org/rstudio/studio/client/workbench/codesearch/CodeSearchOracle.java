@@ -1,7 +1,7 @@
 /*
  * CodeSearchOracle.java
  *
- * Copyright (C) 2009-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -150,8 +150,7 @@ public class CodeSearchOracle extends SuggestOracle
             if (queryLower.indexOf('*') != -1)
                pattern = patternForTerm(queryLower);
             
-            ArrayList<CodeSearchSuggestion> suggestions =
-                                       new ArrayList<CodeSearchSuggestion>();
+            ArrayList<CodeSearchSuggestion> suggestions = new ArrayList<>();
             for (int s=0; s<res.getSuggestions().size(); s++)
             {
                CodeSearchSuggestion sugg = res.getSuggestions().get(s);
@@ -192,51 +191,41 @@ public class CodeSearchOracle extends SuggestOracle
       // failed to short-circuit via the cache, hit the server
       codeSearch_.enqueRequest(request, callback); 
    }
-     
+   
+   // this method converts queries of the form 'foo:<line>:<col>' to
+   // an appropriate navigation target, transforming the query and
+   // file position as appropriate
    public CodeNavigationTarget navigationTarget(String query,
                                                 Suggestion suggestion)
    {
       CodeSearchSuggestion codeSearchSuggestion = (CodeSearchSuggestion) suggestion;
+      CodeNavigationTarget target = codeSearchSuggestion.getNavigationTarget();
       
-      // Allow queries of the form e.g. 'foo:15' to go to line '15' of a file.
-      // We parse the integer following the ':' if possible.
-      FilePosition filePos = codeSearchSuggestion.getNavigationTarget().getPosition();
-      if (codeSearchSuggestion.isFileTarget())
-      {
-         int colonIndex = query.indexOf(":");
-         if (colonIndex > 0)
-         {
-            String[] splat = query.split(":");
-            if (splat.length > 1)
-            {
-               int rowToNavigateTo = 0;
-               try
-               {
-                  rowToNavigateTo = Integer.parseInt(splat[1]);
-               }
-               catch (Exception e)
-               {}
-               
-               int colToNavigateTo = 0;
-               if (splat.length > 2)
-               {
-                  try
-                  {
-                     colToNavigateTo = Integer.parseInt(splat[2]);
-                  }
-                  catch (Exception e)
-                  {}
-               }
-               filePos = FilePosition.create(rowToNavigateTo, colToNavigateTo);
-            }
-            
-         }
-      }
+      // nothing to do for non-file targets
+      if (!codeSearchSuggestion.isFileTarget())
+         return target;
       
-      String fileName = codeSearchSuggestion.getNavigationTarget().getFile();
-      CodeNavigationTarget target = new CodeNavigationTarget(fileName, filePos);
+      // nothing to do if the query doesn't have ':'
+      int colonIndex = query.indexOf(":");
+      if (colonIndex == -1)
+         return target;
       
-      return target;
+      // split query on ':' and look for <line> and <col> entries
+      String[] parts = query.split(":");
+      if (parts.length < 2)
+         return target;
+      
+      String rowPart = parts.length > 1 ? parts[1] : "";
+      String colPart = parts.length > 2 ? parts[2] : "";
+      
+      FilePosition filePosition = FilePosition.create(
+            StringUtil.parseInt(rowPart, 0),
+            StringUtil.parseInt(colPart, 0));
+      
+      return new CodeNavigationTarget(
+            target.getFile(),
+            filePosition,
+            target.getXRef());
    }
             
 
@@ -307,13 +296,12 @@ public class CodeSearchOracle extends SuggestOracle
             @Override
             public void onResponseReceived(CodeSearchResults response)
             {  
-               ArrayList<CodeSearchSuggestion> suggestions = 
-                                       new ArrayList<CodeSearchSuggestion>();
+               ArrayList<CodeSearchSuggestion> suggestions = new ArrayList<>();
                
                // file results
                ArrayList<FileItem> fileResults = 
                                     response.getFileItems().toArrayList();
-               for (int i = 0; i<fileResults.size(); i++) 
+               for (int i = 0; i < fileResults.size(); i++) 
                   suggestions.add(new CodeSearchSuggestion(fileResults.get(i)));  
                
                
@@ -321,7 +309,7 @@ public class CodeSearchOracle extends SuggestOracle
                FileSystemItem context = workbenchContext_.getActiveProjectDir();
                ArrayList<SourceItem> srcResults = 
                                     response.getSourceItems().toArrayList();
-               for (int i = 0; i<srcResults.size(); i++)
+               for (int i = 0; i < srcResults.size(); i++)
                {
                   suggestions.add(
                      new CodeSearchSuggestion(srcResults.get(i), context));    
@@ -407,7 +395,7 @@ public class CodeSearchOracle extends SuggestOracle
                                    boolean moreAvailable)
    {
       // get file paths for file targets (which are always at the beginning)
-      ArrayList<String> filePaths = new ArrayList<String>();
+      ArrayList<String> filePaths = new ArrayList<>();
       for(CodeSearchSuggestion suggestion : suggestions)
       {
          if (!suggestion.isFileTarget())
@@ -417,13 +405,17 @@ public class CodeSearchOracle extends SuggestOracle
       }
       
       // disambiguate them
-      ArrayList<String> displayLabels = DuplicateHelper.getPathLabels(filePaths,
-                                                                      true);
-      ArrayList<CodeSearchSuggestion> newSuggestions =
-                            new ArrayList<CodeSearchSuggestion>(suggestions);
-      for (int i=0; i<displayLabels.size(); i++)
-         newSuggestions.get(i).setFileDisplayString(filePaths.get(i),
-                                                    displayLabels.get(i));
+      ArrayList<String> displayLabels =
+            DuplicateHelper.getPathLabels(filePaths, true);
+      
+      ArrayList<CodeSearchSuggestion> newSuggestions = new ArrayList<>(suggestions);
+      
+      for (int i = 0; i < displayLabels.size(); i++)
+      {
+         newSuggestions.get(i).setFileDisplayString(
+               filePaths.get(i),
+               displayLabels.get(i));
+      }
       
       
       // cache the suggestions (up to 15 active result sets cached)
@@ -444,8 +436,7 @@ public class CodeSearchOracle extends SuggestOracle
    private final WorkbenchContext workbenchContext_;
    private final CodeSearchCommand codeSearch_ = new CodeSearchCommand();
    
-   private final ArrayList<SearchResult> resultCache_ = 
-                                             new ArrayList<SearchResult>();
+   private final ArrayList<SearchResult> resultCache_ = new ArrayList<>();
    
    private class SearchResult
    {

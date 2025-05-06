@@ -1,7 +1,7 @@
 /*
  * FastSelectTable.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -25,12 +25,12 @@ import com.google.gwt.user.client.DOM;
 import com.google.gwt.user.client.Event;
 import com.google.gwt.user.client.ui.ScrollPanel;
 import com.google.gwt.user.client.ui.Widget;
+import org.rstudio.core.client.ClassIds;
 import org.rstudio.core.client.Rectangle;
 import org.rstudio.core.client.command.KeyboardShortcut;
 import org.rstudio.core.client.dom.DomUtils;
 import org.rstudio.core.client.dom.NativeWindow;
 import org.rstudio.core.client.widget.events.SelectionChangedEvent;
-import org.rstudio.core.client.widget.events.SelectionChangedHandler;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -56,7 +56,8 @@ public class FastSelectTable<TItemInput, TItemOutput, TItemOutput2> extends Widg
    public FastSelectTable(ItemCodec<TItemInput, TItemOutput, TItemOutput2> codec,
                           String selectedClassName,
                           boolean focusable,
-                          boolean allowMultiSelect)
+                          boolean allowMultiSelect,
+                          String title)
    {
       codec_ = codec;
       selectedClassName_ = selectedClassName;
@@ -70,6 +71,7 @@ public class FastSelectTable<TItemInput, TItemOutput, TItemOutput2> extends Widg
       table_.setCellSpacing(0);
       table_.setBorder(0);
       table_.getStyle().setCursor(Cursor.DEFAULT);
+      setClassId(title);
       setElement(table_);
 
       addMouseDownHandler(new MouseDownHandler()
@@ -107,6 +109,11 @@ public class FastSelectTable<TItemInput, TItemOutput, TItemOutput2> extends Widg
             handleKeyDown(event);
          }
       });
+   }
+   
+   public void setClassId(String name)
+   {
+      table_.setClassName(ClassIds.FAST_SELECT_TABLE + "_" + ClassIds.idSafeString(name));
    }
 
    public void setCellPadding(int padding)
@@ -249,13 +256,13 @@ public class FastSelectTable<TItemInput, TItemOutput, TItemOutput2> extends Widg
          }
       }
    }
-   
+
    private void selectPreviousRow(boolean clearSelection)
    {
       int min = selectedRows_.size() > 0
             ? selectedRows_.get(0).getRowIndex()
             : table_.getRows().getLength();
-            
+
       Integer row = findNextValueRow(min, true);
       if (row != null)
       {
@@ -265,18 +272,18 @@ public class FastSelectTable<TItemInput, TItemOutput, TItemOutput2> extends Widg
          ensureRowVisible(row);
       }
    }
-   
+
    public void selectPreviousRow()
    {
       selectPreviousRow(true);
    }
-   
+
    private void selectNextRow(boolean clearSelection)
    {
       int max = selectedRows_.size() > 0
             ? selectedRows_.get(selectedRows_.size() - 1).getRowIndex()
             : -1;
-            
+
       Integer row = findNextValueRow(max, false);
       if (row != null)
       {
@@ -286,7 +293,7 @@ public class FastSelectTable<TItemInput, TItemOutput, TItemOutput2> extends Widg
          ensureRowVisible(row);
       }
    }
-   
+
    public void selectNextRow()
    {
       selectNextRow(true);
@@ -339,18 +346,18 @@ public class FastSelectTable<TItemInput, TItemOutput, TItemOutput2> extends Widg
       table_.setInnerText("");
       selectedRows_.clear();
    }
-   
+
    public void focus()
    {
       if (focusable_)
          table_.focus();
    }
-   
+
    public int getRowCount()
    {
       return codec_.getLogicalRowCount(table_);
    }
-   
+
    public void removeTopRows(int rowCount)
    {
       if (rowCount <= 0)
@@ -388,13 +395,13 @@ public class FastSelectTable<TItemInput, TItemOutput, TItemOutput2> extends Widg
    {
       sortSelectedRows();
 
-      ArrayList<Integer> results = new ArrayList<Integer>();
+      ArrayList<Integer> results = new ArrayList<>();
       for (TableRowElement row : selectedRows_)
          results.add(codec_.physicalOffsetToLogicalOffset(table_,
                                                           row.getRowIndex()));
       return results;
    }
-   
+
    private boolean isSelected(TableRowElement tr)
    {
       return tr.getClassName().contains(selectedClassName_);
@@ -481,7 +488,7 @@ public class FastSelectTable<TItemInput, TItemOutput, TItemOutput2> extends Widg
    {
       sortSelectedRows();
 
-      ArrayList<TItemOutput> results = new ArrayList<TItemOutput>();
+      ArrayList<TItemOutput> results = new ArrayList<>();
       for (TableRowElement row : selectedRows_)
          results.add(codec_.getOutputForRow(row));
       return results;
@@ -502,7 +509,7 @@ public class FastSelectTable<TItemInput, TItemOutput, TItemOutput2> extends Widg
    {
       sortSelectedRows();
 
-      ArrayList<TItemOutput2> results = new ArrayList<TItemOutput2>();
+      ArrayList<TItemOutput2> results = new ArrayList<>();
       for (TableRowElement row : selectedRows_)
          results.add(codec_.getOutputForRow2(row));
       return results;
@@ -577,7 +584,7 @@ public class FastSelectTable<TItemInput, TItemOutput, TItemOutput2> extends Widg
 
    public ArrayList<TableRowElement> getSelectedRows()
    {
-      return new ArrayList<TableRowElement>(selectedRows_);
+      return new ArrayList<>(selectedRows_);
    }
 
    public Rectangle getSelectionRect()
@@ -603,7 +610,7 @@ public class FastSelectTable<TItemInput, TItemOutput, TItemOutput2> extends Widg
        if (td.getPropertyString("tagName").equalsIgnoreCase("td")) {
          // Make sure it's directly a part of this table before returning
          // it.
-         
+
          Element tr = td.getParentElement();
          Element body = tr.getParentElement();
          Element table = body.getParentElement();
@@ -670,14 +677,14 @@ public class FastSelectTable<TItemInput, TItemOutput, TItemOutput2> extends Widg
    }
 
    public HandlerRegistration addSelectionChangedHandler(
-         SelectionChangedHandler handler)
+         SelectionChangedEvent.Handler handler)
    {
       assert !allowMultiSelect_ : "Selection changed event will only fire " +
                                   "if multiselect is disabled";
       return addHandler(handler, SelectionChangedEvent.TYPE);
    }
 
-   private final ArrayList<TableRowElement> selectedRows_ = new ArrayList<TableRowElement>();
+   private final ArrayList<TableRowElement> selectedRows_ = new ArrayList<>();
    private final ItemCodec<TItemInput, TItemOutput, TItemOutput2> codec_;
    private final TableElement table_;
    private final String selectedClassName_;

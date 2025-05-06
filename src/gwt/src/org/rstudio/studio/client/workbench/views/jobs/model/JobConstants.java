@@ -1,7 +1,7 @@
 /*
  * JobConstants.java
  *
- * Copyright (C) 2009-18 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -27,16 +27,16 @@ public class JobConstants
    public final static int STATE_SUCCEEDED = 3;
    public final static int STATE_CANCELLED = 4;
    public final static int STATE_FAILED    = 5;
-   
+
    // special job actions
    public final static String ACTION_STOP = "stop";
    public final static String ACTION_INFO = "info";
-   
+
    // job types
    public final static int JOB_TYPE_UNKNOWN = 0;
    public final static int JOB_TYPE_SESSION = 1; // local job, child of rsession
    public final static int JOB_TYPE_LAUNCHER = 2; // cluster job via job launcher
-   
+
    public final static String stateDescription(int state)
    {
       switch(state)

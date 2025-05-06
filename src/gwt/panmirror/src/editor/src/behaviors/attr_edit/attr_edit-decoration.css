@@ -1,7 +1,7 @@
 /*
  * attr_edit-decoration.css
  *
- * Copyright (C) 2019-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -21,6 +21,13 @@
   font-size: 10px;
 }
 
+.pm-div .pm-attr-edit-decoration {
+  margin-top: 10px;
+  right: 10px;
+}
+
+
+
 .pm-attr-edit-decoration .attr-edit-widget {
   padding: 2px;
   height: 18px;
@@ -34,18 +41,14 @@
   padding-left: 7px;
   padding-right: 7px;
   font-weight: normal;
+  white-space: nowrap;
 }
 
 .pm-attr-edit-decoration .attr-edit-button {
-  border-radius: 50%;
-  padding-left: 0;
-  padding-right: 0;
+  margin-top: 1px;
 }
 
-.pm-attr-edit-decoration .attr-edit-button .attr-edit-button-ellipsis {
-  display: inline-block;
+.pm-attr-edit-decoration .attr-edit-button img {
   width: 18px;
-  transform: scale(0.5, 0.5);
-  font-weight: lighter;
-  letter-spacing: 0;
+  height: 18px;
 }

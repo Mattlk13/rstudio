@@ -1,7 +1,7 @@
 /*
  * EnvironmentPresenter.java
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -16,6 +16,7 @@ package org.rstudio.studio.client.workbench.views.environment;
 
 import com.google.gwt.core.client.JsArrayString;
 
+import org.rstudio.core.client.Debug;
 import org.rstudio.core.client.DebugFilePosition;
 import org.rstudio.core.client.FilePosition;
 import org.rstudio.core.client.RegexUtil;
@@ -24,27 +25,31 @@ import org.rstudio.core.client.command.CommandBinder;
 import org.rstudio.core.client.command.Handler;
 import org.rstudio.core.client.files.FileSystemItem;
 import org.rstudio.core.client.js.JsObject;
+import org.rstudio.core.client.js.JsUtil;
 import org.rstudio.core.client.regex.Pattern;
+import org.rstudio.core.client.widget.ModalDialog;
+import org.rstudio.core.client.widget.ModalPopupPanel;
 import org.rstudio.core.client.widget.OperationWithInput;
 import org.rstudio.core.client.widget.ProgressIndicator;
 import org.rstudio.core.client.widget.ProgressOperation;
 import org.rstudio.core.client.widget.ProgressOperationWithInput;
+import org.rstudio.studio.client.RStudioGinjector;
 import org.rstudio.studio.client.application.events.EventBus;
 import org.rstudio.studio.client.application.events.RestartStatusEvent;
 import org.rstudio.studio.client.common.ConsoleDispatcher;
 import org.rstudio.studio.client.common.FileDialogs;
 import org.rstudio.studio.client.common.FilePathUtils;
 import org.rstudio.studio.client.common.GlobalDisplay;
+import org.rstudio.studio.client.common.SimpleRequestCallback;
 import org.rstudio.studio.client.common.debugging.DebugCommander;
 import org.rstudio.studio.client.common.debugging.DebugCommander.DebugMode;
 import org.rstudio.studio.client.common.filetypes.FileTypeRegistry;
 import org.rstudio.studio.client.common.filetypes.events.OpenDataFileEvent;
-import org.rstudio.studio.client.common.filetypes.events.OpenDataFileHandler;
 import org.rstudio.studio.client.common.filetypes.events.OpenSourceFileEvent;
 import org.rstudio.studio.client.common.filetypes.model.NavigationMethods;
+import org.rstudio.studio.client.server.QuietServerRequestCallback;
 import org.rstudio.studio.client.server.ServerError;
 import org.rstudio.studio.client.server.ServerRequestCallback;
-import org.rstudio.studio.client.server.Void;
 import org.rstudio.studio.client.server.VoidServerRequestCallback;
 import org.rstudio.studio.client.workbench.WorkbenchContext;
 import org.rstudio.studio.client.workbench.WorkbenchView;
@@ -57,9 +62,9 @@ import org.rstudio.studio.client.workbench.model.Session;
 import org.rstudio.studio.client.workbench.model.UnsavedChangesTarget;
 import org.rstudio.studio.client.workbench.model.helper.IntStateValue;
 import org.rstudio.studio.client.workbench.model.helper.JSObjectStateValue;
+import org.rstudio.studio.client.workbench.prefs.model.UserPrefs;
 import org.rstudio.studio.client.workbench.views.BasePresenter;
 import org.rstudio.studio.client.workbench.views.console.events.ConsoleWriteInputEvent;
-import org.rstudio.studio.client.workbench.views.console.events.ConsoleWriteInputHandler;
 import org.rstudio.studio.client.workbench.views.console.events.SendToConsoleEvent;
 
 import com.google.gwt.core.client.JsArray;
@@ -72,6 +77,7 @@ import org.rstudio.studio.client.workbench.views.environment.dataimport.ImportFi
 import org.rstudio.studio.client.workbench.views.environment.dataimport.ImportFileSettingsDialogResult;
 import org.rstudio.studio.client.workbench.views.environment.events.BrowserLineChangedEvent;
 import org.rstudio.studio.client.workbench.views.environment.events.ContextDepthChangedEvent;
+import org.rstudio.studio.client.workbench.views.environment.events.EnvironmentChangedEvent;
 import org.rstudio.studio.client.workbench.views.environment.events.EnvironmentObjectAssignedEvent;
 import org.rstudio.studio.client.workbench.views.environment.events.EnvironmentObjectRemovedEvent;
 import org.rstudio.studio.client.workbench.views.environment.events.EnvironmentRefreshEvent;
@@ -80,13 +86,16 @@ import org.rstudio.studio.client.workbench.views.environment.model.CallFrame;
 import org.rstudio.studio.client.workbench.views.environment.model.DownloadInfo;
 import org.rstudio.studio.client.workbench.views.environment.model.EnvironmentContextData;
 import org.rstudio.studio.client.workbench.views.environment.model.EnvironmentServerOperations;
+import org.rstudio.studio.client.workbench.views.environment.model.MemoryUsageReport;
 import org.rstudio.studio.client.workbench.views.environment.model.RObject;
 import org.rstudio.studio.client.workbench.views.environment.view.EnvironmentClientState;
+import org.rstudio.studio.client.workbench.views.environment.view.MemoryUsageSummary;
+import org.rstudio.studio.client.workbench.views.environment.view.MemoryUsageSummaryDialog;
 import org.rstudio.studio.client.workbench.views.source.Source;
-import org.rstudio.studio.client.workbench.views.source.SourceShim;
 import org.rstudio.studio.client.workbench.views.source.events.CodeBrowserFinishedEvent;
 import org.rstudio.studio.client.workbench.views.source.events.CodeBrowserHighlightEvent;
 import org.rstudio.studio.client.workbench.views.source.events.CodeBrowserNavigationEvent;
+import org.rstudio.studio.client.workbench.views.source.events.ScrollToPositionEvent;
 import org.rstudio.studio.client.workbench.views.source.model.SourceServerOperations;
 
 import java.util.ArrayList;
@@ -94,13 +103,16 @@ import java.util.HashMap;
 import java.util.List;
 
 public class EnvironmentPresenter extends BasePresenter
-        implements OpenDataFileHandler
+        implements OpenDataFileEvent.Handler
 {
    public interface Binder
            extends CommandBinder<Commands, EnvironmentPresenter> {}
-   
+
    public interface Display extends WorkbenchView
    {
+      void setActiveLanguage(String language, boolean syncWithSession);
+      String getActiveLanguage();
+      String getMonitoredEnvironment();
       void addObject(RObject object);
       void addObjects(JsArray<RObject> objects);
       void clearObjects();
@@ -126,7 +138,7 @@ public class EnvironmentPresenter extends BasePresenter
       void setBrowserRange(DebugFilePosition filePosition);
       List<String> getSelectedObjects();
    }
-   
+
    @Inject
    public EnvironmentPresenter(Display view,
                                EnvironmentServerOperations server,
@@ -140,14 +152,14 @@ public class EnvironmentPresenter extends BasePresenter
                                ConsoleDispatcher consoleDispatcher,
                                RemoteFileSystemContext fsContext,
                                Session session,
-                               SourceShim sourceShim,
+                               Source source,
                                DebugCommander debugCommander,
                                FileTypeRegistry fileTypeRegistry,
                                DataImportPresenter dataImportPresenter)
    {
       super(view);
       binder.bind(commands, this);
-      
+
       view_ = view;
       server_ = server;
       sourceServer_ = sourceServer;
@@ -161,24 +173,18 @@ public class EnvironmentPresenter extends BasePresenter
       initialized_ = false;
       currentBrowseFile_ = "";
       currentBrowsePosition_ = null;
-      sourceShim_ = sourceShim;
+      source_ = source;
       debugCommander_ = debugCommander;
       session_ = session;
       fileTypeRegistry_ = fileTypeRegistry;
       dataImportPresenter_ = dataImportPresenter;
-      
+
       requeryContextTimer_ = new Timer()
       {
          @Override
          public void run()
          {
-            server_.requeryContext(new ServerRequestCallback<Void>()
-            {
-               @Override
-               public void onError(ServerError error)
-               {
-               }
-            });
+            server_.requeryContext(new QuietServerRequestCallback<>());
          }
       };
 
@@ -191,8 +197,8 @@ public class EnvironmentPresenter extends BasePresenter
             refreshView();
          }
       });
-      
-      eventBus.addHandler(RestartStatusEvent.TYPE, 
+
+      eventBus.addHandler(RestartStatusEvent.TYPE,
                           new RestartStatusEvent.Handler()
       {
          @Override
@@ -205,13 +211,13 @@ public class EnvironmentPresenter extends BasePresenter
          }
       });
 
-      eventBus.addHandler(ContextDepthChangedEvent.TYPE, 
+      eventBus.addHandler(ContextDepthChangedEvent.TYPE,
                           new ContextDepthChangedEvent.Handler()
       {
          @Override
          public void onContextDepthChanged(ContextDepthChangedEvent event)
          {
-            loadNewContextState(event.getContextDepth(), 
+            loadNewContextState(event.getContextDepth(),
                   event.getEnvironmentName(),
                   event.environmentMonitoring(),
                   event.getFunctionEnvName(),
@@ -223,9 +229,9 @@ public class EnvironmentPresenter extends BasePresenter
             requeryContextTimer_.cancel();
          }
       });
-      
+
       eventBus.addHandler(EnvironmentObjectAssignedEvent.TYPE,
-                          new EnvironmentObjectAssignedEvent.Handler() 
+                          new EnvironmentObjectAssignedEvent.Handler()
       {
          @Override
          public void onEnvironmentObjectAssigned(EnvironmentObjectAssignedEvent event)
@@ -235,12 +241,27 @@ public class EnvironmentPresenter extends BasePresenter
       });
 
       eventBus.addHandler(EnvironmentObjectRemovedEvent.TYPE,
-            new EnvironmentObjectRemovedEvent.Handler() 
+            new EnvironmentObjectRemovedEvent.Handler()
       {
          @Override
          public void onEnvironmentObjectRemoved(EnvironmentObjectRemovedEvent event)
          {
             view_.removeObject(event.getObjectName());
+         }
+      });
+
+      eventBus.addHandler(EnvironmentChangedEvent.TYPE, (EnvironmentChangedEvent event) ->
+      {
+         EnvironmentChangedEvent.Data data = event.getData();
+
+         for (RObject object : JsUtil.asIterable(data.getChangedObjects()))
+         {
+            view_.addObject(object);
+         }
+
+         for (String object : JsUtil.asIterable(data.getRemovedObjects()))
+         {
+            view_.removeObject(object);
          }
       });
 
@@ -259,16 +280,16 @@ public class EnvironmentPresenter extends BasePresenter
             requeryContextTimer_.cancel();
          }
       });
-      
+
       eventBus.addHandler(ConsoleWriteInputEvent.TYPE,
-            new ConsoleWriteInputHandler()
+            new ConsoleWriteInputEvent.Handler()
       {
          @Override
          public void onConsoleWriteInput(ConsoleWriteInputEvent event)
          {
             String input = event.getInput().trim();
-            if (input.equals(DebugCommander.STOP_COMMAND) || 
-                input.equals(DebugCommander.NEXT_COMMAND) || 
+            if (input.equals(DebugCommander.STOP_COMMAND) ||
+                input.equals(DebugCommander.NEXT_COMMAND) ||
                 input.equals(DebugCommander.CONTINUE_COMMAND))
             {
                // When a debug command is issued, we expect to hear back from
@@ -279,26 +300,33 @@ public class EnvironmentPresenter extends BasePresenter
             }
          }
       });
-      
-      
-      eventBus.addHandler(JumpToFunctionEvent.TYPE, 
+
+
+      eventBus.addHandler(JumpToFunctionEvent.TYPE,
             new JumpToFunctionEvent.Handler()
       {
          @Override
          public void onJumpToFunction(JumpToFunctionEvent event)
          {
-            FilePosition pos = FilePosition.create(event.getLineNumber(), 
+            if (StringUtil.isNullOrEmpty(event.getFileName()))
+               eventBus_.fireEvent(new ScrollToPositionEvent(event.getLineNumber(),
+                  event.getColumnNumber(), event.getMoveCursor()));
+            else
+            {
+               FilePosition pos = FilePosition.create(event.getLineNumber(),
                   event.getColumnNumber());
-            FileSystemItem destFile = FileSystemItem.createFile(
+               FileSystemItem destFile = FileSystemItem.createFile(
                   event.getFileName());
-            eventBus_.fireEvent(new OpenSourceFileEvent(
+               eventBus_.fireEvent(new OpenSourceFileEvent(
                   destFile,
                   pos,
                   fileTypeRegistry_.getTextTypeForFile(destFile),
+                  event.getMoveCursor(),
                   NavigationMethods.DEFAULT));
             }
+         }
       });
-      
+
       new JSObjectStateValue(
               "environment-panel",
               "environmentPanelSettings",
@@ -314,7 +342,7 @@ public class EnvironmentPresenter extends BasePresenter
                EnvironmentClientState clientState = value.cast();
                view_.setScrollPosition(clientState.getScrollPosition());
                view_.setExpandedObjects(clientState.getExpandedObjects());
-               view_.setSort(clientState.getSortColumn(), 
+               view_.setSort(clientState.getSortColumn(),
                              clientState.getAscendingSort());
             }
          }
@@ -338,9 +366,9 @@ public class EnvironmentPresenter extends BasePresenter
             return view_.clientStateDirty();
          }
       };
-      
-      // Store the object display type more permanently than the other 
-      // client state settings; it's likely to be a user preference. 
+
+      // Store the object display type more permanently than the other
+      // client state settings; it's likely to be a user preference.
       new IntStateValue(
               "environment-grid",
               "objectDisplayType",
@@ -367,13 +395,41 @@ public class EnvironmentPresenter extends BasePresenter
    {
       refreshView();
    }
-   
+
+   @Handler
+   void onFreeUnusedMemory()
+   {
+      eventBus_.fireEvent(new SendToConsoleEvent("gc()", true, false));
+   }
+
+   @Handler
+   void onShowMemoryUsageReport()
+   {
+      server_.getMemoryUsageReport(new SimpleRequestCallback<MemoryUsageReport>()
+      {
+         @Override
+         public void onResponseReceived(MemoryUsageReport report)
+         {
+            MemoryUsageSummaryDialog dialog = new MemoryUsageSummaryDialog(report);
+            dialog.showModal();
+         }
+      });
+   }
+
+   @Handler
+   void onToggleShowMemoryUsage()
+   {
+      UserPrefs prefs = RStudioGinjector.INSTANCE.getUserPrefs();
+      prefs.showMemoryUsage().setGlobalValue(!prefs.showMemoryUsage().getValue());
+      prefs.writeUserPrefs();
+   }
+
    void onClearWorkspace()
    {
       view_.bringToFront();
       final List<String> objectNames = view_.getSelectedObjects();
 
-      new ClearAllDialog(objectNames.size(), 
+      new ClearAllDialog(objectNames.size(),
                          new ProgressOperationWithInput<Boolean>() {
 
          @Override
@@ -396,7 +452,7 @@ public class EnvironmentPresenter extends BasePresenter
             else
             {
                server_.removeObjects(
-                       objectNames, 
+                       objectNames,
                        new VoidServerRequestCallback(indicator) {
                            @Override
                            public void onSuccess()
@@ -417,10 +473,37 @@ public class EnvironmentPresenter extends BasePresenter
    {
       view_.bringToFront();
 
-      consoleDispatcher_.saveFileAsThenExecuteCommand("Save Workspace As",
-                                                      ".RData",
-                                                      true,
-                                                      "save.image");
+      server_.isFunctionMasked(
+            "save.image",
+            "base",
+            new ServerRequestCallback<Boolean>()
+            {
+               public void onResponseReceived(Boolean isMasked)
+               {
+                  String code = isMasked
+                        ? "base::save.image"
+                        : "save.image";
+
+                  consoleDispatcher_.saveFileAsThenExecuteCommand(
+                        "Save Workspace As",
+                        ".RData",
+                        true,
+                        code);
+               }
+
+               @Override
+               public void onError(ServerError error)
+               {
+                  Debug.logError(error);
+
+                  consoleDispatcher_.saveFileAsThenExecuteCommand(
+                        "Save Workspace As",
+                        ".RData",
+                        true,
+                        "save.image");
+
+               };
+            });
    }
 
    void onLoadWorkspace()
@@ -496,7 +579,7 @@ public class EnvironmentPresenter extends BasePresenter
    {
       onImportDatasetFromFile();
    }
-   
+
    void onImportDatasetFromSAV()
    {
       view_.bringToFront();
@@ -524,7 +607,7 @@ public class EnvironmentPresenter extends BasePresenter
    public void onOpenDataFile(OpenDataFileEvent event)
    {
       final String dataFilePath = event.getFile().getPath();
-      
+
       if (Pattern.create("[.]rds$", "i").test(dataFilePath))
       {
          globalDisplay_.promptForText(
@@ -538,7 +621,7 @@ public class EnvironmentPresenter extends BasePresenter
                   {
                      if (!RegexUtil.isSyntacticRIdentifier(input))
                         input = "`" + input.replaceAll("`", "\\\\`") + "`";
-                     
+
                      consoleDispatcher_.executeCommand(
                            input + " <- readRDS",
                            dataFilePath);
@@ -574,17 +657,17 @@ public class EnvironmentPresenter extends BasePresenter
    {
       super.onBeforeSelected();
 
-      // if the view isn't yet initialized, initialize it with the list of 
+      // if the view isn't yet initialized, initialize it with the list of
       // objects in the environment
       if (!initialized_)
       {
          // we may have a cached list of objects in the session info--if
          // we do, use that list; otherwise, refresh the view to get a new one.
-         // (the list may be empty e.g. on cold session startup when the 
-         // environment was loaded from .RData and therefore not available 
+         // (the list may be empty e.g. on cold session startup when the
+         // environment was loaded from .RData and therefore not available
          // during session init; we also want to fetch a fresh list in this
          // case).
-         JsArray<RObject> environmentList = 
+         JsArray<RObject> environmentList =
               session_.getSessionInfo().getEnvironmentState().environmentList();
          if (environmentList == null ||
              environmentList.length() == 0)
@@ -625,16 +708,16 @@ public class EnvironmentPresenter extends BasePresenter
       setViewFromEnvironmentList(environmentState.environmentList());
       initialized_ = true;
    }
-   
+
    // Private methods ---------------------------------------------------------
 
-   // sets a new context depth; returns true if the the new context depth  
+   // sets a new context depth; returns true if the the new context depth
    // transitions to debug mode
    private boolean setContextDepth(int contextDepth)
    {
       boolean enteringDebugMode = false;
-      
-      // if entering debug state, activate this tab 
+
+      // if entering debug state, activate this tab
       if (contextDepth > 0 &&
           contextDepth_ == 0)
       {
@@ -650,15 +733,15 @@ public class EnvironmentPresenter extends BasePresenter
       }
       contextDepth_ = contextDepth;
       view_.setContextDepth(contextDepth_);
-      
+
       return enteringDebugMode;
    }
 
-   private void loadNewContextState(int contextDepth, 
+   private void loadNewContextState(int contextDepth,
          String environmentName,
          boolean environmentMonitoring,
          String functionEnvName,
-         boolean isLocalEvironment, 
+         boolean isLocalEvironment,
          JsArray<CallFrame> callFrames,
          boolean useBrowseSources,
          String functionCode)
@@ -668,7 +751,7 @@ public class EnvironmentPresenter extends BasePresenter
       functionEnvName_ = functionEnvName;
       view_.setEnvironmentName(environmentName_, isLocalEvironment);
       view_.setEnvironmentMonitoring(environmentMonitoring);
-      if (callFrames != null && 
+      if (callFrames != null &&
           callFrames.length() > 0 &&
           contextDepth > 0)
       {
@@ -677,7 +760,7 @@ public class EnvironmentPresenter extends BasePresenter
                  contextDepth_ - 1);
          String newBrowseFile = browseFrame.getAliasedFileName().trim();
          boolean sourceChanged = false;
-         
+
          // check to see if the file we're about to switch to contains unsaved
          // changes. if it does, use the source supplied by the server, even if
          // the server thinks the document is clean.
@@ -685,12 +768,12 @@ public class EnvironmentPresenter extends BasePresenter
          {
             useBrowseSources = true;
          }
-         
+
          // if the file is different or we're swapping into or out of the source
          // viewer, turn off highlighting in the old file before turning it on
          // in the new one. avoid this in the case where the file is different
          // but both frames are viewed from source, since in this case an
-         // unnecessary close and reopen of the source viewer would be 
+         // unnecessary close and reopen of the source viewer would be
          // triggered.
          if ((newBrowseFile != currentBrowseFile_ ||
                   useBrowseSources != useCurrentBrowseSource_) &&
@@ -705,13 +788,13 @@ public class EnvironmentPresenter extends BasePresenter
             currentBrowseSource_ = functionCode;
             sourceChanged = true;
          }
-         
+
          // highlight the active line in the file now being debugged
          currentBrowseFile_ = newBrowseFile;
          currentBrowsePosition_ = browseFrame.getRange();
          currentFunctionLineNumber_ = browseFrame.getFunctionLineNumber();
          openOrUpdateFileBrowsePoint(true, sourceChanged);
-      }   
+      }
       else
       {
          openOrUpdateFileBrowsePoint(false, false);
@@ -722,38 +805,38 @@ public class EnvironmentPresenter extends BasePresenter
          currentFunctionLineNumber_ = 0;
       }
    }
-   
+
    // given a path, indicate whether it corresponds to a file that currently
    // contains unsaved changes.
    private boolean fileContainsUnsavedChanges(String path)
    {
-      ArrayList<UnsavedChangesTarget> unsavedSourceDocs = 
-         sourceShim_.getUnsavedChanges(Source.TYPE_FILE_BACKED);
-      
+      ArrayList<UnsavedChangesTarget> unsavedSourceDocs =
+         source_.getUnsavedChanges(Source.TYPE_FILE_BACKED);
+
       for (UnsavedChangesTarget target: unsavedSourceDocs)
       {
          if (target.getPath() == path)
          {
             return true;
          }
-      }     
-      
+      }
+
       return false;
    }
-   
-   private void openOrUpdateFileBrowsePoint(boolean debugging, 
+
+   private void openOrUpdateFileBrowsePoint(boolean debugging,
                                             boolean sourceChanged)
    {
       String file = currentBrowseFile_;
-      
-      // if we have no file and no source code, we can do no navigation 
+
+      // if we have no file and no source code, we can do no navigation
       if (!CallFrame.isNavigableFilename(file) &&
           !useCurrentBrowseSource_)
       {
          return;
       }
-      
-      // if we have a real filename and sign from the server that the file 
+
+      // if we have a real filename and sign from the server that the file
       // is in sync with the actual copy of the function, navigate to the
       // file itself
       if (currentBrowsePosition_ != null &&
@@ -763,7 +846,7 @@ public class EnvironmentPresenter extends BasePresenter
          eventBus_.fireEvent(new OpenSourceFileEvent(sourceFile,
                                 (FilePosition) currentBrowsePosition_.cast(),
                                 FileTypeRegistry.R,
-                                debugging ? 
+                                debugging ?
                                       NavigationMethods.DEBUG_STEP :
                                       NavigationMethods.DEBUG_END));
       }
@@ -783,7 +866,7 @@ public class EnvironmentPresenter extends BasePresenter
             {
                functionName = functionName.substring(0, idx);
             }
-            
+
             // omit qualifiers
             idx = functionName.indexOf("::");
             if (idx > 0)
@@ -793,20 +876,20 @@ public class EnvironmentPresenter extends BasePresenter
                if (functionName.startsWith(":"))
                   functionName = functionName.substring(1);
             }
-               
+
             // create the function definition
-            searchFunction_ = 
+            searchFunction_ =
                   SearchPathFunctionDefinition.create(
-                     functionName, 
-                     StringUtil.isNullOrEmpty(functionEnvName_) ? 
-                           "debugging" : functionEnvName_, 
+                     functionName,
+                     StringUtil.isNullOrEmpty(functionEnvName_) ?
+                           "debugging" : functionEnvName_,
                      currentBrowseSource_,
                      true);
 
             if (sourceChanged)
             {
                // if this is a different source file than we already have open,
-               // open it 
+               // open it
                eventBus_.fireEvent(new CodeBrowserNavigationEvent(
                      searchFunction_,
                      currentBrowsePosition_.functionRelativePosition(
@@ -815,7 +898,7 @@ public class EnvironmentPresenter extends BasePresenter
             }
             else if (currentBrowsePosition_.getLine() > 0)
             {
-               // if this is the same one currently open, just move the 
+               // if this is the same one currently open, just move the
                // highlight
                eventBus_.fireEvent(new CodeBrowserHighlightEvent(
                      searchFunction_,
@@ -835,9 +918,9 @@ public class EnvironmentPresenter extends BasePresenter
       view_.clearObjects();
       view_.addObjects(objects);
    }
-   
+
    /***
-    * Refreshes the state of the environment, but only if the environment is currently being 
+    * Refreshes the state of the environment, but only if the environment is currently being
     * monitored (otherwise it's pointless to ask for a new object list as one won't be returned)
     */
    private void refreshViewIfEnabled()
@@ -845,7 +928,7 @@ public class EnvironmentPresenter extends BasePresenter
       if (view_ == null || view_.environmentMonitoring())
          refreshView();
    }
-    
+
    private void refreshView()
    {
       // if we're currently waiting for a view refresh to come back, don't
@@ -854,10 +937,13 @@ public class EnvironmentPresenter extends BasePresenter
       {
          return;
       }
+
       // start showing the progress spinner and initiate the request
       view_.setProgress(true);
       refreshingView_ = true;
       server_.getEnvironmentState(
+            view_.getActiveLanguage(),
+            view_.getMonitoredEnvironment(),
             new ServerRequestCallback<EnvironmentContextData>()
       {
 
@@ -903,7 +989,7 @@ public class EnvironmentPresenter extends BasePresenter
                     String code =
                             var +
                             " <- " +
-                            makeCommand(input, 
+                            makeCommand(input,
                                         result.getDefaultStringsAsFactors()) +
                             "\n  View(" + var + ")";
                     eventBus_.fireEvent(new SendToConsoleEvent(code, true));
@@ -916,8 +1002,7 @@ public class EnvironmentPresenter extends BasePresenter
    private String makeCommand(ImportFileSettings input,
                               boolean defaultStringsAsFactors)
    {
-      HashMap<String, ImportFileSettings> commandDefaults_ =
-              new HashMap<String, ImportFileSettings>();
+      HashMap<String, ImportFileSettings> commandDefaults_ = new HashMap<>();
 
       commandDefaults_.put("read.table", new ImportFileSettings(
               null, null, "unknown", false, null, "", ".", "\"'", "#", "NA", defaultStringsAsFactors));
@@ -969,7 +1054,7 @@ public class EnvironmentPresenter extends BasePresenter
          code.append(", na.strings=" + StringUtil.textToRLiteral(input.getNAStrings()));
       if (input.getStringsAsFactors() != settings.getStringsAsFactors())
          code.append(", stringsAsFactors=" + (input.getStringsAsFactors() ? "TRUE" : "FALSE"));
-         
+
       code.append(")");
 
       return code.toString();
@@ -984,12 +1069,12 @@ public class EnvironmentPresenter extends BasePresenter
    private final WorkbenchContext workbenchContext_;
    private final FileDialogs fileDialogs_;
    private final EventBus eventBus_;
-   private final SourceShim sourceShim_;
+   private final Source source_;
    private final DebugCommander debugCommander_;
    private final Session session_;
    private final FileTypeRegistry fileTypeRegistry_;
    private final DataImportPresenter dataImportPresenter_;
-   
+
    private int contextDepth_;
    private boolean refreshingView_;
    private boolean initialized_;
@@ -1002,6 +1087,6 @@ public class EnvironmentPresenter extends BasePresenter
    private String functionEnvName_;
    private Timer requeryContextTimer_;
    private SearchPathFunctionDefinition searchFunction_;
-   
+
    final String dataImportDependecyUserAction_ = "Preparing data import";
 }

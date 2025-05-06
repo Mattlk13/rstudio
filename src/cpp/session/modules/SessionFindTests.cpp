@@ -1,7 +1,7 @@
 /*
  * SessionFindTests.cpp
  *
- * Copyright (C) 2019 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -146,7 +146,7 @@ TEST_CASE("SessionFind")
 
       Replacer replacer(true);
       Error error = replacer.replaceRegex(rMatchOn, rMatchOff, kFindRegex, kReplaceRegex,
-         &line, &replaceMatchOff); 
+         &line, &replaceMatchOff);
       CHECK(line.compare(kLine) == 0);
    }
 

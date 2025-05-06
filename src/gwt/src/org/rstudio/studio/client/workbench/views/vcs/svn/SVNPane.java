@@ -1,7 +1,7 @@
 /*
  * SVNPane.java
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -15,9 +15,9 @@
 package org.rstudio.studio.client.workbench.views.vcs.svn;
 
 import com.google.gwt.user.client.ui.Widget;
-import com.google.gwt.user.client.ui.PopupPanel.PositionCallback;
 import com.google.inject.Inject;
 
+import org.rstudio.core.client.ElementIds;
 import org.rstudio.core.client.resources.ImageResource2x;
 import org.rstudio.core.client.widget.Toolbar;
 import org.rstudio.core.client.widget.ToolbarButton;
@@ -66,11 +66,11 @@ public class SVNPane extends WorkbenchPane implements Display
       toolbar.addLeftWidget(commands_.vcsAddFiles().createToolbarButton());
       toolbar.addLeftWidget(commands_.vcsRemoveFiles().createToolbarButton());
       toolbar.addLeftSeparator();
-      
+
       toolbar.addLeftWidget(commands_.vcsCommit().createToolbarButton());
-      
+
       toolbar.addLeftSeparator();
-      
+
       ToolbarPopupMenu moreMenu = new ToolbarPopupMenu();
 
       moreMenu.addItem(commands_.vcsRevert().createMenuItem(false));
@@ -96,7 +96,7 @@ public class SVNPane extends WorkbenchPane implements Display
 
       return toolbar;
    }
-   
+
    @Override
    public void setItems(ArrayList<StatusAndPath> items)
    {
@@ -108,18 +108,18 @@ public class SVNPane extends WorkbenchPane implements Display
    {
       return changelistTablePresenter_.getSelectedItems();
    }
-   
+
    @Override
    public ChangelistTable getChangelistTable()
    {
       return changelistTablePresenter_.getView();
    }
-   
+
    @Override
    public void showContextMenu(final int clientX, final int clientY)
    {
       final ToolbarPopupMenu menu = new ToolbarPopupMenu();
-      
+
       menu.addItem(commands_.vcsDiff().createMenuItem(false));
       menu.addSeparator();
       menu.addItem(commands_.vcsAddFiles().createMenuItem(false));
@@ -131,14 +131,8 @@ public class SVNPane extends WorkbenchPane implements Display
       menu.addItem(commands_.vcsResolve().createMenuItem(false));
       menu.addSeparator();
       menu.addItem(commands_.vcsOpen().createMenuItem(false));
-    
-      menu.setPopupPositionAndShow(new PositionCallback() {
-         @Override
-         public void setPosition(int offsetWidth, int offsetHeight)
-         {
-            menu.setPopupPosition(clientX, clientY);     
-         }
-      });
+
+      menu.showRelativeTo(clientX, clientY, ElementIds.SVN_TAB_CONTEXT);
    }
 
    @Override

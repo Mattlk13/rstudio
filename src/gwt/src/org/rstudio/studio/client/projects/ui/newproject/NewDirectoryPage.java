@@ -1,7 +1,7 @@
 /*
  * NewDirectoryPage.java
  *
- * Copyright (C) 2009-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -16,6 +16,7 @@ package org.rstudio.studio.client.projects.ui.newproject;
 
 import com.google.gwt.aria.client.Roles;
 import org.rstudio.core.client.ElementIds;
+import org.rstudio.core.client.StringUtil;
 import org.rstudio.core.client.dom.DomUtils;
 import org.rstudio.core.client.files.FileSystemItem;
 import org.rstudio.core.client.resources.ImageResource2x;
@@ -31,6 +32,7 @@ import org.rstudio.studio.client.projects.model.NewProjectInput;
 import org.rstudio.studio.client.projects.model.NewProjectResult;
 import org.rstudio.studio.client.projects.model.NewShinyAppOptions;
 import org.rstudio.studio.client.projects.model.ProjectTemplateOptions;
+import org.rstudio.studio.client.workbench.model.Session;
 import org.rstudio.studio.client.workbench.model.SessionInfo;
 import org.rstudio.studio.client.workbench.prefs.model.UserPrefs;
 
@@ -66,8 +68,10 @@ public class NewDirectoryPage extends NewProjectWizardPage
    }
 
    @Inject
-   private void initialize(DependencyManager dependencyManager)
+   private void initialize(Session session,
+                           DependencyManager dependencyManager)
    {
+      session_ = session;
       dependencyManager_ = dependencyManager;
    }
 
@@ -89,6 +93,8 @@ public class NewDirectoryPage extends NewProjectWizardPage
       txtProjectName_.setWidth("100%");
       DomUtils.disableSpellcheck(txtProjectName_);
       Roles.getTextboxRole().setAriaRequiredProperty(txtProjectName_.getElement(), true);
+      ElementIds.assignElementId(txtProjectName_,
+         ElementIds.idWithPrefix(getTitle(), ElementIds.NEW_PROJECT_DIRECTORY));
 
       // create the dir name label
       dirNameLabel_ = new FormLabel(getDirNameLabel(), txtProjectName_);
@@ -121,6 +127,8 @@ public class NewDirectoryPage extends NewProjectWizardPage
       
       chkGitInit_ = new CheckBox("Create a git repository");
       chkGitInit_.addStyleName(styles.wizardCheckbox());
+      ElementIds.assignElementId(chkGitInit_,
+         ElementIds.idSafeString(getTitle()) + "_" + ElementIds.NEW_PROJECT_GIT_REPO);
       if (sessionInfo.isVcsAvailable(VCSConstants.GIT_ID))
       {  
          chkGitInit_.setValue(userState.newProjGitInit().getValue());
@@ -138,6 +146,8 @@ public class NewDirectoryPage extends NewProjectWizardPage
       
       // Initialize project with renv
       chkRenvInit_ = new CheckBox("Use renv with this project");
+      ElementIds.assignElementId(chkRenvInit_,
+         ElementIds.idWithPrefix(getTitle(), ElementIds.NEW_PROJECT_RENV));
       chkRenvInit_.addValueChangeHandler((ValueChangeEvent<Boolean> event) -> {
          if (event.getValue())
          {
@@ -203,8 +213,12 @@ public class NewDirectoryPage extends NewProjectWizardPage
    protected void initialize(NewProjectInput input)
    {
       super.initialize(input);
-          
-      newProjectParent_.setText(input.getDefaultNewProjectLocation().getPath());
+      
+      String path = input.getDefaultNewProjectLocation().getPath();
+      if (StringUtil.isNullOrEmpty(path))
+         path = session_.getSessionInfo().getDefaultProjectDir();
+      
+      newProjectParent_.setText(path);
    }
 
 
@@ -276,6 +290,7 @@ public class NewDirectoryPage extends NewProjectWizardPage
    private DirectoryChooserTextBox newProjectParent_;
    
    // Injected ----
+   private Session session_;
    private DependencyManager dependencyManager_;
 
 }

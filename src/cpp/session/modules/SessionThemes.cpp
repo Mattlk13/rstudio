@@ -1,7 +1,7 @@
 /*
  * SessionThemes.cpp
  *
- * Copyright (C) 2018-2019 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -15,12 +15,12 @@
 
 #include "SessionThemes.hpp"
 
+#include <boost/lexical_cast.hpp>
+#include <boost/regex.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/join.hpp>
 #include <boost/algorithm/algorithm.hpp>
-#include <boost/lexical_cast.hpp>
-#include <boost/bind.hpp>
-#include <boost/regex.hpp>
+#include <boost/bind/bind.hpp>
 
 #include <shared_core/Error.hpp>
 #include <core/Exec.hpp>
@@ -45,6 +45,7 @@
 #include <string>
 
 using namespace rstudio::core;
+using namespace boost::placeholders;
 
 namespace rstudio {
 namespace session {
@@ -153,6 +154,12 @@ void getThemesInLocation(
                (std::istreambuf_iterator<char>()));
             themeIFStream.close();
 
+            // Skip theme if file is empty.
+            if (themeContents.empty())
+            {
+               continue;
+            }
+
             boost::smatch matches;
             bool found = boost::regex_search(
                themeContents,
@@ -186,12 +193,14 @@ void getThemesInLocation(
                }
                catch (boost::bad_lexical_cast&)
                {
-                  LOG_WARNING_MESSAGE("rs-theme-is-dark value is not a valid boolean string for theme \"" + name + "\".");
+                  LOG_WARNING_MESSAGE("rs-theme-is-dark value is not a valid boolean string "
+                        " for theme \"" + name + "\" (" + themeFile.getAbsolutePath() + ")");
                }
             }
             else
             {
-               LOG_WARNING_MESSAGE("rs-theme-is-dark is not set for theme \"" + name + "\".");
+               LOG_WARNING_MESSAGE("rs-theme-is-dark is not set for theme \"" + name + "\" (" +
+                     themeFile.getAbsolutePath() + ")");
             }
 
             (*themeMap)[boost::algorithm::to_lower_copy(name)] = std::make_tuple(
@@ -567,7 +576,6 @@ void setCacheableFile(const FilePath& filePath,
                       const http::Request& request,
                       http::Response* pResponse)
 {
-   pResponse->setCacheWithRevalidationHeaders();
    pResponse->setCacheableFile(filePath, request);
 }
 
@@ -633,7 +641,7 @@ Error syncThemePrefs()
    // Determine whether the preference storing the theme is out of sync with the theme details in
    // user state.
    Error err;
-   std::string prefTheme = prefs::userPrefs().editorTheme(); 
+   std::string prefTheme = prefs::userPrefs().editorTheme();
    json::Object stateTheme = prefs::userState().theme();
    auto themeName = stateTheme.find(kThemeName);
    if (themeName != stateTheme.end() &&

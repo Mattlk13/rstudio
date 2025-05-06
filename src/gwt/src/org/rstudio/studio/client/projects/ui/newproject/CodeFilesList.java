@@ -1,7 +1,7 @@
 /*
  * CodeFilesList.java
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -81,7 +81,7 @@ public class CodeFilesList extends Composite
    
    public ArrayList<String> getCodeFiles()
    {
-      ArrayList<String> codeFiles = new ArrayList<String>();
+      ArrayList<String> codeFiles = new ArrayList<>();
       for (int i=0; i<listBox_.getItemCount(); i++)
          codeFiles.add(listBox_.getItemText(i));
       return codeFiles;

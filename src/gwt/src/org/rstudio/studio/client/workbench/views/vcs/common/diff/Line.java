@@ -1,7 +1,7 @@
 /*
  * Line.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -143,7 +143,7 @@ public class Line implements Comparable<Line>
 
    public static ArrayList<Line> reverseLines(ArrayList<Line> lines)
    {
-      ArrayList<Line> rlines = new ArrayList<Line>(lines.size());
+      ArrayList<Line> rlines = new ArrayList<>(lines.size());
       for (Line line : lines)
          rlines.add(line.reverse());
       return rlines;

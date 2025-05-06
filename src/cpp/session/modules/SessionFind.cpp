@@ -1,7 +1,7 @@
 /*
  * SessionFind.cpp
  *
- * Copyright (C) 2009-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -18,10 +18,10 @@
 #include <algorithm>
 #include <gsl/gsl>
 
-#include <boost/algorithm/string.hpp>
-#include <boost/bind.hpp>
 #include <boost/enable_shared_from_this.hpp>
 #include <boost/filesystem.hpp>
+#include <boost/algorithm/string.hpp>
+#include <boost/bind/bind.hpp>
 
 #include <core/Exec.hpp>
 #include <core/StringUtils.hpp>
@@ -37,6 +37,7 @@
 #include <session/prefs/UserPrefs.hpp>
 
 using namespace rstudio::core;
+using namespace boost::placeholders;
 
 namespace rstudio {
 namespace session {
@@ -65,7 +66,7 @@ namespace {
 // This must be the same as MAX_COUNT in FindOutputPane.java
 const size_t MAX_COUNT = 1000;
 
-const size_t MAX_LINE_LENGTH = 1000;
+const size_t MAX_LINE_LENGTH = 3000;
 
 // Reflects the estimated current progress made in performing a replace
 class LocalProgress : public boost::noncopyable
@@ -370,7 +371,7 @@ private:
    bool gitFlag_;
    std::string replacePattern_;
    json::Array replaceMatchOns_;
-   json::Array replaceMatchOffs_; 
+   json::Array replaceMatchOffs_;
    // this is not tracked via json because it exclusively applies to replaces (not previews)
    // which can not currently be paused
    LocalProgress* pReplaceProgress_;
@@ -517,7 +518,13 @@ private:
       {
          if (firstMatchOn > maxPreviewLength)
          {
-            *contents = contents->erase(0, firstMatchOn - 30);
+            std::string::iterator pos = contents->begin();
+            Error error = string_utils::utf8Advance(contents->begin(),
+                                                    firstMatchOn - 30,
+                                                    contents->end(),
+                                                    &pos);
+
+            contents->assign(&*pos);
             contents->insert(0, "...");
             int leadingCharactersErased = gsl::narrow_cast<int>(firstMatchOn - 33);
             json::Array newMatchOnArray;
@@ -576,7 +583,8 @@ private:
             error = setPermissions(tempReplaceFile_.getAbsolutePath(), filePermissions_);
 #endif
             if (!error)
-               error = tempReplaceFile_.move(FilePath(currentFile_));
+               error = tempReplaceFile_.move(FilePath(currentFile_), FilePath::MoveType::MoveCrossDevice, true);
+
             currentFile_.clear();
             if (error)
             {
@@ -769,8 +777,7 @@ private:
       size_t eMatchOn = 0;
       size_t eMatchOff = 0;
 
-      if (!encoding_.empty())
-         cleanLineAndGetMatches(&pLineInfo->encodedContents, &eMatchOnArray, &eMatchOffArray);
+      cleanLineAndGetMatches(&pLineInfo->encodedContents, &eMatchOnArray, &eMatchOffArray);
 
       while (findResults().isRunning() &&
              inputLineNum_ < lineNum && std::getline(*inputStream_, line))
@@ -800,17 +807,15 @@ private:
                Error error;
                Replacer replacer(findResults().ignoreCase(), encoding_);
 
-               if (!encoding_.empty())
-               {
-                  eMatchOn =
-                     static_cast<size_t>(eMatchOnArray.getValueAt(static_cast<size_t>(pos)).getInt());
-                  eMatchOff =
-                     static_cast<size_t>(eMatchOffArray.getValueAt(static_cast<size_t>(pos)).getInt());
-               }
+               eMatchOn =
+                   static_cast<size_t>(eMatchOnArray.getValueAt(static_cast<size_t>(pos)).getInt());
+               eMatchOff =
+                   static_cast<size_t>(eMatchOffArray.getValueAt(static_cast<size_t>(pos)).getInt());
+
 
                // If we found a different number of matches searching the encoded string,
                // we shouldn't perform the replace as the expected vs actual results may differ.
-               if (!encoding_.empty() && eMatchOnArray.getSize() != matchOnArray.getSize())
+               if (eMatchOnArray.getSize() != matchOnArray.getSize())
                {
                   core::Error error(
                      errc::findCategory(),
@@ -834,12 +839,6 @@ private:
                }
                else // perform replace
                {
-                  if (encoding_.empty())
-                  {
-                     eMatchOn = matchOn;
-                     eMatchOff = matchOff;
-                  }
-
                   pProgress->addUnits(1);
 
                   if (findResults().regex())
@@ -849,22 +848,19 @@ private:
                      replacer.replaceLiteral(eMatchOn, eMatchOff, replacePattern,
                            &pLineInfo->encodedContents, &replaceMatchOff);
 
-                  if (!encoding_.empty())
-                  {
-                     // calculate utf8 matchOff
-                     size_t utf8Length;
-                     error = string_utils::utf8Distance(pLineInfo->decodedContents.begin(),
-                                                        pLineInfo->decodedContents.end(),
-                                                        &utf8Length);
-                     pLineInfo->decodedContents =
-                        replacer.decode(pLineInfo->encodedContents);
-   
-                     size_t newUtf8Length;
-                     error = string_utils::utf8Distance(pLineInfo->decodedContents.begin(),
-                                                        pLineInfo->decodedContents.end(),
-                                                        &newUtf8Length);
-                     replaceMatchOff = matchOff + (newUtf8Length - utf8Length);
-                  }
+                  // calculate utf8 matchOff
+                  size_t utf8Length;
+                  error = string_utils::utf8Distance(pLineInfo->decodedContents.begin(),
+                                                     pLineInfo->decodedContents.end(),
+                                                     &utf8Length);
+                  pLineInfo->decodedContents =
+                     replacer.decode(pLineInfo->encodedContents);
+
+                  size_t newUtf8Length;
+                  error = string_utils::utf8Distance(pLineInfo->decodedContents.begin(),
+                                                     pLineInfo->decodedContents.end(),
+                                                     &newUtf8Length);
+                  replaceMatchOff = matchOff + (newUtf8Length - utf8Length);
                }
 
                // Handle side-effects when replace is successful
@@ -1039,7 +1035,7 @@ private:
                                   &replaceMatchOn, &replaceMatchOff,
                                   &errorMessage);
                   lineInfo.decodedPreview = lineInfo.decodedContents;
-                  adjustForPreview(&lineInfo.decodedPreview, &matchOn, &matchOff);
+                  adjustForPreview(&lineInfo.decodedPreview, &replaceMatchOn, &replaceMatchOff);
                }
             }
 
@@ -1320,7 +1316,7 @@ void addDirectoriesToCommand(
       FilePath rPath(string_utils::utf8ToSystem(directoryPath.getAbsolutePath() + "/R"));
       FilePath srcPath(string_utils::utf8ToSystem(directoryPath.getAbsolutePath() + "/src"));
       if (rPath.exists())
-         *pCmd << rPath; 
+         *pCmd << rPath;
       if (srcPath.exists())
          *pCmd << srcPath;
       else if (!rPath.exists())
@@ -1637,7 +1633,7 @@ core::Error initialize()
    addSuspendHandler(SuspendHandler(bind(onSuspend, _2), onResume));
 
    // install handlers
-   ExecBlock initBlock ;
+   ExecBlock initBlock;
    initBlock.addFunctions()
       (bind(registerRpcMethod, "begin_find", beginFind))
       (bind(registerRpcMethod, "stop_find", stopFind))
@@ -1674,15 +1670,8 @@ Error Replacer::replacePreview(const size_t dMatchOn, const size_t dMatchOff,
                                std::string* pEncodedLine, std::string* pDecodedLine,
                                size_t* pReplaceMatchOff) const
 {
-   // if we're not encoded, we can avoid some logic
-   if (encoding_.empty())
-   {
-      eMatchOn = dMatchOn;
-      eMatchOff = dMatchOff;
-   }
-
    // attempt to perform the replace based on the encoded data
-   std::string previewLine(encoding_.empty() ? *pDecodedLine : *pEncodedLine);
+   std::string previewLine(*pEncodedLine);
    std::string originalValue = previewLine.substr(eMatchOn, eMatchOff  - eMatchOn);
    Error error = replaceRegex(eMatchOn, eMatchOff,
                               findResults().searchPattern(),
@@ -1699,27 +1688,23 @@ Error Replacer::replacePreview(const size_t dMatchOn, const size_t dMatchOff,
       replaceString.insert(0, originalValue);
       replaceLiteral(eMatchOn, eMatchOff, replaceString, pEncodedLine, pReplaceMatchOff);
 
-      if (encoding_.empty())
-         pDecodedLine = pEncodedLine;
-      else
-      {
-         // adjust pReplaceMatchOff for display
+      // adjust pReplaceMatchOff for display
 
-         size_t originalDecodedSize;
-         error = string_utils::utf8Distance(pDecodedLine->begin(),
-                                            pDecodedLine->end(),
-                                            &originalDecodedSize);
-   
-         *pDecodedLine = decode(*pEncodedLine);
-   
-         size_t newDecodedSize;
-         error = string_utils::utf8Distance(pDecodedLine->begin(),
-                                            pDecodedLine->end(),
-                                            &newDecodedSize);
-   
-         *pReplaceMatchOff = dMatchOff + (newDecodedSize - originalDecodedSize);
-      }
+      size_t originalDecodedSize;
+      error = string_utils::utf8Distance(pDecodedLine->begin(),
+                                         pDecodedLine->end(),
+                                         &originalDecodedSize);
+
+      *pDecodedLine = decode(*pEncodedLine);
+
+      size_t newDecodedSize;
+      error = string_utils::utf8Distance(pDecodedLine->begin(),
+                                         pDecodedLine->end(),
+                                         &newDecodedSize);
+
+      *pReplaceMatchOff = dMatchOff + (newDecodedSize - originalDecodedSize);
    }
+
    return error;
 }
 

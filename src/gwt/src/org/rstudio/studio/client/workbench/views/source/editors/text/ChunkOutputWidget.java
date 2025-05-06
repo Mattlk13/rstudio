@@ -1,7 +1,7 @@
 /*
  * ChunkOutputWidget.java
  *
- * Copyright (C) 2009-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -18,11 +18,13 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
+import org.rstudio.core.client.ClassIds;
 import org.rstudio.core.client.ColorUtil;
 import org.rstudio.core.client.CommandWithArg;
 import org.rstudio.core.client.Size;
 import org.rstudio.core.client.StringUtil;
 import org.rstudio.core.client.dom.DomUtils;
+import org.rstudio.core.client.widget.FontSizer;
 import org.rstudio.core.client.widget.ProgressSpinner;
 import org.rstudio.studio.client.RStudioGinjector;
 import org.rstudio.studio.client.application.events.EventBus;
@@ -38,10 +40,7 @@ import org.rstudio.studio.client.rmarkdown.model.RmdChunkOutput;
 import org.rstudio.studio.client.rmarkdown.model.RmdChunkOutputUnit;
 import org.rstudio.studio.client.server.ServerError;
 import org.rstudio.studio.client.workbench.views.console.events.ConsoleWriteErrorEvent;
-import org.rstudio.studio.client.workbench.views.console.events.ConsoleWriteErrorHandler;
 import org.rstudio.studio.client.workbench.views.console.events.ConsoleWriteOutputEvent;
-import org.rstudio.studio.client.workbench.views.console.events.ConsoleWriteOutputHandler;
-import org.rstudio.studio.client.workbench.views.source.editors.text.rmd.ChunkContextToolbar;
 import org.rstudio.studio.client.workbench.views.source.editors.text.rmd.ChunkOutputHost;
 import org.rstudio.studio.client.workbench.views.source.editors.text.rmd.ChunkOutputUi;
 
@@ -71,8 +70,8 @@ import com.google.gwt.user.client.ui.SimplePanel;
 import com.google.gwt.user.client.ui.Widget;
 
 public class ChunkOutputWidget extends Composite
-                               implements ConsoleWriteOutputHandler,
-                                          ConsoleWriteErrorHandler,
+                               implements ConsoleWriteOutputEvent.Handler,
+                                          ConsoleWriteErrorEvent.Handler,
                                           RestartStatusEvent.Handler,
                                           InterruptStatusEvent.Handler,
                                           ChunkOutputPresenter.Host
@@ -89,15 +88,6 @@ public class ChunkOutputWidget extends Composite
    
    public interface Resources extends ClientBundle
    {
-      @Source("ExpandChunkIcon_2x.png")
-      ImageResource expandChunkIcon2x();
-      
-      @Source("CollapseChunkIcon_2x.png")
-      ImageResource collapseChunkIcon2x();
-
-      @Source("RemoveChunkIcon_2x.png")
-      ImageResource removeChunkIcon2x();
-
       @Source("PopoutChunkIcon_2x.png")
       ImageResource popoutIcon2x();
    }
@@ -111,6 +101,7 @@ public class ChunkOutputWidget extends Composite
       String fullsize();
       String baresize();
       String noclear();
+      String embedded();
    }
 
    public ChunkOutputWidget(String documentId, String chunkId, 
@@ -123,18 +114,13 @@ public class ChunkOutputWidget extends Composite
       options_ = options;
       chunkOutputSize_ = chunkOutputSize;
       initWidget(uiBinder.createAndBindUi(this));
-      expansionState_ = new Value<Integer>(expansionState);
+      expansionState_ = new Value<>(expansionState);
       applyCachedEditorStyle();
       if (expansionState_.getValue() == COLLAPSED)
          setCollapsedStyles();
 
       ChunkDataWidget.injectPagedTableResources();
 
-      clear_.addStyleName("rstudio-themes-inverts");
-      clear_.addStyleName("rstudio-classic-inverts");
-      expand_.addStyleName("rstudio-themes-inverts");
-      expand_.addStyleName("rstudio-classic-inverts");
-      
       if (chunkOutputSize_ == ChunkOutputSize.Default)
       {
          frame_.getElement().getStyle().setHeight(
@@ -244,23 +230,21 @@ public class ChunkOutputWidget extends Composite
       return state_;
    }
 
-   public void setLabelClass(String value)
+   public void setClassId(String value)
    {
-      // ensure value has the correct prefix
-      if (!value.startsWith(ChunkContextToolbar.CHUNK_CLASS_PREFIX + CHUNK_OUTPUT_PREFIX))
-         value = new String(ChunkContextToolbar.CHUNK_CLASS_PREFIX +
-                            CHUNK_OUTPUT_PREFIX +
-                            value);
-      value = StringUtil.getCssIdentifier(value);
+      if (StringUtil.isNullOrEmpty(value))
+         value = ClassIds.CHUNK;
+      else if (!value.startsWith(ClassIds.CHUNK_OUTPUT))
+         value = new String(ClassIds.CHUNK_OUTPUT + "_" + ClassIds.idSafeString(value));
 
-      if (!StringUtil.equals(value, label_))
+      // The class ID will change if the Chunk's name changes so we need to clear any previous
+      // class ids set here.
+      if (!StringUtil.equals(ClassIds.idSafeString(value), classId_))
       {
-         // if we've already added a label style, remove it
-         if (!StringUtil.isNullOrEmpty(label_))
-            this.removeStyleName(label_);
-
-         label_ = value;
-         this.addStyleName(label_);
+         if (!StringUtil.isNullOrEmpty(classId_))
+            ClassIds.removeClassId(this, classId_);
+         classId_ = value;
+         ClassIds.assignClassId(this, classId_);
       }
    }
 
@@ -278,7 +262,14 @@ public class ChunkOutputWidget extends Composite
    {
       return expansionState_.addValueChangeHandler(handler);
    }
-    
+
+   public void renderHtml(String htmlOutput, Element parentElement)
+   {
+      if (StringUtil.isNullOrEmpty(htmlOutput))
+         return;
+      presenter_.showCallbackHtml(htmlOutput, parentElement);
+   }
+
    public void showChunkOutput(RmdChunkOutput output, int mode, int scope,
          boolean complete, boolean ensureVisible)
    {
@@ -372,7 +363,8 @@ public class ChunkOutputWidget extends Composite
       if (scrollToBottom)
          root_.getElement().setScrollTop(root_.getElement().getScrollHeight());
       
-      if (chunkOutputSize_ != ChunkOutputSize.Full)
+      if (chunkOutputSize_ != ChunkOutputSize.Full &&
+          chunkOutputSize_ != ChunkOutputSize.Natural)
          frame_.getElement().getStyle().setHeight(height, Unit.PX);
          
       // allocate some extra space so the cursor doesn't touch the output frame
@@ -592,6 +584,26 @@ public class ChunkOutputWidget extends Composite
    {
       return frame_;
    }
+   
+   /**
+    * Enable or disable the embedded style (for embedded editor instances)
+    * 
+    * @param embedded Whether to enable the embedded style.
+    */
+   public void setEmbeddedStyle(boolean embedded)
+   {
+      if (embedded)
+      {
+         addStyleName(style.embedded());
+         addStyleName(FontSizer.getNormalFontSizeClass());
+         chunkOutputSize_ = ChunkOutputSize.Natural;
+      }
+      else
+      {
+         removeStyleName(style.embedded());
+         removeStyleName(FontSizer.getNormalFontSizeClass());
+      }
+   }
 
    // Private methods ---------------------------------------------------------
 
@@ -653,7 +665,7 @@ public class ChunkOutputWidget extends Composite
          presenter_.showOrdinalOutput(unit.getOrdinal());
          break;
       case RmdChunkOutputUnit.TYPE_DATA:
-         presenter_.showDataOutput(unit.getOuputObject(), 
+         presenter_.showDataOutput(unit.getOutputObject(),
                (NotebookFrameMetadata)unit.getMetadata().cast(),
                unit.getOrdinal());
          break;
@@ -855,6 +867,7 @@ public class ChunkOutputWidget extends Composite
       getElement().removeClassName(style.collapsed());
       root_.getElement().getStyle().clearOverflow();
       root_.getElement().getStyle().clearOpacity();
+      frame_.getElement().getStyle().clearHeight();
    }
    
    private void attachPresenter(ChunkOutputPresenter presenter)
@@ -932,8 +945,8 @@ public class ChunkOutputWidget extends Composite
       return true;
    }
    
-   @UiField Image clear_;
-   @UiField Image expand_;
+   @UiField HTMLPanel clear_;
+   @UiField HTMLPanel expand_;
    @UiField Image popout_;
    @UiField SimplePanel root_;
    @UiField ChunkStyle style;
@@ -954,7 +967,7 @@ public class ChunkOutputWidget extends Composite
    private int lastOutputType_ = RmdChunkOutputUnit.TYPE_NONE;
    private boolean hasErrors_ = false;
    private boolean hideSatellitePopup_ = false;
-   private String label_;
+   private String classId_;
    
    private Timer collapseTimer_ = null;
    private final String documentId_;
@@ -972,7 +985,4 @@ public class ChunkOutputWidget extends Composite
    public final static int CHUNK_READY       = 2;
    public final static int CHUNK_PRE_OUTPUT  = 3;
    public final static int CHUNK_POST_OUTPUT = 4;
-
-   // this may be relied on by API code and should not change
-   public final static String CHUNK_OUTPUT_PREFIX = "output-";
 }

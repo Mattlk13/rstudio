@@ -1,7 +1,7 @@
 /*
  * EnableRStudioConnectUIEvent.java
  *
- * Copyright (C) 2009-15 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -37,8 +37,7 @@ public class EnableRStudioConnectUIEvent
       void onEnableRStudioConnectUI(EnableRStudioConnectUIEvent event);
    }
 
-   public static final GwtEvent.Type<EnableRStudioConnectUIEvent.Handler> TYPE =
-      new GwtEvent.Type<EnableRStudioConnectUIEvent.Handler>();
+   public static final GwtEvent.Type<EnableRStudioConnectUIEvent.Handler> TYPE = new GwtEvent.Type<>();
    
    public EnableRStudioConnectUIEvent(Data enable)
    {

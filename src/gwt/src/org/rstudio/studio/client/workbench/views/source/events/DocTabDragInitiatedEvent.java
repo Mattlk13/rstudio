@@ -1,7 +1,7 @@
 /*
  * DocTabDragInitiatedEvent.java
  *
- * Copyright (C) 2009-15 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -28,8 +28,7 @@ public class DocTabDragInitiatedEvent
       void onDocTabDragInitiated(DocTabDragInitiatedEvent event);
    }
 
-   public static final GwtEvent.Type<DocTabDragInitiatedEvent.Handler> TYPE =
-      new GwtEvent.Type<DocTabDragInitiatedEvent.Handler>();
+   public static final GwtEvent.Type<DocTabDragInitiatedEvent.Handler> TYPE = new GwtEvent.Type<>();
    
    public DocTabDragInitiatedEvent(String docId, int width, int cursorOffset)
    {

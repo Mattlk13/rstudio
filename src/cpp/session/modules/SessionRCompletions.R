@@ -1,7 +1,7 @@
 #
 # SessionRCompletions.R
 #
-# Copyright (C) 2014 by RStudio, PBC
+# Copyright (C) 2021 by RStudio, PBC
 #
 # Unless you have received this program directly from RStudio pursuant
 # to the terms of a commercial license agreement with RStudio, then
@@ -176,6 +176,8 @@ assign(x = ".rs.acCompletionTypes",
       "@export",
       "@exportClass ",
       "@exportMethod ",
+      "@exportPattern ",
+      "@exportS3Method ",
       "@family ",
       "@field ",
       "@format ",
@@ -184,6 +186,7 @@ assign(x = ".rs.acCompletionTypes",
       "@importFrom ",
       "@importMethodsFrom ",
       "@include ",
+      "@includeRmd ",
       "@inherit ",
       "@inheritDotParams ",
       "@inheritParams ",
@@ -201,6 +204,7 @@ assign(x = ".rs.acCompletionTypes",
       "@rdname ",
       "@references ",
       "@return ",
+      "@returns ",
       "@section ",
       "@seealso ",
       "@slot ",
@@ -223,11 +227,11 @@ assign(x = ".rs.acCompletionTypes",
 .rs.addFunction("attemptPlumberTagCompletion", function(token, line)
 {
    emptyCompletions <- .rs.emptyCompletions(excludeOtherCompletions = TRUE)
-
+   
    # fix up tokenization
    if (grepl("^\\s*#+\\*\\s*$", line) && token == "*")
       token <- ""
-
+   
    # allow the token to be empty only if we're attempting completions
    # at the start of the line
    if (token == "")
@@ -242,9 +246,9 @@ assign(x = ".rs.acCompletionTypes",
       if (!match)
          return(emptyCompletions)
    }
-
+   
    tag <- sub(".*(?=@)", '', token, perl = TRUE)
-
+   
    # All known Plumber tags, in alphabetical order
    tags <- c(
       "@apiBasePath ",
@@ -267,19 +271,22 @@ assign(x = ".rs.acCompletionTypes",
       "@jpeg ",
       "@options ",
       "@param ",
+      "@parser",
       "@patch ",
+      "@plumber ",
       "@png ",
       "@post ",
       "@preempt ",
       "@put ",
       "@response ",
       "@serializer ",
+      "@svg ",
       "@tag ",
       "@use "
    )
-
+   
    matchingTags <- grep(paste("^", tag, sep = ""), tags, value = TRUE)
-
+   
    .rs.makeCompletions(tag,
                        matchingTags,
                        type = .rs.acCompletionTypes$ROXYGEN,
@@ -487,59 +494,119 @@ assign(x = ".rs.acCompletionTypes",
                                            matchedCall,
                                            envir)
 {
-   tryCatch({
-      
-      if (length(functionCall) > 1 && .rs.isS3Generic(object))
-      {
-         objectForDispatch <- .rs.getAnywhere(matchedCall[[2]], envir)
-         classes <- class(objectForDispatch)
-         for (class in c(classes, "default"))
-         {
-            # It is possible that which S3 method will be used may depend on where
-            # the generic f is called from: getS3method returns the method found if
-            # f were called from the same environment.
-            call <- substitute(
-               utils::getS3method(functionName, class),
-               list(functionName = functionName,
-                    class = class)
-            )
-            
-            method <- tryCatch(
-               eval(call, envir = envir),
-               error = function(e) NULL
-            )
-            
-            if (!is.null(method))
-            {
-               formals <- .rs.getFunctionArgumentNames(method)
-               methods <- rep.int(
-                  paste(functionName, class, sep = "."),
-                  length(formals)
-               )
-               break
-            }
-         }
-      }
-      else
-      {
-         formals <- .rs.getFunctionArgumentNames(object)
-         methods <- rep.int(functionName, length(formals))
-      }
-      
-      keep <- .rs.fuzzyMatches(formals, token) &
-         !(formals %in% names(functionCall)) ## leave out formals already in call
-      
-      return(list(
-         formals = formals[keep],
-         methods = methods[keep]
-      ))
-      
-   }, error = function(e) NULL
+   tryCatch(
+      .rs.resolveFormalsImpl(token, object, functionName, functionCall, matchedCall, envir),
+      error = function(e) NULL
    )
 })
 
-.rs.addFunction("matchCall", function(func,
-                                      call)
+.rs.addFunction("resolveFormalsImpl", function(token,
+                                               object,
+                                               functionName,
+                                               functionCall,
+                                               matchedCall,
+                                               envir)
+{
+   # first, try to resolve via S3 dispatch if possible
+   data <- .rs.resolveFormalsImplS3Dispatch(
+      token,
+      object,
+      functionName,
+      functionCall,
+      matchedCall,
+      envir
+   )
+   
+   # otherwise, resolve from function itself
+   if (is.null(data)) {
+      formals <- .rs.getFunctionArgumentNames(object)
+      methods <- rep.int(functionName, length(formals))
+      data <- list(formals = formals, methods = methods)
+   }
+   
+   keep <-
+      .rs.fuzzyMatches(data$formals, token) &   # keep only formals matching token
+      !(data$formals %in% names(functionCall))  # leave out formals already in call
+   
+   # subset based on kept formals
+   data$formals <- data$formals[keep]
+   data$methods <- data$methods[keep]
+   
+   # done!
+   data
+   
+})
+
+.rs.addFunction("resolveFormalsImplS3Dispatch", function(token,
+                                                         object,
+                                                         functionName,
+                                                         functionCall,
+                                                         matchedCall,
+                                                         envir)
+{
+   # validate that this is an S3 generic
+   ok <-
+      length(functionCall) > 1 &&
+      .rs.isS3Generic(object)
+   
+   if (!ok)
+      return(NULL)
+   
+   # S3 generics normally dispatch on the first argument,
+   # so verify that this has been supplied
+   dispatchArgumentName <- names(formals(object)[1])
+   dispatchArgumentSymbol <- matchedCall[[dispatchArgumentName]]
+   if (is.null(dispatchArgumentSymbol))
+      return(NULL)
+   
+   # try to retrieve the object
+   objectForDispatch <- .rs.getAnywhere(
+      matchedCall[[dispatchArgumentName]],
+      envir = envir
+   )
+   
+   if (is.null(objectForDispatch))
+      return(NULL)
+   
+   # iterate over the known classes for the object, and see if we have
+   # an appropriate S3 method that could be used for dispatch
+   classes <- class(objectForDispatch)
+   for (class in c(classes, "default"))
+   {
+      # It is possible that which S3 method will be used may depend on where
+      # the generic f is called from: getS3method returns the method found if
+      # f were called from the same environment.
+      call <- substitute(
+         utils::getS3method(functionName, class),
+         list(functionName = functionName,
+              class = class)
+      )
+      
+      method <- tryCatch(
+         eval(call, envir = envir),
+         error = function(e) NULL
+      )
+      
+      if (is.null(method))
+         next
+      
+      # ok, we found a method -- return it
+      formals <- .rs.getFunctionArgumentNames(method)
+      methods <- rep.int(
+         paste(functionName, class, sep = "."),
+         length(formals)
+      )
+      
+      data <- list(formals = formals, methods = methods)
+      return(data)
+   }
+   
+   # nothing found; return NULL
+   NULL
+   
+})
+
+.rs.addFunction("matchCall", function(func, call)
 {
    ## NOTE: the ugliness here is necessary to handle missingness in calls
    ## e.g. `x <- call[[i]]` fails to assign to `x` if `call[[i]]` is missing
@@ -589,12 +656,21 @@ assign(x = ".rs.acCompletionTypes",
 .rs.addFunction("resolveObjectFromFunctionCall", function(functionCall,
                                                           envir)
 {
-   string <- capture.output(base::print(functionCall[[1]]))[[1]]
+   string <- .rs.format(functionCall[[1]])[[1]]
    splat <- strsplit(string, ":{2,3}", perl = TRUE)[[1]]
    object <- NULL
+   
    if (length(splat) == 1)
    {
-      object <- .rs.getAnywhere(.rs.stripSurrounding(string), envir = envir)
+      stripped <- .rs.stripSurrounding(string)
+      envir <- .rs.resolveEnvironment(envir)
+      
+      object <- .rs.tryCatch(
+         .rs.getAnywhere(
+            name  = stripped,
+            envir = envir
+         )
+      )
    }
    else if (length(splat) == 2)
    {
@@ -603,10 +679,11 @@ assign(x = ".rs.acCompletionTypes",
       
       if (namespaceString %in% loadedNamespaces())
       {
-         object <- tryCatch(
-            eval(parse(text = functionString),
-                 envir = asNamespace(namespaceString)),
-            error = function(e) NULL
+         object <- .rs.tryCatch(
+            eval(
+               expr = parse(text = functionString),
+               envir = asNamespace(namespaceString)
+            )
          )
       }
    }
@@ -635,10 +712,15 @@ assign(x = ".rs.acCompletionTypes",
          object <- utils::write.table
    }
    
+   if (inherits(object, "error"))
+      return(NULL)
+   
    object
    
 })
 
+# Get completions appropriate within a particular function call.
+# This typically implies retrieving the function formals.
 .rs.addFunction("getCompletionsFunction", function(token,
                                                    string,
                                                    functionCall,
@@ -751,8 +833,13 @@ assign(x = ".rs.acCompletionTypes",
                                        envir)
       }
       
+      # If we have formals, quote them as appropriate and append ' = '.
       if (length(formals$formals))
-         formals$formals <- paste(formals$formals, "= ")
+      {
+         formals$formals <- vapply(formals$formals, function(fml) {
+            paste(deparse(as.name(fml), backtick = TRUE), "= ")
+         }, FUN.VALUE = character(1))
+      }
       
       # If we're getting completions for the `base::c` function, just discard
       # the argument completions, since other context completions are more
@@ -1321,7 +1408,7 @@ assign(x = ".rs.acCompletionTypes",
          }
          
          names <- .rs.selectFuzzyMatches(allNames, token)
-
+         
          # See if types were provided
          types <- attr(names, "types")
          if (is.integer(types) && length(types) == length(names))
@@ -1810,7 +1897,7 @@ assign(x = ".rs.acCompletionTypes",
       if (any(c("inputId", "outputId") %in% formalNames))
          return(TRUE)
    }
-      
+   
    # Try seeing if there's a function of this name
    # in the 'shiny' completion database.
    shinyFunctions <- .rs.getInferredCompletions("shiny")$functions
@@ -1833,7 +1920,7 @@ assign(x = ".rs.acCompletionTypes",
    
    if (!("knit_params" %in% getNamespaceExports(asNamespace("knitr"))))
       return(NULL)
-
+   
    Encoding(content) <- "UTF-8"
    knitr::knit_params(content)
 })
@@ -1884,6 +1971,18 @@ assign(x = ".rs.acCompletionTypes",
    }
 })
 
+.rs.addFunction("getCompletionsPythonVirtualEnvironments", function(token)
+{
+   home <- Sys.getenv("WORKON_HOME", unset = "~/.virtualenvs")
+   candidates <- list.files(home)
+   results <- .rs.selectFuzzyMatches(candidates, token)
+   
+   .rs.makeCompletions(token = token,
+                       results = results,
+                       quote = TRUE,
+                       type = .rs.acCompletionTypes$STRING)
+})
+
 .rs.addFunction("getCompletionsEnvironmentVariables", function(token)
 {
    candidates <- names(Sys.getenv())
@@ -1929,7 +2028,7 @@ assign(x = ".rs.acCompletionTypes",
    # parameterized R Markdown documents
    if (.rs.injectKnitrParamsObject(documentId))
       on.exit(.rs.removeKnitrParamsObject(), add = TRUE)
-
+   
    # If custom completions have been set through
    # 'rc.options("custom.completions")',
    # then use the internal R completions instead.
@@ -2037,11 +2136,11 @@ assign(x = ".rs.acCompletionTypes",
    # Roxygen
    if (.rs.acContextTypes$ROXYGEN %in% type)
       return(.rs.attemptRoxygenTagCompletion(token, line))
-
+   
    # Plumber
    if (.rs.acContextTypes$PLUMBER %in% type)
       return(.rs.attemptPlumberTagCompletion(token, line))
-
+   
    # install.packages
    if (length(string) && string[[1]] == "install.packages" && numCommas[[1]] == 0)
       return(.rs.getCompletionsInstallPackages(token))
@@ -2090,6 +2189,14 @@ assign(x = ".rs.acCompletionTypes",
        string[[1]] %in% c("Sys.getenv", "Sys.setenv") &&
        numCommas[[1]] == 0)
       return(.rs.getCompletionsEnvironmentVariables(token))
+   
+   # Python virtual environments
+   if (length(string) &&
+       string[[1]] %in% c("use_virtualenv", "reticulate::use_virtualenv") &&
+       numCommas[[1]] == 0)
+   {
+      return(.rs.getCompletionsPythonVirtualEnvironments(token))
+   }
    
    # No information on completions other than token
    if (!length(string))
@@ -2191,14 +2298,14 @@ assign(x = ".rs.acCompletionTypes",
       {
          path <- .Call("rs_getRmdWorkingDir", filePath, documentId)
       }
-
+      
       if (is.null(path) && isRmd)
       {
-         # for R Markdown documents without an explicit working dir, use the
-         # base directory of the file
-         path <- suppressWarnings(.rs.normalizePath(dirname(filePath)))
+         # for R Markdown documents without an explicit working dir,
+         # use preferences instead
+         path <- .rs.markdown.resolveCompletionRoot(filePath)
       }
-
+      
       if (is.null(path))
       {
          # in all other cases, use the current working directory for
@@ -2692,14 +2799,14 @@ assign(x = ".rs.acCompletionTypes",
    )
    
    .rs.sortCompletions(completions, token)
-
+   
 })
 
 .rs.addFunction("readAliases", function(path)
 {
    if (!length(path))
       return(character())
-
+   
    if (file.exists(f <- file.path(path, "help", "aliases.rds")))
       names(readRDS(f))
    else
@@ -3112,6 +3219,12 @@ assign(x = ".rs.acCompletionTypes",
    
 })
 
+# Get relevant completions for a particular argument, e.g. in
+#
+#   library(package = |)
+#
+# That is, if we're completing an argument called 'package', then infer
+# that package names are an appropriate completion result.
 .rs.addFunction("getCompletionsArgument", function(token,
                                                    activeArg,
                                                    functionCall = NULL,
@@ -3146,7 +3259,7 @@ assign(x = ".rs.acCompletionTypes",
          ))
       }
    }
-      
+   
    # Check for knitr chunk completions, if possible
    if ("knitr" %in% loadedNamespaces())
    {
@@ -3203,12 +3316,14 @@ assign(x = ".rs.acCompletionTypes",
    
    # Get package names for completions
    if (activeArg %in% c("pkg", "package"))
+   {
       completions <- .rs.appendCompletions(
          completions,
          .rs.getCompletionsPackages(token = token,
                                     appendColons = FALSE,
                                     excludeOtherCompletions = FALSE)
       )
+   }
    
    completions
 })

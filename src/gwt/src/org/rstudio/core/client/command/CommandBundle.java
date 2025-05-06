@@ -1,7 +1,7 @@
 /*
  * CommandBundle.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -33,12 +33,11 @@ public abstract class CommandBundle
 
       commandsById_.put(id, command);
    }
-   
+
    public HashMap<String, AppCommand> getCommands()
    {
       return commandsById_;
    }
 
-   private final HashMap<String, AppCommand> commandsById_ =
-         new HashMap<String, AppCommand>();
+   private final HashMap<String, AppCommand> commandsById_ = new HashMap<>();
 }

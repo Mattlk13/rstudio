@@ -1,7 +1,7 @@
 /*
  * FilePathTests.cpp
  *
- * Copyright (C) 2009-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -138,6 +138,38 @@ TEST_CASE("file paths")
       FilePath pPath(R"(//LOCALHOST/c$/p)");
       FilePath aPath(R"(\\LOCALHOST\c$\p\a)");
       CHECK(aPath.getRelativePath(pPath) == "a");
+   }
+
+#else
+
+   // Non-Windows tests
+
+   SECTION("directory write testing")
+   {
+      // create temporary directory
+      FilePath tempDir;
+      Error error = FilePath::tempFilePath(tempDir);
+      CHECK(!error);
+
+      error = tempDir.ensureDirectory();
+      CHECK(!error);
+
+      // ensure it's writeable
+      error = tempDir.changeFileMode(FileMode::USER_READ_WRITE_ALL_READ);
+      CHECK(!error);
+
+      // it should now report as writeable
+      bool writeable = false;
+      error = tempDir.isWriteable(writeable);
+      CHECK(!error);
+      CHECK(writeable);
+
+      // however, it should be an error to test write permissions (that's only for files)
+      error = tempDir.testWritePermissions();
+      CHECK(error);
+
+      // clean up
+      tempDir.remove();
    }
 
 #endif /* _WIN32 */

@@ -1,7 +1,7 @@
 /*
  * SpellingService.java
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -79,7 +79,7 @@ public class SpellingService implements HasChangeHandlers
       final SpellCheckerResult spellCheckerResult = new SpellCheckerResult();
       
       // only send words to the server that aren't in the cache
-      final ArrayList<String> wordsToCheck = new ArrayList<String>();
+      final ArrayList<String> wordsToCheck = new ArrayList<>();
       for (int i = 0; i<words.size(); i++)
       {
          String word = words.get(i);
@@ -112,7 +112,7 @@ public class SpellingService implements HasChangeHandlers
          public void onResponseReceived(JsArrayInteger result)
          {
             // get misspelled indexes
-            ArrayList<Integer> misspelledIndexes = new ArrayList<Integer>();
+            ArrayList<Integer> misspelledIndexes = new ArrayList<>();
             for (int i=0; i<result.length(); i++)
                misspelledIndexes.add(result.get(i));
             
@@ -225,8 +225,7 @@ public class SpellingService implements HasChangeHandlers
    private final SpellingServerOperations server_;
    private final UserPrefs uiPrefs_;
    
-   private HashMap<String,Boolean> previousResults_ = 
-                                             new HashMap<String,Boolean>();
+   private HashMap<String,Boolean> previousResults_ = new HashMap<>();
    
    HandlerManager handlerManager_ = new HandlerManager(this);
    

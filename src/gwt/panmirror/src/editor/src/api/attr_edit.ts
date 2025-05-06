@@ -1,7 +1,7 @@
 /*
  * node_attr.tsx
  *
- * Copyright (C) 2019-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -16,12 +16,12 @@
 import { Node as ProsemirrorNode, NodeType, Schema } from 'prosemirror-model';
 
 import { CommandFn } from './command';
-import { EditorUI } from './ui';
 
 export interface AttrEditOptions {
   type: (schema: Schema) => NodeType;
   tags?: (node: ProsemirrorNode) => string[];
-  editFn?: (ui: EditorUI) => CommandFn;
+  editFn?: () => CommandFn;
+  noDecorator?: boolean;
   offset?: {
     top: number;
     right: number;

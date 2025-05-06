@@ -1,7 +1,7 @@
 /*
  * RInit.cpp
  *
- * Copyright (C) 2009-18 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -13,7 +13,7 @@
  *
  */
 
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 
 #include <core/system/Environment.hpp>
 
@@ -37,6 +37,7 @@
 #define kGraphicsPath "graphics"
 
 using namespace rstudio::core;
+using namespace boost::placeholders;
 
 namespace rstudio {
 namespace r {
@@ -73,9 +74,9 @@ std::string createAliasedPath(const FilePath& filePath)
    
 Error restoreGlobalEnvFromFile(const std::string& path, std::string* pErrMessage)
 {
-   r::exec::RFunction fn(".rs.restoreGlobalEnvFromFile");
-   fn.addParam(path);
-   return fn.call(pErrMessage);
+   return r::exec::RFunction(".rs.restoreGlobalEnvFromFile")
+         .addParam(path)
+         .call(pErrMessage);
 }
 
 void completeDeferredSessionInit(bool newSession)
@@ -129,17 +130,17 @@ void deferredRestoreNewSession()
       // what they intended
       r::exec::IgnoreInterruptsScope ignoreInterrupts;
 
-      std::string path = string_utils::utf8ToSystem(globalEnvPath.getAbsolutePath());
+      std::string path = globalEnvPath.getAbsolutePath();
       std::string aliasedPath = createAliasedPath(globalEnvPath);
       
       std::string errMessage;
       Error error = restoreGlobalEnvFromFile(path, &errMessage);
       if (error)
       {
-         ::REprintf(
-                  "WARNING: Failed to restore workspace from '%s' "
-                  "(an internal error occurred)\n",
-                  aliasedPath.c_str());
+         std::cerr << "WARNING: Failed to restore workspace from "
+                   << "'" << aliasedPath << "'"
+                   << " (an internal error occurred)"
+                   << std::endl;
          LOG_ERROR(error);
       }
       else if (!errMessage.empty())
@@ -149,14 +150,15 @@ void deferredRestoreNewSession()
             << "'" << aliasedPath << "'" << std::endl
             << "Reason: " << errMessage << std::endl;
          std::string message = ss.str();
-         
-         ::REprintf("%s\n", message.c_str());
+
+         std::cerr << message << std::endl;
          LOG_ERROR_MESSAGE(message);
       }
       else
       {
-         const char* fmt = "[Workspace loaded from %s]\n\n";
-         Rprintf(fmt, aliasedPath.c_str());
+         std::cout << "[Workspace loaded from " << aliasedPath << "]"
+                   << std::endl
+                   << std::endl;
       }
    }
 
@@ -230,7 +232,7 @@ Error initialize()
    FilePath toolsFilePath = utils::rSourcePath().completePath("Tools.R");
    Error error = r::sourceManager().sourceTools(toolsFilePath);
    if (error)
-      return error ;
+      return error;
 
    // install RStudio API
    FilePath apiFilePath = utils::rSourcePath().completePath("Api.R");
@@ -271,7 +273,7 @@ Error initialize()
    if (restartContext().hasSessionState())
    {
       // restore session
-      std::string errorMessages ;
+      std::string errorMessages;
       restoreSession(restartContext().sessionStatePath(), &errorMessages);
 
       // show any error messages
@@ -284,7 +286,7 @@ Error initialize()
    else if (suspendedSessionPath().exists())
    {  
       // restore session
-      std::string errorMessages ;
+      std::string errorMessages;
       restoreSession(suspendedSessionPath(), &errorMessages);
       
       // show any error messages

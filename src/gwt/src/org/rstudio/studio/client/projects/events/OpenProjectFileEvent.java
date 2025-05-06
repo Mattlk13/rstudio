@@ -1,7 +1,7 @@
 /*
  * OpenProjectFileEvent.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -14,35 +14,40 @@
  */
 package org.rstudio.studio.client.projects.events;
 
+import com.google.gwt.event.shared.EventHandler;
 import com.google.gwt.event.shared.GwtEvent;
 import org.rstudio.core.client.files.FileSystemItem;
 
-public class OpenProjectFileEvent extends GwtEvent<OpenProjectFileHandler>
+public class OpenProjectFileEvent extends GwtEvent<OpenProjectFileEvent.Handler>
 {
-   public static final GwtEvent.Type<OpenProjectFileHandler> TYPE =
-      new GwtEvent.Type<OpenProjectFileHandler>();
-   
+   public static final Type<Handler> TYPE = new Type<>();
+
+   public interface Handler extends EventHandler
+   {
+      void onOpenProjectFile(OpenProjectFileEvent event);
+   }
+
    public OpenProjectFileEvent(FileSystemItem file)
    {
       file_ = file;
    }
-   
+
    public FileSystemItem getFile()
    {
       return file_;
    }
-   
+
    @Override
-   protected void dispatch(OpenProjectFileHandler handler)
+   protected void dispatch(Handler handler)
    {
       handler.onOpenProjectFile(this);
    }
 
    @Override
-   public GwtEvent.Type<OpenProjectFileHandler> getAssociatedType()
+   public Type<Handler> getAssociatedType()
    {
       return TYPE;
    }
-   
+
    private final FileSystemItem file_;
 }

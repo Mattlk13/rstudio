@@ -1,7 +1,7 @@
 /*
  * CreateBranchDialog.java
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -205,7 +205,7 @@ public class CreateBranchDialog extends ModalDialog<CreateBranchDialog.Input>
    {
       remotesInfo_ = remotesInfo;
       
-      List<String> remotes = new ArrayList<String>();
+      List<String> remotes = new ArrayList<>();
       for (RemotesInfo info : JsUtil.asIterable(remotesInfo))
       {
          if (!remotes.contains(info.getRemote()))

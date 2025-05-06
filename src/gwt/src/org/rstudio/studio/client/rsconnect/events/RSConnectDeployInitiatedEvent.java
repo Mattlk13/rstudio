@@ -1,7 +1,7 @@
 /*
  * RSConnectDeployInitiatedEvent.java
  *
- * Copyright (C) 2009-14 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -28,8 +28,7 @@ public class RSConnectDeployInitiatedEvent extends GwtEvent<RSConnectDeployIniti
       void onRSConnectDeployInitiated(RSConnectDeployInitiatedEvent event);
    }
 
-   public static final GwtEvent.Type<RSConnectDeployInitiatedEvent.Handler> TYPE =
-      new GwtEvent.Type<RSConnectDeployInitiatedEvent.Handler>();
+   public static final GwtEvent.Type<RSConnectDeployInitiatedEvent.Handler> TYPE = new GwtEvent.Type<>();
    
    public RSConnectDeployInitiatedEvent(RSConnectPublishSource source,
                                         RSConnectPublishSettings settings,

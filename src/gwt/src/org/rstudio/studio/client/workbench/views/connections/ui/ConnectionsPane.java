@@ -1,7 +1,7 @@
 /*
  * ConnectionsPane.java
  *
- * Copyright (C) 2009-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -47,6 +47,7 @@ import org.rstudio.core.client.BrowseCap;
 import org.rstudio.core.client.StringUtil;
 import org.rstudio.core.client.cellview.ImageButtonColumn;
 import org.rstudio.core.client.command.AppCommand;
+import org.rstudio.core.client.command.VisibleChangedEvent;
 import org.rstudio.core.client.command.VisibleChangedHandler;
 import org.rstudio.core.client.resources.ImageResource2x;
 import org.rstudio.core.client.theme.RStudioDataGridResources;
@@ -103,8 +104,8 @@ public class ConnectionsPane extends WorkbenchPane
          }
       };
       
-      selectionModel_ = new SingleSelectionModel<Connection>();
-      connectionsDataGrid_ = new RStudioDataGrid<Connection>(1000, RES, keyProvider_);
+      selectionModel_ = new SingleSelectionModel<>();
+      connectionsDataGrid_ = new RStudioDataGrid<>(1000, RES, keyProvider_);
       connectionsDataGrid_.setSelectionModel(selectionModel_);
       selectionModel_.addSelectionChangeHandler(new SelectionChangeEvent.Handler()
       {
@@ -176,7 +177,7 @@ public class ConnectionsPane extends WorkbenchPane
       connectionsDataGrid_.setColumnWidth(exploreColumn, 30, Unit.PX);
       
       // data provider
-      dataProvider_ = new ListDataProvider<Connection>();
+      dataProvider_ = new ListDataProvider<>();
       dataProvider_.addDataDisplay(connectionsDataGrid_);
       
       // create connection explorer, add it, and hide it
@@ -345,7 +346,7 @@ public class ConnectionsPane extends WorkbenchPane
             // no suggestions
             callback.onSuggestionsReady(
                   request,
-                  new Response(new ArrayList<Suggestion>()));
+                  new Response(new ArrayList<>()));
          }
       });
 
@@ -356,7 +357,7 @@ public class ConnectionsPane extends WorkbenchPane
             // no suggestions
             callback.onSuggestionsReady(
                   request,
-                  new Response(new ArrayList<Suggestion>()));
+                  new Response(new ArrayList<>()));
          }
       });
 
@@ -402,7 +403,7 @@ public class ConnectionsPane extends WorkbenchPane
       commands_.disconnectConnection().addVisibleChangedHandler(
                                        new VisibleChangedHandler() {
          @Override
-         public void onVisibleChanged(AppCommand command)
+         public void onVisibleChanged(VisibleChangedEvent event)
          {
             connectMenuButton_.setVisible(
                   !commands_.disconnectConnection().isVisible());
@@ -590,7 +591,7 @@ public class ConnectionsPane extends WorkbenchPane
   
    private final ProvidesKey<Connection> keyProvider_;
    private final ListDataProvider<Connection> dataProvider_;
-   private List<ConnectionId> activeConnections_ = new ArrayList<ConnectionId>();
+   private List<ConnectionId> activeConnections_ = new ArrayList<>();
    
    private SearchWidget searchWidget_;
    private SearchWidget objectSearchWidget_;

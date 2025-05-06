@@ -1,7 +1,7 @@
 /*
  * editor-extensions.ts
  *
- * Copyright (C) 2019-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -17,14 +17,12 @@ import { InputRule } from 'prosemirror-inputrules';
 import { Schema } from 'prosemirror-model';
 import { Plugin } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
-
-import { EditorOptions } from '../api/options';
-import { EditorUI } from '../api/ui';
 import { ProsemirrorCommand } from '../api/command';
 import { PandocMark } from '../api/mark';
 import { PandocNode, CodeViewOptions } from '../api/node';
-import { Extension, ExtensionFn } from '../api/extension';
+import { Extension, ExtensionFn, ExtensionContext } from '../api/extension';
 import { BaseKeyBinding } from '../api/basekeys';
+import { OmniInserter } from '../api/omni_insert';
 import { AppendTransactionHandler, AppendMarkTransactionHandler } from '../api/transaction';
 import { FixupFn } from '../api/fixup';
 import {
@@ -34,14 +32,12 @@ import {
   PandocPreprocessorFn,
   PandocPostprocessorFn,
   PandocBlockReaderFn,
-  PandocExtensions,
   PandocInlineHTMLReaderFn,
+  PandocTokensFilterFn,
 } from '../api/pandoc';
 import { PandocBlockCapsuleFilter } from '../api/pandoc_capsule';
-import { EditorEvents } from '../api/events';
-import { PandocCapabilities } from '../api/pandoc_capabilities';
-import { EditorFormat } from '../api/format';
 import { markInputRuleFilter } from '../api/input_rule';
+import { CompletionHandler } from '../api/completion';
 
 // required extensions (base non-customiziable pandoc nodes/marks + core behaviors)
 import nodeText from '../nodes/text';
@@ -63,6 +59,7 @@ import behaviorHistory from '../behaviors/history';
 import behaviorSelectAll from '../behaviors/select_all';
 import behaviorCursor from '../behaviors/cursor';
 import behaviorFind from '../behaviors/find';
+import behaviorSpellingInteractive from '../behaviors/spelling/spelling-interactive';
 import behaviorClearFormatting from '../behaviors/clear_formatting';
 
 // behaviors
@@ -70,24 +67,34 @@ import behaviorSmarty from '../behaviors/smarty';
 import behaviorAttrDuplicateId from '../behaviors/attr_duplicate_id';
 import behaviorTrailingP from '../behaviors/trailing_p';
 import behaviorEmptyMark from '../behaviors/empty_mark';
+import behaviorEscapeMark from '../behaviors/escape_mark';
 import behaviorOutline from '../behaviors/outline';
-import behaviorTextFocus from '../behaviors/text_focus';
+import beahviorCodeBlockInput from '../behaviors/code_block_input';
+import behaviorPasteText from '../behaviors/paste_text';
+import behaviorBottomPadding from '../behaviors/bottom_padding';
+import behaviorInsertSymbol from '../behaviors/insert_symbol/insert_symbol-plugin-symbol';
+import behaviorInsertSymbolEmoji from '../behaviors/insert_symbol/insert_symbol-plugin-emoji';
+import beahviorInsertSpecialCharacters from '../behaviors/insert_symbol/insert_special_characters';
+import behaviorNbsp from '../behaviors/nbsp';
+import behaviorRemoveSection from '../behaviors/remove_section';
 
 // marks
 import markStrikeout from '../marks/strikeout';
 import markSuperscript from '../marks/superscript';
 import markSubscript from '../marks/subscript';
 import markSmallcaps from '../marks/smallcaps';
-import markQuoted from '../marks/quoted';
+import markUnderline from '../marks/underline';
 import markRawInline from '../marks/raw_inline/raw_inline';
 import markRawTex from '../marks/raw_inline/raw_tex';
 import markRawHTML from '../marks/raw_inline/raw_html';
 import markMath from '../marks/math/math';
 import markCite from '../marks/cite/cite';
 import markSpan from '../marks/span';
-import markXRef from '../marks/xref';
+import markXRef from '../marks/xref/xref';
 import markHTMLComment from '../marks/raw_inline/raw_html_comment';
 import markShortcode from '../marks/shortcode';
+import markEmoji from '../marks/emoji/emoji';
+import { markOmniInsert } from '../behaviors/omni_insert/omni_insert';
 
 // nodes
 import nodeFootnote from '../nodes/footnote/footnote';
@@ -98,22 +105,17 @@ import nodeDiv from '../nodes/div';
 import nodeLineBlock from '../nodes/line_block';
 import nodeTable from '../nodes/table/table';
 import nodeDefinitionList from '../nodes/definition_list/definition_list';
+import nodeShortcodeBlock from '../nodes/shortcode_block';
+import nodeHtmlPreserve from '../nodes/html_preserve';
 
 // extension/plugin factories
-import { codeMirrorPlugins } from '../optional/codemirror/codemirror';
+import { acePlugins } from '../optional/ace/ace';
 import { attrEditExtension } from '../behaviors/attr_edit/attr_edit';
+import { codeViewClipboardPlugin } from '../api/code';
 
-export function initExtensions(
-  format: EditorFormat,
-  options: EditorOptions,
-  ui: EditorUI,
-  events: EditorEvents,
-  extensions: readonly Extension[] | undefined,
-  pandocExtensions: PandocExtensions,
-  pandocCapabilities: PandocCapabilities,
-): ExtensionManager {
+export function initExtensions(context: ExtensionContext, extensions?: readonly Extension[]): ExtensionManager {
   // create extension manager
-  const manager = new ExtensionManager(pandocExtensions, pandocCapabilities, format, options, ui, events);
+  const manager = new ExtensionManager(context);
 
   // required extensions
   manager.register([
@@ -121,8 +123,8 @@ export function initExtensions(
     nodeParagraph,
     nodeHeading,
     nodeBlockquote,
-    nodeCodeBlock,
     nodeLists,
+    nodeCodeBlock,
     nodeImage,
     nodeFigure,
     nodeHr,
@@ -136,6 +138,7 @@ export function initExtensions(
     behaviorSelectAll,
     behaviorCursor,
     behaviorFind,
+    behaviorSpellingInteractive,
     behaviorClearFormatting,
   ]);
 
@@ -146,8 +149,16 @@ export function initExtensions(
     behaviorAttrDuplicateId,
     behaviorTrailingP,
     behaviorEmptyMark,
+    behaviorEscapeMark,
     behaviorOutline,
-    behaviorTextFocus,
+    beahviorCodeBlockInput,
+    behaviorPasteText,
+    behaviorBottomPadding,
+    behaviorInsertSymbol,
+    behaviorInsertSymbolEmoji,
+    beahviorInsertSpecialCharacters,
+    behaviorNbsp,
+    behaviorRemoveSection,
 
     // nodes
     nodeDiv,
@@ -158,13 +169,16 @@ export function initExtensions(
     nodeDefinitionList,
     nodeLineBlock,
     nodeRawBlock,
+    nodeShortcodeBlock,
+    nodeHtmlPreserve,
 
     // marks
+    markUnderline,
     markStrikeout,
     markSuperscript,
     markSubscript,
     markSmallcaps,
-    markQuoted,
+    markHTMLComment,
     markRawTex,
     markRawHTML,
     markRawInline,
@@ -172,8 +186,9 @@ export function initExtensions(
     markCite,
     markSpan,
     markXRef,
-    markHTMLComment,
     markShortcode,
+    markEmoji,
+    markOmniInsert,
   ]);
 
   // register external extensions
@@ -181,15 +196,21 @@ export function initExtensions(
     manager.register(extensions);
   }
 
-  // additional extensions dervied from other extensions
-  // (e.g. extensions that have registered attr editors)
-  manager.register([attrEditExtension(pandocExtensions, manager.attrEditors())]);
+  // additional extensions dervied from other extensions (e.g. extensions that have registered attr editors)
+  // note that all of these take a callback to access the manager -- this is so that if an extension earlier
+  // in the chain registers something the later extensions are able to see it
+  manager.register([
+    // bindings to 'Edit Attribute' command and UI adornment
+    attrEditExtension(context.pandocExtensions, context.ui, manager.attrEditors()),
+  ]);
 
   // additional plugins derived from extensions
+  const codeViews = manager.codeViews();
   const plugins: Plugin[] = [];
-  if (options.codemirror) {
-    plugins.push(...codeMirrorPlugins(manager.codeViews(), ui, options));
+  if (context.options.codeEditor === 'ace') {
+    plugins.push(...acePlugins(codeViews, context));
   }
+  plugins.push(codeViewClipboardPlugin(codeViews));
 
   // register plugins
   manager.registerPlugins(plugins);
@@ -199,53 +220,37 @@ export function initExtensions(
 }
 
 export class ExtensionManager {
-  private pandocExtensions: PandocExtensions;
-  private pandocCapabilities: PandocCapabilities;
-  private format: EditorFormat;
-  private options: EditorOptions;
-  private ui: EditorUI;
-  private events: EditorEvents;
+  private context: ExtensionContext;
   private extensions: Extension[];
 
-  public constructor(
-    pandocExtensions: PandocExtensions,
-    pandocCapabilities: PandocCapabilities,
-    format: EditorFormat,
-    options: EditorOptions,
-    ui: EditorUI,
-    events: EditorEvents,
-  ) {
-    this.pandocExtensions = pandocExtensions;
-    this.pandocCapabilities = pandocCapabilities;
-    this.format = format;
-    this.options = options;
-    this.ui = ui;
-    this.events = events;
+  public constructor(context: ExtensionContext) {
+    this.context = context;
     this.extensions = [];
   }
 
-  public register(extensions: ReadonlyArray<Extension | ExtensionFn>): void {
+  public register(extensions: ReadonlyArray<Extension | ExtensionFn>, priority = false): void {
     extensions.forEach(extension => {
       if (typeof extension === 'function') {
-        const ext = extension(
-          this.pandocExtensions,
-          this.pandocCapabilities,
-          this.ui,
-          this.format,
-          this.options,
-          this.events,
-        );
+        const ext = extension(this.context);
         if (ext) {
-          this.extensions.push(ext);
+          if (priority) {
+            this.extensions.unshift(ext);
+          } else {
+            this.extensions.push(ext);
+          }
         }
       } else {
-        this.extensions.push(extension);
+        if (priority) {
+          this.extensions.unshift(extension);
+        } else {
+          this.extensions.push(extension);
+        }
       }
     });
   }
 
-  public registerPlugins(plugins: Plugin[]) {
-    this.register([{ plugins: () => plugins }]);
+  public registerPlugins(plugins: Plugin[], priority = false) {
+    this.register([{ plugins: () => plugins }], priority);
   }
 
   public pandocMarks(): readonly PandocMark[] {
@@ -258,62 +263,77 @@ export class ExtensionManager {
 
   public pandocPreprocessors(): readonly PandocPreprocessorFn[] {
     return this.collectFrom({
-      node: node => [node.pandoc.preprocessor]
+      node: node => [node.pandoc.preprocessor],
     });
   }
 
   public pandocPostprocessors(): readonly PandocPostprocessorFn[] {
-    return this.pandocReaders().flatMap(
-      reader => reader.postprocessor ? [reader.postprocessor] : []
-    );
+    return this.pandocReaders().flatMap(reader => (reader.postprocessor ? [reader.postprocessor] : []));
+  }
+
+  public pandocTokensFilters(): readonly PandocTokensFilterFn[] {
+    return this.collectFrom({
+      node: node => [node.pandoc.tokensFilter],
+    });
   }
 
   public pandocBlockReaders(): readonly PandocBlockReaderFn[] {
     return this.collectFrom({
-      node: node => [node.pandoc.blockReader]
+      node: node => [node.pandoc.blockReader],
     });
   }
 
   public pandocInlineHTMLReaders(): readonly PandocInlineHTMLReaderFn[] {
     return this.collectFrom({
       mark: mark => [mark.pandoc.inlineHTMLReader],
-      node: node => [node.pandoc.inlineHTMLReader]
+      node: node => [node.pandoc.inlineHTMLReader],
     });
   }
 
   public pandocBlockCapsuleFilters(): readonly PandocBlockCapsuleFilter[] {
     return this.collectFrom({
-      node: node => [node.pandoc.blockCapsuleFilter]
+      node: node => [node.pandoc.blockCapsuleFilter],
     });
   }
 
   public pandocReaders(): readonly PandocTokenReader[] {
     return this.collectFrom({
       mark: mark => mark.pandoc.readers,
-      node: node => node.pandoc.readers ?? []
+      node: node => node.pandoc.readers ?? [],
     });
   }
 
   public pandocMarkWriters(): readonly PandocMarkWriter[] {
     return this.collectFrom({
-      mark: mark => [{name: mark.name, ...mark.pandoc.writer}]
+      mark: mark => [{ name: mark.name, ...mark.pandoc.writer }],
     });
   }
 
   public pandocNodeWriters(): readonly PandocNodeWriter[] {
     return this.collectFrom({
       node: node => {
-        return node.pandoc.writer
-          ? [{name: node.name, write: node.pandoc.writer!}]
-          : [];
-      }
+        return node.pandoc.writer ? [{ name: node.name, write: node.pandoc.writer! }] : [];
+      },
     });
   }
 
-  public commands(schema: Schema, ui: EditorUI): readonly ProsemirrorCommand[] {
-    return this.collect<ProsemirrorCommand>(
-      extension => extension.commands?.(schema, ui)
-    );
+  public commands(schema: Schema): readonly ProsemirrorCommand[] {
+    return this.collect<ProsemirrorCommand>(extension => extension.commands?.(schema));
+  }
+
+  public omniInserters(schema: Schema): OmniInserter[] {
+    const omniInserters: OmniInserter[] = [];
+    const commands = this.commands(schema);
+    commands.forEach(command => {
+      if (command.omniInsert) {
+        omniInserters.push({
+          ...command.omniInsert,
+          id: command.id,
+          command: command.execute,
+        });
+      }
+    });
+    return omniInserters;
   }
 
   public codeViews() {
@@ -328,7 +348,7 @@ export class ExtensionManager {
 
   public attrEditors() {
     return this.collectFrom({
-      node: node => [node.attr_edit?.()]
+      node: node => [node.attr_edit?.()],
     });
   }
 
@@ -344,12 +364,16 @@ export class ExtensionManager {
     return this.collect(extension => extension.appendMarkTransaction?.(schema));
   }
 
-  public plugins(schema: Schema, ui: EditorUI): readonly Plugin[] {
-    return this.collect(extension => extension.plugins?.(schema, ui));
+  public plugins(schema: Schema): readonly Plugin[] {
+    return this.collect(extension => extension.plugins?.(schema));
   }
 
   public fixups(schema: Schema, view: EditorView): readonly FixupFn[] {
     return this.collect(extension => extension.fixups?.(schema, view));
+  }
+
+  public completionHandlers(): readonly CompletionHandler[] {
+    return this.collect(extension => extension.completionHandlers?.());
   }
 
   // NOTE: return value not readonly b/c it will be fed directly to a
@@ -361,7 +385,7 @@ export class ExtensionManager {
 
   private collect<T>(collector: (extension: Extension) => readonly T[] | undefined) {
     return this.collectFrom({
-      extension: extension => collector(extension) ?? []
+      extension: extension => collector(extension) ?? [],
     });
   }
 
@@ -375,11 +399,10 @@ export class ExtensionManager {
    * extension parts.
    */
   private collectFrom<T>(visitor: {
-    extension?: (extension: Extension) => ReadonlyArray<T | undefined | null>,
-    mark?: (mark: PandocMark) => ReadonlyArray<T | undefined | null>,
-    node?: (node: PandocNode) => ReadonlyArray<T | undefined | null>
-  }) : T[] {
-
+    extension?: (extension: Extension) => ReadonlyArray<T | undefined | null>;
+    mark?: (mark: PandocMark) => ReadonlyArray<T | undefined | null>;
+    node?: (node: PandocNode) => ReadonlyArray<T | undefined | null>;
+  }): T[] {
     const results: Array<T | undefined | null> = [];
 
     this.extensions.forEach(extension => {
@@ -394,8 +417,6 @@ export class ExtensionManager {
       }
     });
 
-    return results.filter(
-      value => typeof(value) !== "undefined" && value !== null
-    ) as T[];
+    return results.filter(value => typeof value !== 'undefined' && value !== null) as T[];
   }
 }

@@ -16,7 +16,7 @@
     var hadFocusVisibleRecently = false;
     var hadFocusVisibleRecentlyTimeout = null;
 
-    var inputTypesWhitelist = {
+    var inputTypesAllowlist = {
       text: true,
       search: true,
       url: true,
@@ -62,11 +62,11 @@
       var type = el.type;
       var tagName = el.tagName;
 
-      if (tagName == 'INPUT' && inputTypesWhitelist[type] && !el.readOnly) {
+      if (tagName === 'INPUT' && inputTypesAllowlist[type] && !el.readOnly) {
         return true;
       }
 
-      if (tagName == 'TEXTAREA' && !el.readOnly) {
+      if (tagName === 'TEXTAREA' && !el.readOnly) {
         return true;
       }
 
@@ -174,7 +174,6 @@
         window.clearTimeout(hadFocusVisibleRecentlyTimeout);
         hadFocusVisibleRecentlyTimeout = window.setTimeout(function() {
           hadFocusVisibleRecently = false;
-          window.clearTimeout(hadFocusVisibleRecentlyTimeout);
         }, 100);
         removeFocusVisibleClass(e.target);
       }
@@ -186,7 +185,7 @@
      * @param {Event} e
      */
     function onVisibilityChange(e) {
-      if (document.visibilityState == 'hidden') {
+      if (document.visibilityState === 'hidden') {
         // If the tab becomes active again, the browser will handle calling focus
         // on the element (Safari actually calls it twice).
         // If this tab change caused a blur on an element with focus-visible,
@@ -276,6 +275,7 @@
       scope.host.setAttribute('data-js-focus-visible', '');
     } else if (scope.nodeType === Node.DOCUMENT_NODE) {
       document.documentElement.classList.add('js-focus-visible');
+      document.documentElement.setAttribute('data-js-focus-visible', '');
     }
   }
 

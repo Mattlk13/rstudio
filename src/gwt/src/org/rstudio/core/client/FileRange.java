@@ -1,7 +1,7 @@
 /*
  * FileRange.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -23,7 +23,7 @@ public class FileRange extends JavaScriptObject
    public native final FilePosition getStart() /*-{
       return this.start;
    }-*/;
-   
+
    public native final FilePosition getEnd() /*-{
       return this.end;
    }-*/;

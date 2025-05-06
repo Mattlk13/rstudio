@@ -1,7 +1,7 @@
 /*
  * System.cpp
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -13,6 +13,8 @@
  *
  */
 
+#define RSTUDIO_DEBUG_MACROS_DISABLED
+
 #include <atomic>
 #include <unordered_set>
 
@@ -20,7 +22,8 @@
 
 #include <core/system/System.hpp>
 
-#include <core/Hash.hpp>
+#include <core/Algorithm.hpp>
+#include <shared_core/Hash.hpp>
 #include <core/Log.hpp>
 #include <core/LogOptions.hpp>
 
@@ -77,10 +80,33 @@ void addToSystemPath(const FilePath& path, bool prepend)
    system::setenv("PATH", systemPath);
 }
 
+Error findProgramOnPath(const std::string& program,
+                        core::FilePath* pProgramPath)
+{
+   auto paths = core::algorithm::split(
+            core::system::getenv("PATH"),
+            kPathSeparator);
+
+   for (auto&& path : paths)
+   {
+      if (!path.empty())
+      {
+         FilePath candidatePath = FilePath(path).completeChildPath(program);
+         if (candidatePath.exists())
+         {
+            *pProgramPath = candidatePath;
+            return Success();
+         }
+      }
+   }
+
+   return fileNotFoundError(program, ERROR_LOCATION);
+}
+
 
 int exitFailure(const Error& error, const ErrorLocation& loggedFromLocation)
 {
-   if (!error.isExpected())
+   if (error)
       core::log::logError(error, loggedFromLocation);
    return EXIT_FAILURE;
 }

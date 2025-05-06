@@ -1,7 +1,7 @@
 /*
  * CheckForUpdatesDialog.java
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -98,8 +98,8 @@ public class CheckForUpdatesDialog extends PackageActionConfirmationDialog<Packa
       table.addColumn(availableColumn, "Available");
       table.setColumnWidth(availableColumn, 28, Unit.PCT);
 
-      ImageButtonColumn<PendingAction> newsColumn = 
-            new ImageButtonColumn<PendingAction>(
+      ImageButtonColumn<PendingAction> newsColumn =
+            new ImageButtonColumn<>(
                   new ImageResource2x(ThemeResources.INSTANCE.newsButton2x()),
                   new OperationWithInput<PendingAction>() {
                      

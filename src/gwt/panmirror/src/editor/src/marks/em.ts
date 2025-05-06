@@ -1,7 +1,7 @@
 /*
  * em.ts
  *
- * Copyright (C) 2019-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -25,6 +25,7 @@ const extension: Extension = {
     {
       name: 'em',
       spec: {
+        group: 'formatting',
         parseDOM: [
           { tag: 'i' },
           { tag: 'em' },
@@ -42,9 +43,9 @@ const extension: Extension = {
           },
         ],
         writer: {
-          priority: 2,
+          priority: 4,
           write: (output: PandocOutput, _mark: Mark, parent: Fragment) => {
-            output.writeMark(PandocTokenType.Emph, parent, true);
+            output.writeMark(PandocTokenType.Emph, parent);
           },
         },
       },
@@ -57,8 +58,8 @@ const extension: Extension = {
 
   inputRules: (schema: Schema, filter: MarkInputRuleFilter) => {
     return [
-      delimiterMarkInputRule('\\*', schema.marks.em, filter, '\\*-'),
-      delimiterMarkInputRule('_', schema.marks.em, filter, '_-')
+      delimiterMarkInputRule('\\*', schema.marks.em, filter, '\\*-`', true),
+      delimiterMarkInputRule('_', schema.marks.em, filter, '\\w_`', true),
     ];
   },
 };

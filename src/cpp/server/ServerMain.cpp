@@ -1,7 +1,7 @@
 /*
  * ServerMain.cpp
  *
- * Copyright (C) 2009-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -61,15 +61,17 @@
 #include "ServerAddins.hpp"
 #include "ServerBrowser.hpp"
 #include "ServerEval.hpp"
+#include "ServerEnvVars.hpp"
 #include "ServerInit.hpp"
 #include "ServerMeta.hpp"
 #include "ServerOffline.hpp"
 #include "ServerPAMAuth.hpp"
 #include "ServerREnvironment.hpp"
+#include "ServerXdgVars.hpp"
 
 using namespace rstudio;
 using namespace rstudio::core;
-using namespace server;
+using namespace rstudio::server;
 
 // forward-declare overlay methods
 namespace rstudio {
@@ -106,18 +108,14 @@ http::UriHandlerFunction blockingFileHandler()
    // determine initJs (none for now)
    std::string initJs;
 
-   bool secure = options.authCookiesForceSecure() ||
-                 options.getOverlayOption("ssl-enabled") == "1";
-
    // return file
    return gwt::fileHandlerFunction(options.wwwLocalPath(),
-                                   secure,
-                                   options.wwwIFrameLegacyCookies(),
                                    "/",
                                    mainPageFilter,
                                    initJs,
                                    options.gwtPrefix(),
                                    options.wwwUseEmulatedStack(),
+                                   "", // no server homepage in open source
                                    options.wwwFrameOrigin());
 }
 
@@ -179,7 +177,7 @@ Error httpServerInit()
                                     boost::posix_time::milliseconds(500));
 
    // initialize
-   return server::httpServerInit(s_pHttpServer.get());
+   return rstudio::server::httpServerInit(s_pHttpServer.get());
 }
 
 void pageNotFoundHandler(const http::Request& request,
@@ -188,6 +186,7 @@ void pageNotFoundHandler(const http::Request& request,
    std::ostringstream os;
    std::map<std::string, std::string> vars;
    vars["request_uri"] = string_utils::jsLiteralEscape(request.uri());
+   vars["base_uri"] = string_utils::jsLiteralEscape(request.baseUri(core::http::BaseUriUse::External));
 
    FilePath notFoundTemplate = FilePath(options().wwwLocalPath()).completeChildPath("404.htm");
    core::Error err = core::text::renderTemplate(notFoundTemplate, vars, os);
@@ -207,6 +206,18 @@ void pageNotFoundHandler(const http::Request& request,
 
    // set 404 status even if there was an error showing the proper not found page
    pResponse->setStatusCode(core::http::status::NotFound);
+}
+
+void rootPathRequestFilter(
+            boost::asio::io_service& ioService,
+            http::Request* pRequest,
+            http::RequestFilterContinuation continuation)
+{
+   // for all requests, be sure to inject the configured root path
+   // this way proxied requests will redirect correctly and cookies
+   // will have the correct path
+   pRequest->setRootPath(options().wwwRootPath());
+   continuation(boost::shared_ptr<http::Response>());
 }
 
 void httpServerAddHandlers()
@@ -247,7 +258,7 @@ void httpServerAddHandlers()
    uri_handlers::add("/rmd_output", secureAsyncHttpHandler(proxyContentRequest, true));
    uri_handlers::add("/grid_data", secureAsyncHttpHandler(proxyContentRequest, true));
    uri_handlers::add("/grid_resource", secureAsyncHttpHandler(proxyContentRequest, true));
-   uri_handlers::add("/chunk_output", secureAsyncHttpHandler(proxyContentRequest, true)); 
+   uri_handlers::add("/chunk_output", secureAsyncHttpHandler(proxyContentRequest, true));
    uri_handlers::add("/profiles", secureAsyncHttpHandler(proxyContentRequest, true));
    uri_handlers::add("/rmd_data", secureAsyncHttpHandler(proxyContentRequest, true));
    uri_handlers::add("/profiler_resource", secureAsyncHttpHandler(proxyContentRequest, true));
@@ -314,9 +325,27 @@ bool reloadLoggingConfiguration()
    return !static_cast<bool>(error);
 }
 
+bool reloadEnvConfiguration()
+{
+   LOG_INFO_MESSAGE("Reloading environment configuration...");
+   Error error = env_vars::initialize();
+   if (error)
+   {
+      LOG_ERROR_MESSAGE("Failed to reload environment configuration");
+      LOG_ERROR(error);
+   }
+   else
+   {
+      LOG_INFO_MESSAGE("Successfully reloaded environment configuration");
+   }
+
+   return !static_cast<bool>(error);
+}
+
 void reloadConfiguration()
 {
    bool success = reloadLoggingConfiguration();
+   success = reloadEnvConfiguration() && success;
    success = overlay::reloadConfiguration() && success;
 
    if (success)
@@ -508,6 +537,17 @@ int main(int argc, char * const argv[])
       // ignore SIGPIPE (don't log error because we should never call
       // syslog prior to daemonizing)
       core::system::ignoreSignal(core::system::SigPipe);
+      
+#ifdef __APPLE__
+      // warn if the rstudio pam profile does not exist
+      // (note that this only effects macOS development configurations)
+      FilePath pamProfilePath("/etc/pam.d/rstudio");
+      if (!pamProfilePath.exists())
+      {
+         std::cerr << "WARNING: /etc/pam.d/rstudio does not exist; authentication may fail!" << std::endl;
+         std::cerr << "Run 'sudo cp /etc/pam.d/cups /etc/pam.d/rstudio' to set a default PAM profile for RStudio." << std::endl;
+      }
+#endif
 
       // read program options 
       std::ostringstream osWarnings;
@@ -519,11 +559,11 @@ int main(int argc, char * const argv[])
          if (!optionsWarnings.empty())
             program_options::reportWarnings(optionsWarnings, ERROR_LOCATION);
 
-         return status.exitCode() ;
+         return status.exitCode();
       }
       
       // daemonize if requested
-      if (options.serverDaemonize())
+      if (options.serverDaemonize() && options.dbCommand().empty())
       {
          Error error = core::system::daemonize(options.serverPidFile());
          if (error)
@@ -532,6 +572,9 @@ int main(int argc, char * const argv[])
          error = core::system::ignoreTerminalSignals();
          if (error)
             return core::system::exitFailure(error, ERROR_LOCATION);
+
+         // Reload the loggers after succesful daemonize to clear out old FDs.
+         core::log::reloadAllLogDestinations();
 
          // set file creation mask to 022 (might have inherted 0 from init)
          if (options.serverSetUmask())
@@ -635,6 +678,16 @@ int main(int argc, char * const argv[])
       if (error)
          return core::system::exitFailure(error, ERROR_LOCATION);
 
+      // execute any database commands if passed
+      if (!options.dbCommand().empty())
+      {
+         Error error = server_core::database::execute(options.databaseConfigFile(), serverUser, options.dbCommand());
+         if (error)
+            return core::system::exitFailure(error, ERROR_LOCATION);
+
+         return EXIT_SUCCESS;
+      }
+
       // initialize database connectivity
       error = server_core::database::initialize(options.databaseConfigFile(), true, serverUser);
       if (error)
@@ -667,6 +720,26 @@ int main(int argc, char * const argv[])
          // add a monitor log writer
          core::log::addLogDestination(
             monitor::client().createLogDestination(core::log::LogLevel::WARN, kProgramIdentity));
+      }
+
+      // initialize XDG var insertion
+      error = xdg_vars::initialize();
+      if (error)
+         return core::system::exitFailure(error, ERROR_LOCATION);
+
+      // initialize environment variables
+      error = env_vars::initialize();
+      if (error)
+      {
+         // error loading env vars is non-fatal
+         LOG_ERROR(error);
+      }
+
+      // overlay may replace this
+      if (server::options().wwwRootPath() != kRequestDefaultRootPath) 
+      {
+         // inject the path prefix as the root path for all requests
+         uri_handlers::setRequestFilter(rootPathRequestFilter);
       }
 
       // call overlay initialize
@@ -728,7 +801,10 @@ int main(int argc, char * const argv[])
       {
          Error error = session_proxy::runVerifyInstallationSession();
          if (error)
+         {
+            std::cerr << "Verify Installation Failed: " << error << std::endl;
             return core::system::exitFailure(error, ERROR_LOCATION);
+         }
 
          return EXIT_SUCCESS;
       }
@@ -762,7 +838,5 @@ int main(int argc, char * const argv[])
    CATCH_UNEXPECTED_EXCEPTION
    
    // if we got this far we had an unexpected exception
-   return EXIT_FAILURE ;
+   return EXIT_FAILURE;
 }
-
-

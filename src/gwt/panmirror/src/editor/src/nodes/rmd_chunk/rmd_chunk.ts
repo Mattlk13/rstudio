@@ -1,7 +1,7 @@
 /*
  * rmd_chunk.ts
  *
- * Copyright (C) 2019-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -13,40 +13,27 @@
  *
  */
 
-import { Node as ProsemirrorNode, Schema, NodeType } from 'prosemirror-model';
-import { EditorState, Transaction } from 'prosemirror-state';
-import { EditorView } from 'prosemirror-view';
-import { setTextSelection, findParentNodeOfType } from 'prosemirror-utils';
+import { Node as ProsemirrorNode, Schema } from 'prosemirror-model';
 
-import { Extension } from '../../api/extension';
-import { EditorOptions } from '../../api/options';
-import { PandocOutput, PandocTokenType, PandocExtensions, ProsemirrorWriter, PandocToken } from '../../api/pandoc';
-import { pandocAttrReadAST, PandocAttr, kCodeBlockAttr, kCodeBlockText } from '../../api/pandoc_attr';
-import { PandocBlockCapsule, parsePandocBlockCapsule, blockCapsuleSourceWithoutPrefix } from '../../api/pandoc_capsule';
+import { Extension, ExtensionContext } from '../../api/extension';
+import { PandocOutput, PandocTokenType } from '../../api/pandoc';
 
 import { codeNodeSpec } from '../../api/code';
-import { ProsemirrorCommand, EditorCommandId, toggleBlockType } from '../../api/command';
-import { selectionIsBodyTopLevel } from '../../api/selection';
-import { uuidv4 } from '../../api/util';
-import { precedingListItemInsertPos, precedingListItemInsert } from '../../api/list';
+import { ProsemirrorCommand, EditorCommandId } from '../../api/command';
 
 import { EditorUI } from '../../api/ui';
-import { PandocCapabilities } from '../../api/pandoc_capabilities';
-import { EditorFormat, kBookdownDocType } from '../../api/format';
-import { rmdChunk, EditorRmdChunk } from '../../api/rmd';
+import { kBookdownDocType } from '../../api/format';
+import { rmdChunk, insertRmdChunk } from '../../api/rmd';
+import { OmniInsertGroup } from '../../api/omni_insert';
 
 import { RmdChunkImagePreviewPlugin } from './rmd_chunk-image';
-import { ExecuteCurrentRmdChunkCommand, ExecutePreviousRmdChunksCommand } from './rmd_chunk-commands';
+import { rmdChunkBlockCapsuleFilter } from './rmd_chunk-capsule';
 
 import './rmd_chunk-styles.css';
 
-const extension = (
-  _pandocExtensions: PandocExtensions,
-  _pandocCapabilities: PandocCapabilities,
-  ui: EditorUI,
-  format: EditorFormat,
-  options: EditorOptions
-): Extension | null => {
+const extension = (context: ExtensionContext): Extension | null => {
+  const { ui, options, format } = context;
+
   if (!format.rmdExtensions.codeChunks) {
     return null;
   }
@@ -59,6 +46,7 @@ const extension = (
           ...codeNodeSpec(),
           attrs: {
             navigation_id: { default: null },
+            md_index: { default: 0 },
           },
           parseDOM: [
             {
@@ -91,21 +79,17 @@ const extension = (
               return null;
             }
           },
-          executeRmdChunkFn: ui.execute.executeRmdChunk 
-            ? (chunk: EditorRmdChunk) => ui.execute.executeRmdChunk!(chunk)
-            : undefined
+          createFromPastePattern: /^\{([a-zA-Z0-9_]+).*}.*?\n/m,
         },
 
         pandoc: {
-
           blockCapsuleFilter: rmdChunkBlockCapsuleFilter(),
 
           writer: (output: PandocOutput, node: ProsemirrorNode) => {
             output.writeToken(PandocTokenType.Para, () => {
               const parts = rmdChunk(node.textContent);
               if (parts) {
-                const code = parts.code ? parts.code + '\n' : '';
-                output.writeRawMarkdown('```{' + parts.meta + '}\n' + code + '```\n');
+                output.writeRawMarkdown('```{' + parts.meta + '}\n' + parts.code + '```\n');
               }
             });
           },
@@ -114,13 +98,15 @@ const extension = (
     ],
 
     commands: (_schema: Schema) => {
-      const commands = [new RmdChunkCommand()];
-      if (ui.execute.executeRmdChunk) {
-        commands.push(
-          new ExecuteCurrentRmdChunkCommand(ui),
-          new ExecutePreviousRmdChunksCommand(ui)
-        );
-      }
+      const commands = [
+        new RChunkCommand(ui),
+        new PythonChunkCommand(ui),
+        new BashChunkCommand(ui),
+        new RcppChunkCommand(ui),
+        new SQLChunkCommand(ui),
+        new D3ChunkCommand(ui),
+        new StanChunkCommand(ui),
+      ];
       return commands;
     },
 
@@ -135,116 +121,103 @@ const extension = (
 };
 
 class RmdChunkCommand extends ProsemirrorCommand {
-  constructor() {
-    super(
-      EditorCommandId.RmdChunk,
-      ['Mod-Alt-i'],
-      (state: EditorState, dispatch?: (tr: Transaction) => void, view?: EditorView) => {
-        const schema = state.schema;
+  constructor(
+    ui: EditorUI,
+    id: EditorCommandId,
+    keymap: string[],
+    priority: number,
+    lang: string,
+    placeholder: string,
+    image: () => string,
+    rowOffset = 1,
+    colOffset = 0,
+    selectionOffset?: number,
+  ) {
+    super(id, keymap, insertRmdChunk(placeholder, rowOffset, colOffset), {
+      name: `${lang} ${ui.context.translateText('Code Chunk')}`,
+      description: `${ui.context.translateText('Executable')} ${lang} ${ui.context.translateText('chunk')}`,
+      group: OmniInsertGroup.Chunks,
+      priority,
+      selectionOffset: selectionOffset || colOffset || placeholder.length,
+      image,
+    });
+  }
+}
 
-        if (
-          !toggleBlockType(schema.nodes.rmd_chunk, schema.nodes.paragraph)(state) &&
-          !precedingListItemInsertPos(state.doc, state.selection)
-        ) {
-          return false;
-        }
-
-        // must either be at the body top level, within a list item, or within a
-        // blockquote (and never within a table)
-        const within = (nodeType: NodeType) => !!findParentNodeOfType(nodeType)(state.selection);
-        if (within(schema.nodes.table)) {
-          return false;
-        }
-        if (
-          !selectionIsBodyTopLevel(state.selection) &&
-          !within(schema.nodes.list_item) &&
-          !within(schema.nodes.blockquote)
-        ) {
-          return false;
-        }
-
-        // create chunk text
-        if (dispatch) {
-          const tr = state.tr;
-          const kRmdText = '{r}\n';
-          const rmdText = schema.text(kRmdText);
-          const rmdNode = schema.nodes.rmd_chunk.create({}, rmdText);
-          const prevListItemPos = precedingListItemInsertPos(tr.doc, tr.selection);
-          if (prevListItemPos) {
-            precedingListItemInsert(tr, prevListItemPos, rmdNode);
-          } else {
-            tr.replaceSelectionWith(rmdNode);
-            setTextSelection(tr.mapping.map(state.selection.from) - 1)(tr);
-          }
-          dispatch(tr);
-        }
-
-        return true;
-      },
+class RChunkCommand extends RmdChunkCommand {
+  constructor(ui: EditorUI) {
+    super(ui, EditorCommandId.RCodeChunk, ['Mod-Alt-i'], 10, 'R', '{r}\n', () =>
+      ui.prefs.darkMode() ? ui.images.omni_insert!.r_chunk_dark! : ui.images.omni_insert!.r_chunk!,
     );
   }
 }
 
-function rmdChunkBlockCapsuleFilter() {
+class PythonChunkCommand extends RmdChunkCommand {
+  constructor(ui: EditorUI) {
+    super(
+      ui,
+      EditorCommandId.PythonCodeChunk,
+      [],
+      8,
+      'Python',
+      '{python}\n',
+      () => ui.images.omni_insert!.python_chunk!,
+    );
+  }
+}
 
-  const kBlockCapsuleType = 'F3175F2A-E8A0-4436-BE12-B33925B6D220'.toLowerCase();
-  const kBlockCapsuleTextRegEx = new RegExp('```' + kBlockCapsuleType + '\\n[ \\t>]*([^`]+)\\n[ \\t>]*```', 'g');
+class BashChunkCommand extends RmdChunkCommand {
+  constructor(ui: EditorUI) {
+    super(ui, EditorCommandId.BashCodeChunk, [], 7, 'Bash', '{bash}\n', () =>
+      ui.prefs.darkMode() ? ui.images.omni_insert!.bash_chunk_dark! : ui.images.omni_insert!.bash_chunk!,
+    );
+  }
+}
 
-  return {
+class RcppChunkCommand extends RmdChunkCommand {
+  constructor(ui: EditorUI) {
+    super(ui, EditorCommandId.RcppCodeChunk, [], 6, 'Rcpp', '{Rcpp}\n', () =>
+      ui.prefs.darkMode() ? ui.images.omni_insert!.rcpp_chunk_dark! : ui.images.omni_insert!.rcpp_chunk!,
+    );
+  }
+}
 
-    type: kBlockCapsuleType,
-    
-    match: /^([\t >]*)(```+\s*\{[a-zA-Z0-9_]+(?: *[ ,].*?)?\}[ \t]*\n(?:[\W\w]*?\n)?[\t >]*```+)([ \t]*)$/gm,
-    
-    // textually enclose the capsule so that pandoc parses it as the type of block we want it to
-    // (in this case a code block). we use the capsule prefix here to make sure that the code block's
-    // content and end backticks match the indentation level of the first line correctly
-    enclose: (capsuleText: string, capsule: PandocBlockCapsule) => 
-      '```' + kBlockCapsuleType + '\n' + 
-      capsule.prefix + capsuleText + '\n' +
-      capsule.prefix + '```'
-    ,
+class SQLChunkCommand extends RmdChunkCommand {
+  constructor(ui: EditorUI) {
+    super(
+      ui,
+      EditorCommandId.SQLCodeChunk,
+      [],
+      5,
+      'SQL',
+      '{sql connection=}\n',
+      () => ui.images.omni_insert!.sql_chunk!,
+      0,
+      16,
+    );
+  }
+}
 
-    // look for one of our block capsules within pandoc ast text (e.g. a code or raw block)
-    // and if we find it, parse and return the original source code
-    handleText: (text: string) => {
-      return text.replace(kBlockCapsuleTextRegEx, (_match, p1) => {
-        const capsuleText = p1;
-        const capsule = parsePandocBlockCapsule(capsuleText);
-        return capsule.source;
-      });
-    },
-    
-    // look for a block capsule of our type within a code block (indicated by the 
-    // presence of a special css class)
-    handleToken: (tok: PandocToken) => {
-      if (tok.t === PandocTokenType.CodeBlock) {
-        const attr = pandocAttrReadAST(tok, kCodeBlockAttr) as PandocAttr;
-        if (attr.classes.includes(kBlockCapsuleType)) {
-          return tok.c[kCodeBlockText];
-        }
-      }
-      return null;
-    },
+class D3ChunkCommand extends RmdChunkCommand {
+  constructor(ui: EditorUI) {
+    super(ui, EditorCommandId.D3CodeChunk, [], 4, 'D3', '{d3 data=}\n', () => ui.images.omni_insert!.d3_chunk!, 0, 9);
+  }
+}
 
-    // write the node as an rmd_chunk, being careful to remove the backticks 
-    // preserved as part of the source, and stripping out the base indentation
-    // level implied by the prefix
-    writeNode: (schema: Schema, writer: ProsemirrorWriter, capsule: PandocBlockCapsule) => {
-
-      // open node
-      writer.openNode(schema.nodes.rmd_chunk, { navigation_id: uuidv4() });
-
-      // source still has leading and trailing backticks, remove them
-      const source = capsule.source.replace(/^```+/, '').replace(/\n[\t >]*```+$/, '');
-
-      // write the lines w/o the source-level prefix
-      writer.writeText(blockCapsuleSourceWithoutPrefix(source, capsule.prefix));
-
-      // all done
-      writer.closeNode();
-    }
-  };
+class StanChunkCommand extends RmdChunkCommand {
+  constructor(ui: EditorUI) {
+    super(
+      ui,
+      EditorCommandId.StanCodeChunk,
+      [],
+      7,
+      'Stan',
+      '{stan output.var=}\n',
+      () => ui.images.omni_insert!.stan_chunk!,
+      0,
+      17,
+    );
+  }
 }
 
 export default extension;

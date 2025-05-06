@@ -1,7 +1,7 @@
 /*
  * RCompletionManager.java
  *
- * Copyright (C) 2009-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -29,6 +29,7 @@ import org.rstudio.core.client.RegexUtil;
 import org.rstudio.core.client.StringUtil;
 import org.rstudio.core.client.command.KeyboardHelper;
 import org.rstudio.core.client.command.KeyboardShortcut;
+import org.rstudio.core.client.dom.EventProperty;
 import org.rstudio.core.client.files.FileSystemItem;
 import org.rstudio.core.client.regex.Pattern;
 import org.rstudio.studio.client.RStudioGinjector;
@@ -61,6 +62,7 @@ import org.rstudio.studio.client.workbench.views.source.editors.text.DocDisplay;
 import org.rstudio.studio.client.workbench.views.source.editors.text.NavigableSourceEditor;
 import org.rstudio.studio.client.workbench.views.source.editors.text.CompletionContext;
 import org.rstudio.studio.client.workbench.views.source.editors.text.ScopeFunction;
+import org.rstudio.studio.client.workbench.views.source.editors.text.AceEditor.EditorBehavior;
 import org.rstudio.studio.client.workbench.views.source.editors.text.ace.AceEditorCommandEvent;
 import org.rstudio.studio.client.workbench.views.source.editors.text.ace.CodeModel;
 import org.rstudio.studio.client.workbench.views.source.editors.text.ace.DplyrJoinContext;
@@ -95,7 +97,7 @@ public class RCompletionManager implements CompletionManager
                              CompletionContext rContext,
                              RnwCompletionContext rnwContext,
                              DocDisplay docDisplay,
-                             boolean isConsole)
+                             EditorBehavior behavior)
    {
       RStudioGinjector.INSTANCE.injectMembers(this);
       
@@ -107,8 +109,16 @@ public class RCompletionManager implements CompletionManager
       initFilter_ = initFilter;
       rnwContext_ = rnwContext;
       docDisplay_ = docDisplay;
-      isConsole_ = isConsole;
-      sigTipManager_ = new SignatureToolTipManager(docDisplay_);
+      behavior_ = behavior;
+      sigTipManager_ = new SignatureToolTipManager(docDisplay_)
+      {
+         @Override
+         protected boolean isEnabled(Position position)
+         {
+            return DocumentMode.isPositionInRMode(docDisplay_, position);
+         }
+      };
+      
       suggestTimer_ = new SuggestionTimer(this, userPrefs_);
       snippets_ = new SnippetHelper((AceEditor) docDisplay, getSourceDocumentPath());
       requester_ = new CompletionRequester(rnwContext, docDisplay, snippets_);
@@ -437,13 +447,13 @@ public class RCompletionManager implements CompletionManager
          {
             return snippets_.attemptSnippetInsertion(true);
          }
-         else if (keycode == 112 // F1
+         else if (keycode == KeyCodes.KEY_F1
                   && modifier == KeyboardShortcut.NONE)
          {
             goToHelp();
             return true;
          }
-         else if (keycode == 113 // F2
+         else if (keycode == KeyCodes.KEY_F2
                   && modifier == KeyboardShortcut.NONE)
          {
             goToDefinition();
@@ -522,12 +532,12 @@ public class RCompletionManager implements CompletionManager
                else if (keycode == KeyCodes.KEY_END)
                   return popup_.selectLast();
                
-               if (keycode == 112) // F1
+               if (keycode == KeyCodes.KEY_F1)
                {
                   context_.showHelpTopic();
                   return true;
                }
-               else if (keycode == 113) // F2
+               else if (keycode == KeyCodes.KEY_F2)
                {
                   goToDefinition();
                   return true;
@@ -541,7 +551,8 @@ public class RCompletionManager implements CompletionManager
          
          // if we insert a '/', we're probably forming a directory --
          // pop up completions
-         if (keycode == 191 && modifier == KeyboardShortcut.NONE)
+         if (modifier == KeyboardShortcut.NONE &&
+             StringUtil.equals(EventProperty.key(event), "/"))
          {
             input_.insertCode("/");
             return beginSuggest(true, true, false);
@@ -635,7 +646,8 @@ public class RCompletionManager implements CompletionManager
       boolean canAutoPopup =
             (currentLine.length() > lookbackLimit - 1 && isValidForRIdentifier(c));
       
-      if (isConsole_ && !userPrefs_.consoleCodeCompletion().getValue())
+      if (behavior_ == EditorBehavior.AceBehaviorConsole && 
+            !userPrefs_.consoleCodeCompletion().getValue())
          canAutoPopup = false;
 
       if (canAutoPopup)
@@ -705,6 +717,7 @@ public class RCompletionManager implements CompletionManager
          
          if (c == ':')
          {
+            invalidatePendingRequests();
             suggestTimer_.schedule(false, true, false);
             return false;
          }
@@ -712,10 +725,7 @@ public class RCompletionManager implements CompletionManager
          // When inserting a space, continue showing the current set of
          // completions and update the current completion token.
          if (c == ' ')
-         {
-            token_ += " ";
             return false;
-         }
          
          // Always update the current set of completions following
          // a key insertion. Defer execution so the key insertion can
@@ -797,6 +807,7 @@ public class RCompletionManager implements CompletionManager
                isSweaveCompletion(c))
          {
             // Delay suggestion to avoid auto-popup while the user is typing
+            invalidatePendingRequests();
             suggestTimer_.schedule(true, true, false);
          }
       }
@@ -1141,9 +1152,11 @@ public class RCompletionManager implements CompletionManager
       if (context.getToken() == "'@")
          context.setToken(context.getToken().substring(1));
       
-      context_ = new CompletionRequestContext(invalidation_.getInvalidationToken(),
-                                              selection,
-                                              canAutoInsert);
+      CompletionRequestContext requestContext = new CompletionRequestContext(
+            invalidation_.getInvalidationToken(),
+            docDisplay_.getCursorPosition(),
+            selection,
+            canAutoInsert);
       
       RInfixData infixData = RInfixData.create();
       AceEditor editor = (AceEditor) docDisplay_;
@@ -1184,7 +1197,7 @@ public class RCompletionManager implements CompletionManager
                         joinString,
                         cursorPos,
                         implicit,
-                        context_);
+                        requestContext);
 
                   return true;
                }
@@ -1194,7 +1207,7 @@ public class RCompletionManager implements CompletionManager
                requester_.getDplyrJoinCompletions(
                      joinContext,
                      implicit,
-                     context_);
+                     requestContext);
                return true;
                
             }
@@ -1225,9 +1238,9 @@ public class RCompletionManager implements CompletionManager
             filePath,
             docId,
             line,
-            isConsole_,
+            behavior_ == EditorBehavior.AceBehaviorConsole,
             implicit,
-            context_);
+            requestContext);
 
       return true;
    }
@@ -1386,6 +1399,11 @@ public class RCompletionManager implements CompletionManager
       if (firstLine.startsWith("```{") || firstLine.startsWith("<<"))
          return new AutocompletionContext(firstLine, AutocompletionContext.TYPE_CHUNK);
       
+      // In the first row of an embedded editor, we're also completing chunk
+      // options
+      if (behavior_ == EditorBehavior.AceBehaviorEmbedded && row == 0 && firstLine.startsWith("{"))
+         return new AutocompletionContext(firstLine, AutocompletionContext.TYPE_CHUNK);
+
       // If this line starts with a '?', assume it's a help query
       if (firstLine.matches("^\\s*[?].*"))
          return new AutocompletionContext(token, AutocompletionContext.TYPE_HELP);
@@ -1697,10 +1715,12 @@ public class RCompletionManager implements CompletionManager
          ServerRequestCallback<CompletionResult>
    {
       public CompletionRequestContext(Invalidation.Token token,
+                                      Position position,
                                       InputEditorSelection selection,
                                       boolean canAutoAccept)
       {
          invalidationToken_ = token;
+         position_ = position;
          selection_ = selection;
          canAutoAccept_ = canAutoAccept;
       }
@@ -1728,7 +1748,7 @@ public class RCompletionManager implements CompletionManager
          if (invalidationToken_.isInvalid())
             return;
          
-         RCompletionManager.this.popup_.showErrorMessage(
+         popup_.showErrorMessage(
                   error.getUserMessage(), 
                   new PopupPositioner(input_.getCursorBounds(), popup_));
       }
@@ -1736,8 +1756,16 @@ public class RCompletionManager implements CompletionManager
       @Override
       public void onResponseReceived(CompletionResult completions)
       {
+         // bail if this request has been invalidated
          if (invalidationToken_.isInvalid())
             return;
+         
+         // bail if the cursor was moved to a new line
+         if (docDisplay_.getCursorPosition().getRow() != position_.getRow())
+            return;
+         
+         // update active completion context
+         context_ = this;
          
          // Only display the top completions
          final QualifiedName[] results =
@@ -1854,15 +1882,42 @@ public class RCompletionManager implements CompletionManager
          
       }
       
-      // For input of the form 'something$foo' or 'something@bar', quote the
-      // element following '@' if it's a non-syntactic R symbol; otherwise
-      // return as is
-      private String quoteIfNotSyntacticNameCompletion(String string)
+      // Quote non-syntactic completion values where appropriate.
+      //
+      // For example, this is necessary when completing a list member;
+      // e.g. in 'foo$bar' or 'foo@bar'.
+      //
+      private String quoteIfNotSyntacticNameCompletion(QualifiedName name)
       {
-         if (RegexUtil.isSyntacticRIdentifier(string))
-            return string;
-         else
-            return "`" + string + "`";
+         String value = name.name;
+         
+         // we don't quote for certain completion types
+         int type = name.type;
+         if (type == RCompletionType.ROXYGEN ||
+             type == RCompletionType.PACKAGE ||
+             type == RCompletionType.ARGUMENT ||
+             type == RCompletionType.OPTION ||
+             type == RCompletionType.CONTEXT)
+         {
+            return value;
+         }
+         
+         // we don't quote for completions from certain custom sources
+         String source = name.source;
+         boolean isSpecialSource =
+               StringUtil.equals(source,  "<file>") ||
+               StringUtil.equals(source,  "<directory>") ||
+               StringUtil.equals(source,  "<chunk-option>");
+         
+         if (isSpecialSource)
+            return value;
+         
+         // if this is already a syntactic identifier, no quote is required
+         if (RegexUtil.isSyntacticRIdentifier(value))
+            return value;
+         
+         // otherwise, quote
+         return "`" + value.replaceAll("`", "\\`") + "`";
       }
       
       private void applyValueRmdOption(final String value)
@@ -1912,7 +1967,7 @@ public class RCompletionManager implements CompletionManager
          if (completionToken.startsWith("'") || completionToken.startsWith("\""))
             completionToken = completionToken.substring(1);
          
-         if (qualifiedName.source == "`chunk-option`")
+         if (qualifiedName.source == "<chunk-option>")
          {
             applyValueRmdOption(qualifiedName.name);
             return;
@@ -1966,18 +2021,10 @@ public class RCompletionManager implements CompletionManager
          if (qualifiedName.type == RCompletionType.DIRECTORY)
             value = value + "/";
          
-         if (!RCompletionType.isFileType(qualifiedName.type))
+         if (!RCompletionType.isFileType(qualifiedName.type) &&
+             !shouldQuote)
          {
-            if (value == ":=")
-               value = quoteIfNotSyntacticNameCompletion(value);
-            else if (!value.matches(".*[=:]\\s*$") && 
-                  !value.matches("^\\s*([`'\"]).*\\1\\s*$") &&
-                  source != "<file>" &&
-                  source != "<directory>" &&
-                  source != "`chunk-option`" &&
-                  !value.startsWith("@") &&
-                  !shouldQuote)
-               value = quoteIfNotSyntacticNameCompletion(value);
+            value = quoteIfNotSyntacticNameCompletion(qualifiedName);
          }
 
          /* In some cases, applyValue can be called more than once
@@ -2026,6 +2073,11 @@ public class RCompletionManager implements CompletionManager
             }
          }
          
+         int offset =
+               completionToken.length() +
+               docDisplay_.getCursorPosition().getColumn() -
+               context_.position_.getColumn();
+         
          // Loop over all of the active cursors, and replace.
          for (Range range : ranges)
          {
@@ -2033,9 +2085,7 @@ public class RCompletionManager implements CompletionManager
             // cursor position. Take those positions, construct ranges, replace
             // text in those ranges, and proceed.
             Position replaceEnd = range.getEnd();
-            Position replaceStart = Position.create(
-                  replaceEnd.getRow(),
-                  replaceEnd.getColumn() - completionToken.length());
+            Position replaceStart = replaceEnd.movedLeft(offset);
             
             editor.replaceRange(
                   Range.fromPoints(replaceStart, replaceEnd),
@@ -2058,6 +2108,7 @@ public class RCompletionManager implements CompletionManager
       }
       
       private final Invalidation.Token invalidationToken_;
+      private final Position position_;
       private InputEditorSelection selection_;
       private final boolean canAutoAccept_;
       private boolean suggestOnAccept_;
@@ -2129,7 +2180,7 @@ public class RCompletionManager implements CompletionManager
    
    private final DocDisplay docDisplay_;
    private final SnippetHelper snippets_;
-   private final boolean isConsole_;
+   private final EditorBehavior behavior_;
 
    private final Invalidation invalidation_ = new Invalidation();
    private CompletionRequestContext context_;

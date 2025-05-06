@@ -1,7 +1,7 @@
 /*
  * styles.css
  *
- * Copyright (C) 2019-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -19,6 +19,7 @@
 
 .pm-content {
   position: relative;
+  padding-bottom: 100px;
 }
 
 .pm-content p {
@@ -28,8 +29,10 @@
 }
 
 .pm-content > p:first-child,
-.pm-content > .pm-div:first-child {
-  margin-top: 10px;
+.pm-content > p:nth-child(2), 
+.pm-content > .pm-div:nth-child(1),
+.pm-content > .pm-div:nth-child(2) {
+  margin-top: 1em;
 }
 
 h3.pm-heading {
@@ -75,12 +78,11 @@ h4.pm-heading {
 
 .pm-code, 
 .pm-span {
-  padding: 0 3px;
+  padding: 0 1px;
 }
 
 .pm-code {
   border: 1px solid;
-  border-radius: 4px;
 }
 
 .pm-div {
@@ -88,8 +90,12 @@ h4.pm-heading {
   margin-block-end: 1em;
 }
 
-.pm-div *:last-child {
-  margin-bottom: 0;
+.pm-div > *:last-child {
+  margin-bottom: 0.2em;
+}
+
+.pm-div > ul:last-child {
+  margin-bottom: 0.4em;
 }
 
 .pm-div .pm-div {
@@ -132,6 +138,7 @@ h4.pm-heading {
   border: 1px solid;
   margin-block-end: 1.5em;
   margin-top: 10px;
+  clear: both;
 }
 
 .pm-definition-list {
@@ -198,13 +205,8 @@ h4.pm-heading {
   padding: 15px;
   margin-block-end: 1em;
 }
-
-.pm-show-text-focus.pm-text-focused {
-  outline: 1px dotted;
-}
- 
 .pm-popup {
-  border-radius: 8px;
+  border-radius: 4px;
   border-style: solid;
   border-width: 1px;
   padding: 10px;
@@ -212,4 +214,43 @@ h4.pm-heading {
 
 p.ProseMirror-selectednode {
   outline: none;
+}
+
+.pm-input-text {
+  border: 1px;
+  border-style: solid;
+  border-radius: 3px;
+}
+
+.pm-placeholder-icon {
+  height: 12px;
+  width: 12px;
+  padding-left: 4px;
+  padding-right: 3px;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.pm-placeholder-text {
+  padding-right: 4px;
+  font-size: 9pt;
+}
+
+.pm-spelling-error {
+  border-bottom: 1px dotted #e51400;
+}
+
+.pm-solarized-mode .pm-spelling-error {
+  border-color: #d27600;
+}
+
+.pm-dark-mode .pm-spelling-error {
+  border-color: #f48771;
+}
+
+
+.pm-nbsp::before {
+  content: '·';
+  position: relative;
+  left: 2px;
 }

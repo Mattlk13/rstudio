@@ -1,7 +1,7 @@
 /*
  * SetupChunkOptionsPopupPanel.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -229,7 +229,7 @@ public class SetupChunkOptionsPopupPanel extends ChunkOptionsPopupPanel
    protected void synchronize()
    {
       syncSelection();
-      Map<String, String> options = new LinkedHashMap<String, String>();
+      Map<String, String> options = new LinkedHashMap<>();
       
       Set<String> keys = chunkOptions_.keySet();
       for (String key : keys)

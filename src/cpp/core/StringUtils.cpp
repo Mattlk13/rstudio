@@ -1,7 +1,7 @@
 /*
  * StringUtils.cpp
  *
- * Copyright (C) 2009-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -287,9 +287,18 @@ std::string utf8ToSystem(const std::string& str,
       if (n == -1)
       {
          if (escapeInvalidChars)
-            output << "\\u{" << std::hex << wide[i] << "}";
+         {
+            // NOTE: in R, both '\u{1234}' and '\u1234' are valid
+            // ways of specifying a unicode literal, but only the
+            // latter is accepted by Python, and since the reticulate
+            // REPL uses the same conversion routines we prefer the
+            // format compatible with both parsers
+            output << "\\u" << std::hex << wide[i];
+         }
          else
+         {
             output << "?"; // TODO: Use GetCPInfo()
+         }
       }
       else
       {
@@ -399,7 +408,7 @@ std::string htmlEscape(const std::string& str, bool isAttributeValue)
 {
    std::string escapes = isAttributeValue ?
                          "<>&'\"/\r\n" :
-                         "<>&'\"/" ;
+                         "<>&'\"/";
 
    std::map<char, std::string> subs;
    subs['<'] = "&lt;";

@@ -1,7 +1,7 @@
 #
 # CMakeLists.txt
 #
-# Copyright (C) 2009-19 by RStudio, PBC
+# Copyright (C) 2021 by RStudio, PBC
 #
 # Unless you have received this program directly from RStudio pursuant
 # to the terms of a commercial license agreement with RStudio, then
@@ -31,7 +31,10 @@ endif()
 
 # allow opt in / out of GWT build
 # mainly for faster iteration in builds
-set(GWT_BUILD Yes)
+if(NOT DEFINED GWT_BUILD)
+   set(GWT_BUILD Yes)
+endif()
+
 if(DEFINED ENV{GWT_BUILD})
    set(GWT_BUILD $ENV{GWT_BUILD})
 endif()
@@ -43,17 +46,39 @@ if(DEFINED ENV{GWT_MAIN_MODULE})
 endif()
 
 if(GWT_BUILD)
+   message(STATUS "Configured to build GWT")
+   set(GWT_COPY Yes)
+
+   find_program(ANT
+      NAMES ant
+      PATHS "$ENV{HOME}/opt/bin" "$ENV{HOME}/homebrew/${UNAME_M}/bin")
+
+   if(ANT)
+      message(STATUS "Using ant: ${ANT}")
+   else()
+      message(FATAL_ERROR "ant not found (required to build GWT)")
+   endif()
 
    # invoke ant to build
    add_custom_target(gwt_build ALL)
    add_custom_command(
       TARGET gwt_build
       WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-      COMMAND ant -Dbuild.dir="${GWT_BIN_DIR}"
-                  -Dwww.dir="${GWT_WWW_DIR}"
-                  -Dextras.dir="${GWT_EXTRAS_DIR}"
-                  -Dlib.dir="${GWT_LIB_DIR}"
-                  -Dgwt.main.module="org.rstudio.studio.${GWT_MAIN_MODULE}")
+      COMMAND
+         ${ANT}
+         -Dbuild.dir="${GWT_BIN_DIR}"
+         -Dwww.dir="${GWT_WWW_DIR}"
+         -Dextras.dir="${GWT_EXTRAS_DIR}"
+         -Dlib.dir="${GWT_LIB_DIR}"
+         -Dgwt.main.module="org.rstudio.studio.${GWT_MAIN_MODULE}")
+endif()
+
+if(NOT DEFINED GWT_COPY)
+   set(GWT_COPY Yes)
+endif()
+
+if(GWT_COPY)
+   message(STATUS "Configured to install GWT")
 
    # create test script and copy to binary directory with executable permissions
    configure_file(${CMAKE_CURRENT_SOURCE_DIR}/gwt-unit-tests.sh.in

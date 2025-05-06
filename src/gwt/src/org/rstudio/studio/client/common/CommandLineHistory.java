@@ -1,7 +1,7 @@
 /*
  * CommandLineHistory.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -15,6 +15,8 @@
 package org.rstudio.studio.client.common;
 
 import com.google.gwt.user.client.ui.HasText;
+
+import org.rstudio.core.client.MathUtil;
 import org.rstudio.core.client.StringUtil;
 
 import java.util.ArrayList;
@@ -67,10 +69,10 @@ public class CommandLineHistory
             "");
       historyPos_ = newPos;
    }
-   
+
    public String getHistoryEntry(int offset)
    {
-      int pos = getPositionAtOffset(offset);
+      int pos = MathUtil.clamp(getPositionAtOffset(offset), 0, history_.size() - 1);
       return history_.get(pos);
    }
 
@@ -79,14 +81,14 @@ public class CommandLineHistory
       historyPos_ = history_.size();
       historyTail_ = "";
    }
-   
+
    private int getPositionAtOffset(int offset)
    {
       int pos = historyPos_ + offset;
       return Math.max(0, Math.min(pos, history_.size()));
    }
 
-   private final ArrayList<String> history_ = new ArrayList<String>();
+   private final ArrayList<String> history_ = new ArrayList<>();
    private int historyPos_;
    // If you start typing a command, then go up in history, then go down,
    // then what you had previously typed should still be there. This is

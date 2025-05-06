@@ -1,7 +1,7 @@
 /*
  * RObjectEntry.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -126,8 +126,8 @@ public class RObjectEntry
 
    public static final String NO_VALUE = "NO_VALUE";
    
-   private static final Set<String> DATA_CLASSES = new HashSet<String>();
-   private static final Set<String> HIERARCHICAL_CLASSES = new HashSet<String>();
+   private static final Set<String> DATA_CLASSES = new HashSet<>();
+   private static final Set<String> HIERARCHICAL_CLASSES = new HashSet<>();
    
    static {
       

@@ -1,7 +1,7 @@
 /*
  * LineEndingsSelectWidget.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -39,7 +39,7 @@ public class LineEndingsSelectWidget extends SelectWidget
 
    private static String[] getLineEndingsCaptions(boolean includeDefault)
    {
-      ArrayList<String> captions = new ArrayList<String>();
+      ArrayList<String> captions = new ArrayList<>();
       if (includeDefault)
          captions.add("(Use Default)");
       captions.add("None");
@@ -52,7 +52,7 @@ public class LineEndingsSelectWidget extends SelectWidget
    
    private static String[] getLineEndingsValues(boolean includeDefault)
    {
-      ArrayList<String> values = new ArrayList<String>();
+      ArrayList<String> values = new ArrayList<>();
       if (includeDefault)
          values.add(UserPrefs.LINE_ENDING_CONVERSION_DEFAULT);
       values.add(UserPrefs.LINE_ENDING_CONVERSION_PASSTHROUGH);

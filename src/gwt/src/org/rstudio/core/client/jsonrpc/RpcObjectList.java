@@ -1,7 +1,7 @@
 /*
  * RpcObjectList.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -42,7 +42,7 @@ public class RpcObjectList<T extends JavaScriptObject> extends JavaScriptObject
 
    public final ArrayList<T> toArrayList()
    {
-      ArrayList<T> result = new ArrayList<T>(length());
+      ArrayList<T> result = new ArrayList<>(length());
       for (int i = 0; i < length(); i++)
          result.add(get(i));
       return result;

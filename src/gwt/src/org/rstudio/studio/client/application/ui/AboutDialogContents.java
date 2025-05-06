@@ -1,7 +1,7 @@
 /*
  * AboutDialogContents.java
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -45,7 +45,7 @@ public class AboutDialogContents extends Composite
    {
       new AboutDialogContents();
    }
-   
+
    private static AboutDialogContentsUiBinder uiBinder = GWT
          .create(AboutDialogContentsUiBinder.class);
 
@@ -53,7 +53,7 @@ public class AboutDialogContents extends Composite
          UiBinder<Widget, AboutDialogContents>
    {
    }
-   
+
    private AboutDialogContents()
    {
       uiBinder.createAndBindUi(this);
@@ -63,7 +63,7 @@ public class AboutDialogContents extends Composite
    {
       initWidget(uiBinder.createAndBindUi(this));
       versionLabel.setText(info.version);
-      
+
       // a11y
       productInfo.getElement().setId("productinfo");
       gplLinkLabel.getElement().setId("gplLinkLabel");

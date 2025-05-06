@@ -1,7 +1,7 @@
 #
 # test-pkg-deps.R
 #
-# Copyright (C) 2020 by RStudio, PBC
+# Copyright (C) 2021 by RStudio, PBC
 #
 # Unless you have received this program directly from RStudio pursuant
 # to the terms of a commercial license agreement with RStudio, then
@@ -107,5 +107,19 @@ test_that("R scripts do not get treated like R Markdown docs", {
       "", sep = "\n")
    packages <- .rs.parsePackageDependencies(contents, ".R")
    expect_equal(sort(packages), sort(c("ggplot2", "yaml")))
+})
+
+test_that("HTML comments are not treated like YAML delimiters", {
+   contents <- paste(
+      "",
+      "<!--- html comment --->",
+      "",
+      "```{r}",
+      "require(callr)",
+      "require(crayon)",
+      "```",
+      "", sep = "\n")
+   packages <- .rs.parsePackageDependencies(contents, ".Rmd")
+   expect_equal(sort(packages), sort(c("callr", "crayon")))
 })
 

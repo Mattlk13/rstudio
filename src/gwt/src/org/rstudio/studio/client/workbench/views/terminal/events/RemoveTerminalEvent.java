@@ -1,7 +1,7 @@
 /*
  * RemoveTerminalEvent.java
  *
- * Copyright (C) 2009-18 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -29,11 +29,11 @@ public class RemoveTerminalEvent extends GwtEvent<Handler>
    {
       protected Data() {}
 
-      public native final String getHandle() /*-{ 
-         return this.handle; 
+      public native final String getHandle() /*-{
+         return this.handle;
       }-*/;
    }
-   
+
    public interface Handler extends EventHandler
    {
       void onRemoveTerminal(RemoveTerminalEvent event);
@@ -48,7 +48,7 @@ public class RemoveTerminalEvent extends GwtEvent<Handler>
    {
       return handle_;
    }
-   
+
    @Override
    public Type<Handler> getAssociatedType()
    {

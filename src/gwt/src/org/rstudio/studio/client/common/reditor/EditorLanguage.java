@@ -1,7 +1,7 @@
 /*
  * EditorLanguage.java
  *
- * Copyright (C) 2009-18 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -83,6 +83,7 @@ public class EditorLanguage
    public static final EditorLanguage LANG_CLOJURE = new EditorLanguage("ace/mode/clojure", false, true);
    public static final EditorLanguage LANG_COFFEE = new EditorLanguage("ace/mode/coffee", false, true);
    public static final EditorLanguage LANG_CSHARP = new EditorLanguage("ace/mode/csharp", false, true);
+   public static final EditorLanguage LANG_DOCKERFILE = new EditorLanguage("ace/mode/dockerfile", false, true);
    public static final EditorLanguage LANG_GITIGNORE = new EditorLanguage("ace/mode/gitignore", false, false);
    public static final EditorLanguage LANG_GO = new EditorLanguage("ace/mode/golang", false, true);
    public static final EditorLanguage LANG_GROOVY = new EditorLanguage("ace/mode/groovy", false, true);

@@ -1,7 +1,7 @@
 /*
  * ApplicationServerOperations.java
  *
- * Copyright (C) 2009-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -34,7 +34,7 @@ public interface ApplicationServerOperations extends PrefsServerOperations
    void getJobConnectionStatus(ServerRequestCallback<String> requestCallback);
 
    // interrupt the current session
-   void interrupt(ServerRequestCallback<Void> requestCallback);
+   void interrupt(ServerRequestCallback<Boolean> requestCallback);
    
    // abort the current session
    void abort(String nextSessionProject,

@@ -1,7 +1,7 @@
 /*
  * MruList.hpp
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -12,6 +12,9 @@
  * AGPL (http://www.gnu.org/licenses/agpl-3.0.txt) for more details.
  *
  */
+
+#ifndef CORE_MRU_LIST_HPP
+#define CORE_MRU_LIST_HPP
 
 #include <cstddef>
 
@@ -55,3 +58,4 @@ private:
 } // namespace core
 } // namespace rstudio
 
+#endif /* CORE_MRU_LIST_HPP */

@@ -1,7 +1,7 @@
 /*
  * TcpIpAsyncClientSsl.hpp
  *
- * Copyright (C) 2009-18 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -23,14 +23,8 @@
 #include "BoostAsioSsl.hpp"
 
 #include <core/http/AsyncClient.hpp>
+#include <core/http/Ssl.hpp>
 #include <core/http/TcpIpAsyncConnector.hpp>
-
-#ifdef _WIN32
-#include <windows.h>
-#include <wincrypt.h>
-#include <cryptuiapi.h>
-#include <openssl/x509.h>
-#endif
 
 namespace rstudio {
 namespace core {
@@ -56,64 +50,13 @@ public:
        certificateAuthority_(certificateAuthority),
        connectionTimeout_(connectionTimeout)
    {
-      if (verify_)
-      {
-         sslContext_.set_default_verify_paths();
-         sslContext_.set_verify_mode(boost::asio::ssl::context::verify_peer);
-
-         if (!certificateAuthority_.empty())
-         {
-            boost::asio::const_buffer buff(certificateAuthority_.data(), certificateAuthority_.size());
-            boost::system::error_code ec;
-            sslContext_.add_certificate_authority(buff, ec);
-            if (ec)
-               LOG_ERROR(Error(ec, ERROR_LOCATION));
-         }
-
-      #ifdef _WIN32
-         // on Windows, OpenSSL does not support loading certificates from the Windows certificate store
-         // because of this, each time we need to verify certificates, we initialize
-         // all certificates individually with OpenSSL
-         const WindowsCertificateStore& certStore = getCertificateStore();
-         for (const auto& cert : certStore.certificates)
-         {
-            if (X509_STORE* store = SSL_CTX_get_cert_store(sslContext_.native_handle()))
-            {
-               if (::X509_STORE_add_cert(store, cert) != 1)
-               {
-                  char* subjectName = X509_NAME_oneline(X509_get_subject_name(cert), nullptr, 0);
-                  std::string subjectNameStr(subjectName);
-                  OPENSSL_free(subjectName);
-
-                  boost::system::error_code ec = boost::system::error_code(
-                              static_cast<int>(::ERR_get_error()),
-                              boost::asio::error::get_ssl_category());
-                  Error error(ec, ERROR_LOCATION);
-                  error.addProperty("Description", "Could not add Windows certificate to OpenSSL cert store: " + subjectNameStr);
-
-                  LOG_ERROR(error);
-               }
-            }
-         }
-      #endif
-      }
-      else
-      {
-         sslContext_.set_verify_mode(boost::asio::ssl::context::verify_none);
-      }
+      ssl::initializeSslContext(&sslContext_, verify, certificateAuthority);
 
       // use scoped ptr so we can call the constructor after we've configured
       // the ssl::context (immediately above)
       ptrSslStream_.reset(new boost::asio::ssl::stream<boost::asio::ip::tcp::socket>(ioService, sslContext_));
 
-      // TLS v1.3 requires that the SNI be set, so set the SNI.
-      if (!SSL_set_tlsext_host_name(
-            ptrSslStream_->native_handle(),
-            (hostname.empty() ? address_.c_str() : hostname.c_str())))
-      {
-         boost::system::error_code ec{ static_cast<int>(::ERR_get_error()), boost::asio::error::get_ssl_category() };
-         LOG_ERROR(Error(ec, ERROR_LOCATION));
-      }
+      ssl::initializeSslStream(ptrSslStream_.get(), (hostname.empty() ? address_.c_str() : hostname.c_str()));
    }
 
 
@@ -139,6 +82,11 @@ protected:
                         TcpIpAsyncClientSsl::sharedFromThis(),
                         _1),
             connectionTimeout_);
+   }
+
+   virtual std::string getDefaultHostHeader()
+   {
+      return address_ + ":" + port_;
    }
 
 
@@ -187,51 +135,6 @@ private:
    {
       return util::isSslShutdownError(ec);
    }
-
-#ifdef _WIN32
-   struct WindowsCertificateStore
-   {
-      WindowsCertificateStore()
-      {
-         // load certificates from important stores
-         LPCSTR stores[] = {"ROOT", "CA"};
-         for (const LPCSTR& store : stores)
-         {
-             HCERTSTORE hStore = CertOpenSystemStore(NULL, store);
-             if (!hStore)
-             {
-                LOG_ERROR_MESSAGE("Could not open certificate store");
-                return;
-             }
-
-             PCCERT_CONTEXT pContext = nullptr;
-             while (pContext = CertEnumCertificatesInStore(hStore, pContext))
-             {
-                // convert the certificate returned from the Windows store into a
-                // format that OpenSSL can understand
-                const BYTE* certPtr = pContext->pbCertEncoded;
-                X509* x509 = d2i_X509(nullptr, &certPtr, pContext->cbCertEncoded);
-                if (x509)
-                   certificates.push_back(x509);
-             }
-
-             CertCloseStore(hStore, 0);
-         }
-      }
-
-      // certificate pointers - these are intentionally leaked
-      // as they need to be available for the entire run of the program
-      std::vector<X509*> certificates;
-   };
-
-   static const WindowsCertificateStore& getCertificateStore()
-   {
-       // Meyer's singleton - guarantees this is thread safe
-       // and will be initialized exactly once by the first caller
-       static WindowsCertificateStore instance;
-       return instance;
-   }
-#endif
 
 private:
    boost::asio::ssl::context sslContext_;

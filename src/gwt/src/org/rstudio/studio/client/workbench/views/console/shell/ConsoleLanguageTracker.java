@@ -1,7 +1,7 @@
 /*
  * ConsoleLanguageTracker.java
  *
- * Copyright (C) 2009-18 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -17,14 +17,13 @@ package org.rstudio.studio.client.workbench.views.console.shell;
 import org.rstudio.core.client.Debug;
 import org.rstudio.core.client.StringUtil;
 import org.rstudio.studio.client.application.events.EventBus;
+import org.rstudio.studio.client.application.events.RestartStatusEvent;
 import org.rstudio.studio.client.server.ServerError;
 import org.rstudio.studio.client.server.ServerRequestCallback;
 import org.rstudio.studio.client.server.Void;
 import org.rstudio.studio.client.workbench.events.SessionInitEvent;
-import org.rstudio.studio.client.workbench.events.SessionInitHandler;
 import org.rstudio.studio.client.workbench.model.Session;
 import org.rstudio.studio.client.workbench.views.console.events.ConsolePromptEvent;
-import org.rstudio.studio.client.workbench.views.console.events.ConsolePromptHandler;
 import org.rstudio.studio.client.workbench.views.console.model.ConsoleServerOperations;
 
 import com.google.gwt.user.client.Command;
@@ -33,8 +32,9 @@ import com.google.inject.Singleton;
 
 @Singleton
 public class ConsoleLanguageTracker
-      implements SessionInitHandler,
-                 ConsolePromptHandler
+      implements SessionInitEvent.Handler,
+                 ConsolePromptEvent.Handler,
+                 RestartStatusEvent.Handler
 {
    @Inject
    public ConsoleLanguageTracker(Session session,
@@ -44,10 +44,10 @@ public class ConsoleLanguageTracker
       session_ = session;
       events_ = events;
       server_ = server;
-      
+
       init();
    }
-   
+
    public void adaptToLanguage(final String language,
                                final Command command)
    {
@@ -63,7 +63,7 @@ public class ConsoleLanguageTracker
                      language_ = language;
                      command.execute();
                   }
-                  
+
                   @Override
                   public void onError(ServerError error)
                   {
@@ -77,30 +77,41 @@ public class ConsoleLanguageTracker
          command.execute();
       }
    }
-   
+
    private void init()
    {
       events_.addHandler(SessionInitEvent.TYPE, this);
       events_.addHandler(ConsolePromptEvent.TYPE, this);
+      events_.addHandler(RestartStatusEvent.TYPE, this);
    }
-   
+
    @Override
    public void onSessionInit(SessionInitEvent event)
    {
       language_ = session_.getSessionInfo().getConsoleLanguage();
    }
-   
+
    @Override
    public void onConsolePrompt(ConsolePromptEvent event)
    {
       language_ = event.getPrompt().getLanguage();
    }
    
+   @Override
+   public void onRestartStatus(RestartStatusEvent event)
+   {
+      // on session restart, the console will return to R mode
+      if (event.getStatus() == RestartStatusEvent.RESTART_COMPLETED)
+      {
+         language_ = LANGUAGE_R;
+      }
+   }
+
    public static final String LANGUAGE_R      = "R";
    public static final String LANGUAGE_PYTHON = "Python";
-   
+
    private String language_;
-   
+
    // Injected ----
    private final Session session_;
    private final EventBus events_;

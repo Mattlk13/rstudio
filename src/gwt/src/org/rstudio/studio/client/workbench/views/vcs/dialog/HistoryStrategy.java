@@ -1,7 +1,7 @@
 /*
  * HistoryStrategy.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -22,7 +22,7 @@ import org.rstudio.core.client.files.FileSystemItem;
 import org.rstudio.core.client.widget.ProgressIndicator;
 import org.rstudio.studio.client.server.ServerRequestCallback;
 import org.rstudio.studio.client.workbench.views.vcs.common.diff.DiffParser;
-import org.rstudio.studio.client.workbench.views.vcs.common.events.VcsRefreshHandler;
+import org.rstudio.studio.client.workbench.views.vcs.common.events.VcsRefreshEvent;
 
 public interface HistoryStrategy
 {
@@ -40,13 +40,13 @@ public interface HistoryStrategy
    void showFile(String revision,
                  String filename,
                  ServerRequestCallback<String> requestCallback);
-   
+
    void saveFileAs(String revision,
                    String source,
                    String destination,
                    ProgressIndicator indicator);
 
-   HandlerRegistration addVcsRefreshHandler(VcsRefreshHandler refreshHandler);
+   HandlerRegistration addVcsRefreshHandler(VcsRefreshEvent.Handler refreshHandler);
 
    void showCommit(String commitId,
                    boolean noSizeWarning,
@@ -64,6 +64,6 @@ public interface HistoryStrategy
    boolean getAutoSelectFirstRow();
 
    DiffParser createParserForCommit(String commitDiff);
-   
+
    boolean getShowHistoryErrors();
 }

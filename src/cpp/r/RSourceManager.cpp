@@ -1,7 +1,7 @@
 /*
  * RSourceManager.cpp
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -17,8 +17,8 @@
 
 #include <algorithm>
 
-#include <boost/bind.hpp>
 #include <boost/algorithm/string/replace.hpp>
+#include <boost/bind/bind.hpp>
 
 #include <shared_core/Error.hpp>
 #include <shared_core/FilePath.hpp>
@@ -26,7 +26,8 @@
 
 #include <r/RExec.hpp>
 
-using namespace rstudio::core ;
+using namespace rstudio::core;
+using namespace boost::placeholders;
 
 namespace rstudio {
 namespace r {
@@ -34,12 +35,15 @@ namespace r {
    
 SourceManager& sourceManager()
 {
-   static SourceManager instance ;
-   return instance ;
+   static SourceManager instance;
+   return instance;
 }
    
 Error SourceManager::sourceTools(const core::FilePath& filePath)
 {
+   if (!filePath.exists())
+      return fileNotFoundError(filePath, ERROR_LOCATION);
+   
    Error error = sourceLocal(filePath);
    if (error)
       return error;
@@ -96,7 +100,7 @@ void SourceManager::reSourceTools(const core::FilePath& filePath)
 Error SourceManager::source(const FilePath& filePath, bool local)
 {
    std::string localPrefix = local ? "local(" : "";
-   std::string localParam = local ? "TRUE" : "FALSE" ;
+   std::string localParam = local ? "TRUE" : "FALSE";
    std::string localSuffix = local ? ")" : "";
       
    // do \ escaping (for windows)
@@ -122,13 +126,13 @@ Error SourceManager::source(const FilePath& filePath, bool local)
    recordSourcedFile(filePath, local);
 
    // source the file
-   return r::exec::executeString(rCode); 
+   return r::exec::executeString(rCode);
 }
 
 void SourceManager::recordSourcedFile(const FilePath& filePath, bool local)
 {
    SourcedFileInfo fileInfo(filePath.getLastWriteTime(), local);
-   sourcedFiles_[filePath.getAbsolutePath()] = fileInfo ;
+   sourcedFiles_[filePath.getAbsolutePath()] = fileInfo;
 }
    
 void SourceManager::reloadSourceIfNecessary(

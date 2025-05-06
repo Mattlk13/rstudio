@@ -1,7 +1,7 @@
 /*
  * ShowContentEvent.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -14,36 +14,41 @@
  */
 package org.rstudio.studio.client.workbench.views.source.events;
 
+import com.google.gwt.event.shared.EventHandler;
 import com.google.gwt.event.shared.GwtEvent;
 import org.rstudio.studio.client.workbench.views.source.model.ContentItem;
 
-public class ShowContentEvent extends GwtEvent<ShowContentHandler>
+public class ShowContentEvent extends GwtEvent<ShowContentEvent.Handler>
 {
-   public static final GwtEvent.Type<ShowContentHandler> TYPE =
-      new GwtEvent.Type<ShowContentHandler>();
-   
+   public static final Type<Handler> TYPE = new Type<>();
+
+   public interface Handler extends EventHandler
+   {
+      void onShowContent(ShowContentEvent event);
+   }
+
    public ShowContentEvent(ContentItem content)
    {
       content_ = content;
    }
-   
+
    public ContentItem getContent()
    {
       return content_;
    }
-   
+
    @Override
-   protected void dispatch(ShowContentHandler handler)
+   protected void dispatch(Handler handler)
    {
       handler.onShowContent(this);
    }
 
    @Override
-   public GwtEvent.Type<ShowContentHandler> getAssociatedType()
+   public GwtEvent.Type<Handler> getAssociatedType()
    {
       return TYPE;
    }
-   
+
    private ContentItem content_;
 }
 

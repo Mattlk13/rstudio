@@ -1,7 +1,7 @@
 #
 # SessionHelp.R
 #
-# Copyright (C) 2009-12 by RStudio, PBC
+# Copyright (C) 2021 by RStudio, PBC
 #
 # Unless you have received this program directly from RStudio pursuant
 # to the terms of a commercial license agreement with RStudio, then
@@ -13,14 +13,18 @@
 #
 #
 
-# use html help 
+# use html help
 options(help_type = "html")
 
-.rs.addFunction( "httpdPortIsFunction", function() {
+# cached encoding of help files for installed packages
+.rs.setVar("packageHelpEncodingEnv", new.env(parent = emptyenv()))
+
+.rs.addFunction("httpdPortIsFunction", function()
+{
    is.function(tools:::httpdPort)
 })
 
-.rs.addFunction( "httpdPort", function()
+.rs.addFunction("httpdPort", function()
 {
    if (.rs.httpdPortIsFunction())
       as.character(tools:::httpdPort())
@@ -146,7 +150,7 @@ options(help_type = "html")
       namespace <- "base"
    else if (is.function(object))
    {
-      envString <- capture.output(environment(object))[1]
+      envString <- .rs.format(environment(object))[[1L]]
       
       # Strip out the irrelevant bits of the package name. We'd like
       # to just use 'regexpr' but its output is funky with older versions
@@ -373,10 +377,21 @@ options(help_type = "html")
 
 .rs.addJsonRpcHandler("show_custom_help_topic", function(helpHandler, topic, source) {
    
-   helpHandlerFunc <- tryCatch(eval(parse(text = helpHandler)), 
-                               error = function(e) NULL)
+   helpHandlerFunc <- tryCatch(
+      eval(parse(text = helpHandler)), 
+      error = function(e) NULL
+   )
+   
    if (!is.function(helpHandlerFunc))
       return()
+   
+   # workaround for broken help in reticulate 1.18
+   if (identical(helpHandler, "reticulate:::help_handler"))
+   {
+      text <- paste(source, topic, sep = ".")
+      .Call("rs_showPythonHelp", text, PACKAGE = "(embedding)")
+      return()
+   }
    
    url <- helpHandlerFunc("url", topic, source)
    if (!is.null(url) && nzchar(url)) # handlers return "" for no help topic
@@ -450,6 +465,36 @@ options(help_type = "html")
                    PACKAGE = package))
 })
 
+.rs.addFunction("packageHelpEncoding", function(packagePath)
+{
+   if (!is.character(packagePath) || !file.exists(packagePath))
+      return(.rs.packageHelpEncodingDefault())
+   
+   if (exists(packagePath, envir = .rs.packageHelpEncodingEnv))
+      return(get(packagePath, envir = .rs.packageHelpEncodingEnv))
+   
+   encoding <- tryCatch(
+      .rs.packageHelpEncodingImpl(packagePath),
+      error = function(e) .rs.packageHelpEncodingDefault()
+   )
+   
+   assign(packagePath, encoding, envir = .rs.packageHelpEncodingEnv)
+   encoding
+   
+})
+
+.rs.addFunction("packageHelpEncodingImpl", function(packagePath)
+{
+   desc <- .rs.readPackageDescription(packagePath)
+   .rs.nullCoalesce(desc$Encoding, .rs.packageHelpEncodingDefault())
+})
+
+.rs.addFunction("packageHelpEncodingDefault", function()
+{
+   pref <- .rs.readUiPref("default_encoding")
+   .rs.nullCoalesce(pref, "UTF-8")
+})
+
 .rs.addFunction("getHelp", function(topic,
                                     package = "",
                                     sig = NULL,
@@ -505,9 +550,9 @@ options(help_type = "html")
    }
    
    if (length(helpfiles) <= 0)
-      return ()
+      return()
    
-   file = helpfiles[[1]]
+   file <- helpfiles[[1]]
    path <- dirname(file)
    dirpath <- dirname(path)
    pkgname <- basename(dirpath)
@@ -515,14 +560,52 @@ options(help_type = "html")
    query <- paste("/library/", pkgname, "/html/", basename(file), ".html", sep = "")
    html <- suppressWarnings(tools:::httpd(query, NULL, NULL))$payload
    
-   match = suppressWarnings(regexpr('<body>.*</body>', html))
+   # resolve associated package from helpfile path -- note that help file
+   # paths have the format:
+   #
+   #    <libpath>/<package>/help/<...>
+   #
+   # so we look for the 'help' component and parse from there
+   if (!length(package) || package == "")
+   {
+      parts <- strsplit(file, "/", fixed = TRUE)[[1L]]
+      
+      index <- 0L
+      for (i in rev(seq_along(parts)))
+      {
+         if (identical(parts[[i]], "help"))
+         {
+            index <- i - 1L
+            break
+         }
+      }
+      
+      if (index > 0)
+         package <- parts[[index]]
+   }
+   
+   # try to figure out the encoding for the provided HTML
+   if (length(package) && nzchar(package))
+   {
+      packagePath <- system.file(package = package)
+      if (nzchar(packagePath))
+      {
+         encoding <- .rs.packageHelpEncoding(packagePath)
+         if (identical(encoding, "UTF-8"))
+            Encoding(html) <- "UTF-8"
+      }
+   }
+   
+   # try to extract HTML body
+   match <- suppressWarnings(regexpr('<body>.*</body>', html))
+   
    if (match < 0)
    {
-      html = NULL
+      html <- NULL
    }
    else
    {
-      html = substring(html, match + 6, match + attr(match, 'match.length') - 1 - 7)
+      html <- substring(html, match + 6, match + attr(match, 'match.length') - 1 - 7)
       
       if (subset)
       {   

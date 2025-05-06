@@ -1,7 +1,7 @@
 /*
  * AsyncServerImpl.hpp
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -213,7 +213,7 @@ public:
          core::system::SignalBlocker signalBlocker;
          Error error = signalBlocker.blockAll();
          if (error)
-            return error ;
+            return error;
       
          // create the threads
          for (std::size_t i=0; i < threadPoolSize; ++i)
@@ -224,7 +224,7 @@ public:
                               this));
             
             // add to list of threads
-            threads_.push_back(pThread);            
+            threads_.push_back(pThread);
          }
       }
       catch(const boost::thread_resource_error& e)
@@ -385,6 +385,9 @@ private:
    
    void handleAccept(const boost::system::error_code& ec)
    {
+      if (ec == boost::asio::error::operation_aborted)
+         return;
+
       try
       {
          if (!ec) 
@@ -395,14 +398,12 @@ private:
          }
          else
          {
-            // for errors, log and continue (but don't log operation aborted
-            // or bad file descriptor since it happens in the ordinary course
-            // of shutting down the server)
-            if (ec != boost::asio::error::operation_aborted &&
-                ec != boost::asio::error::bad_descriptor)
+            // for errors, log and continue (but don't log bad file descriptor
+            // since it happens in the ordinary course of shutting down the server)
+            if (ec != boost::asio::error::bad_descriptor)
             {
                // log the error
-               LOG_ERROR(Error(ec, ERROR_LOCATION)) ;
+               LOG_ERROR(Error(ec, ERROR_LOCATION));
                
                // check for resource exhaustion
                checkForResourceExhaustion(ec, ERROR_LOCATION);
@@ -422,7 +423,7 @@ private:
       // ALWAYS accept next connection
       try
       {
-         acceptNextConnection() ;
+         acceptNextConnection();
       }
       CATCH_UNEXPECTED_EXCEPTION
    }
@@ -480,6 +481,8 @@ private:
 
                // get the host header, which indicates the destination for the request
                // we check for proxy values first as any reverse proxies will modify the host header
+               // **Always use proxied URI:** the path may be a little off but the host here is always
+               // correct and that's what we need to use to confirm a cross-origin violation.
                std::string host = URL(pRequest->proxiedUri()).host();
 
                if (!originator.empty() && originator != host)
@@ -555,7 +558,7 @@ private:
          // call handler if we have one
          if (handlerFunc)
          {
-            visitHandler(handlerFunc.get(), pAsyncConnection) ;
+            visitHandler(handlerFunc.get(), pAsyncConnection);
          }
          else
          {
@@ -588,7 +591,7 @@ private:
          continuation(boost::shared_ptr<http::Response>());
    }
 
-   void connectionResponseFilter(const std::string& absoluteUri,
+   void connectionResponseFilter(const http::Request& originalRequest,
                                  http::Response* pResponse)
    {
       // set server header (evade ref-counting to defend against
@@ -602,7 +605,7 @@ private:
       }
 
       if (responseFilter_)
-         responseFilter_(absoluteUri, pResponse);
+         responseFilter_(originalRequest, pResponse);
    }
 
    void waitForScheduledCommandTimer()
@@ -740,7 +743,7 @@ private:
    boost::shared_ptr<boost::asio::ssl::context> sslContext_;
    boost::shared_ptr<AsyncConnectionImpl<typename ProtocolType::socket> > ptrNextConnection_;
    std::set<boost::weak_ptr<AsyncConnectionImpl<typename ProtocolType::socket> >> connections_;
-   AsyncUriHandlers uriHandlers_ ;
+   AsyncUriHandlers uriHandlers_;
    AsyncUriHandlerFunction defaultHandler_;
    std::vector<boost::shared_ptr<boost::thread> > threads_;
    boost::posix_time::time_duration scheduledCommandInterval_;

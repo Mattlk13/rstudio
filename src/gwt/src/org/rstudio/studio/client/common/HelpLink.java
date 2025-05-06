@@ -1,7 +1,7 @@
 /*
  * HelpLink.java
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -33,12 +33,12 @@ public class HelpLink extends Composite
    {
       this("", "", true);
    }
-   
+
    public HelpLink(String caption, String link)
    {
       this(caption, link, true);
    }
-   
+
    public HelpLink(String caption,
                    String link,
                    final boolean withVersionInfo)
@@ -46,8 +46,8 @@ public class HelpLink extends Composite
       this(caption, link, withVersionInfo, true);
    }
 
-   public HelpLink(String caption, 
-                   String link, 
+   public HelpLink(String caption,
+                   String link,
                    final boolean withVersionInfo,
                    boolean isRStudioLink)
    {
@@ -56,7 +56,7 @@ public class HelpLink extends Composite
       withVersionInfo_ = withVersionInfo;
 
       HorizontalPanel helpPanel = new HorizontalPanel();
-    
+
       DecorativeImage helpImage = new DecorativeImage(new ImageResource2x(ThemeResources.INSTANCE.help2x()));
       helpImage.getElement().getStyle().setMarginRight(4, Unit.PX);
       helpPanel.add(helpImage);
@@ -75,7 +75,7 @@ public class HelpLink extends Composite
 
       initWidget(helpPanel);
    }
-   
+
    public void setCaption(String caption)
    {
       helpLink_.setText(caption);
@@ -85,13 +85,13 @@ public class HelpLink extends Composite
    {
       return helpLink_.getText();
    }
-   
+
    public void setLink(String link)
    {
       link_ = link;
       isRStudioLink_ = true;
    }
-   
+
    public void setLink(String link, Boolean isRStudioLink)
    {
       link_ = link;
@@ -107,12 +107,12 @@ public class HelpLink extends Composite
    {
       return isRStudioLink_;
    }
-   
+
    public void setWithVersionInfo(boolean withVersionInfo)
    {
       withVersionInfo_ = withVersionInfo;
    }
-   
+
    public boolean hasFocus()
    {
       Element e = DomUtils.getActiveElement();

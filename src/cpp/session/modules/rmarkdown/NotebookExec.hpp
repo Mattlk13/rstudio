@@ -1,7 +1,7 @@
 /*
  * NotebookExec.hpp
  *
- * Copyright (C) 2009-17 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -31,8 +31,8 @@
 
 namespace rstudio {
 namespace core {
-   class Error;
-   class FilePath;
+class Error;
+class FilePath;
 }
 }
  
@@ -49,21 +49,29 @@ class ChunkExecContext : public NotebookCapture
 {
 public:
    // initialize a new execution context
-   ChunkExecContext(const std::string& docId, const std::string& chunkId,
-         const std::string& nbCtxId, ExecScope execScope, 
-         const core::FilePath& workingDir, const ChunkOptions& options, 
-         int pixelWidth, int charWidth);
+   ChunkExecContext(const std::string& docId,
+                    const std::string& chunkId,
+                    const std::string& chunkCode,
+                    const std::string& chunkLabel,
+                    const std::string& nbCtxId,
+                    const std::string& engine,
+                    ExecScope execScope,
+                    const core::FilePath& workingDir,
+                    const ChunkOptions& options,
+                    int pixelWidth,
+                    int charWidth);
 
    // return execution context from events
    std::string chunkId();
    std::string docId();
+   std::string engine();
    ExecScope execScope();
    const ChunkOptions& options();
 
    // inject console input/output manually
    void onConsoleInput(const std::string& input);
    void onConsoleOutput(module_context::ConsoleOutputType type,
-         const std::string& output);
+                        const std::string& output);
 
    // invoked to indicate that an expression has finished evaluating
    void onExprComplete();
@@ -74,7 +82,7 @@ public:
    void disconnect();
 
 private:
-   void onConsoleText(int type, const std::string& output, bool truncate);
+   void onConsoleText(int type, const std::string& output, bool truncate, bool pending);
    void onConsolePrompt(const std::string&);
    void onFileOutput(const core::FilePath& file, const core::FilePath& sidecar,
         const core::json::Value& metadata, ChunkOutputType outputType, 
@@ -85,7 +93,10 @@ private:
 
    std::string docId_;
    std::string chunkId_;
+   std::string chunkCode_;
+   std::string chunkLabel_;
    std::string nbCtxId_;
+   std::string engine_;
    std::string pendingInput_;
    core::FilePath outputPath_;
    core::FilePath workingDir_;

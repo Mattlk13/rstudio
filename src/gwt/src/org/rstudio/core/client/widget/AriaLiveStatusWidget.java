@@ -1,7 +1,7 @@
 /*
  * AriaLiveStatusWidget.java
  *
- * Copyright (C) 2019-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -40,7 +40,7 @@ public class AriaLiveStatusWidget extends Widget
 
       alertElement_ = Document.get().createDivElement();
       Roles.getAlertRole().set(alertElement_);
-      
+
       getElement().appendChild(statusElement_);
       getElement().appendChild(alertElement_);
    }
@@ -67,7 +67,7 @@ public class AriaLiveStatusWidget extends Widget
       if (clearReaderTimer_.isRunning())
          clearReaderTimer_.cancel();
    }
-   
+
    public void clearMessage()
    {
       statusElement_.setInnerText("");
@@ -77,7 +77,7 @@ public class AriaLiveStatusWidget extends Widget
    /**
     * Timer for reporting the results via aria-live (to avoid interrupting typing)
     */
-   private Timer updateReaderTimer_ = new Timer()
+   private final Timer updateReaderTimer_ = new Timer()
    {
       @Override
       public void run()
@@ -95,7 +95,7 @@ public class AriaLiveStatusWidget extends Widget
    /**
     * Timer for clearing the previous message if nothing new arrives
     */
-   private Timer clearReaderTimer_ = new Timer()
+   private final Timer clearReaderTimer_ = new Timer()
    {
      @Override
      public void run()
@@ -106,8 +106,8 @@ public class AriaLiveStatusWidget extends Widget
 
    private static final int CLEAR_PRIOR_MESSAGE_DELAY = 4000;
    private String resultsMessage_;
-   private Element statusElement_;
-   private Element alertElement_;
+   private final Element statusElement_;
+   private final Element alertElement_;
    private Severity severity_;
-   
+
 }

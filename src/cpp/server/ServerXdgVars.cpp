@@ -1,7 +1,7 @@
 /*
  * ServerXdgVars.cpp
  *
- * Copyright (C) 2020 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -16,8 +16,6 @@
 #include "ServerXdgVars.hpp"
 
 #include <core/system/Xdg.hpp>
-
-#include <server/ServerOptionsOverlay.hpp>
 
 #include <server/ServerSessionManager.hpp>
 

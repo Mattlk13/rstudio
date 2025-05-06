@@ -1,7 +1,7 @@
 /*
  * AriaUtil.java
  *
- * Copyright (C) 2009-2020 by RStudio, Inc.
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -27,9 +27,9 @@ public class AriaUtil
    public static boolean isMenuChecked(MenuitemRole role, Element element)
    {
       if (role instanceof MenuitemradioRole)
-         return Roles.getMenuitemradioRole().getAriaCheckedState(element) == CheckedValue.TRUE.getAriaValue();
+         return StringUtil.equals(Roles.getMenuitemradioRole().getAriaCheckedState(element), CheckedValue.TRUE.getAriaValue());
       else if (role instanceof MenuitemcheckboxRole)
-         return Roles.getMenuitemcheckboxRole().getAriaCheckedState(element) == CheckedValue.TRUE.getAriaValue();
+         return StringUtil.equals(Roles.getMenuitemcheckboxRole().getAriaCheckedState(element), CheckedValue.TRUE.getAriaValue());
       else
          return false;
    }

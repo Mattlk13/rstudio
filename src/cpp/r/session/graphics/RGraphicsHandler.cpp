@@ -1,7 +1,7 @@
 /*
  * RGraphicsHandler.cpp
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -113,6 +113,16 @@ void (*newPage)(const pGEcontext gc, pDevDesc dev);
 void (*mode)(int mode, pDevDesc dev);
 
 void (*onBeforeExecute)(DeviceContext* pDC);
+
+// below added in version 14 (R 4.1.0)
+SEXP (*setPattern)(SEXP pattern, pDevDesc dd);
+void (*releasePattern)(SEXP ref, pDevDesc dd);
+
+SEXP (*setClipPath)(SEXP path, SEXP ref, pDevDesc dd);
+void (*releaseClipPath)(SEXP ref, pDevDesc dd);
+
+SEXP (*setMask)(SEXP path, SEXP ref, pDevDesc dd);
+void (*releaseMask)(SEXP ref, pDevDesc dd);
 
 } // namespace handler
 } // namespace graphics

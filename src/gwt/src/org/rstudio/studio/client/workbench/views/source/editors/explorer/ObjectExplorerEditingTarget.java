@@ -1,7 +1,7 @@
 /*
  * ObjectExplorerEditingTarget.java
  *
- * Copyright (C) 2009-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -46,7 +46,7 @@ public class ObjectExplorerEditingTarget
       events_ = events;
       isActive_ = false;
    }
-   
+
    // Implementation ----
 
    @Override
@@ -91,14 +91,14 @@ public class ObjectExplorerEditingTarget
       view_.onDeactivate();
       isActive_ = false;
    }
-   
+
    @Override
    public void onDismiss(int dismissType)
    {
       // explicitly avoid calling super method as we don't
       // have an associated content URL to clean up
    }
-   
+
    @Override
    public String getPath()
    {
@@ -131,24 +131,24 @@ public class ObjectExplorerEditingTarget
    @Override
    public void popoutDoc()
    {
-      events_.fireEvent(new PopoutDocEvent(getId(), null));
+      events_.fireEvent(new PopoutDocEvent(getId(), null, null));
    }
-   
+
    @Override
    public FileType getFileType()
    {
       return fileType_;
    }
-   
+
    // Public methods ----
-   
+
    public void update(ObjectExplorerHandle handle)
    {
       if (isActive_)
       {
          reloadDisplay();
       }
-      
+
       view_.refresh();
    }
 
@@ -159,7 +159,7 @@ public class ObjectExplorerEditingTarget
    }
 
    // Private methods ----
-   
+
    private void reloadDisplay()
    {
       if (view_ != null)
@@ -167,8 +167,8 @@ public class ObjectExplorerEditingTarget
          view_.removeFromParent();
          view_ = null;
       }
-      
-      view_ = new ObjectExplorerEditingTargetWidget(getHandle(), doc_);
+
+      view_ = new ObjectExplorerEditingTargetWidget(getHandle(), doc_, column_);
       view_.setSize("100%", "100%");
       progressPanel_.setWidget(view_);
    }

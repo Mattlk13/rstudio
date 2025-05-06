@@ -1,7 +1,7 @@
 /*
  * NewRSConnectAuthPage.java
  *
- * Copyright (C) 2009-18 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -372,7 +372,7 @@ public class NewRSConnectAuthPage
    private RSConnectServerOperations server_;
    private GlobalDisplay display_;
    private RSConnectAuthWait contents_;
-   private Value<Boolean> waitingForAuth_ = new Value<Boolean>(false);
+   private Value<Boolean> waitingForAuth_ = new Value<>(false);
    private boolean runningAuthCompleteCheck_ = false;
    private ProgressIndicator wizardIndicator_;
 }

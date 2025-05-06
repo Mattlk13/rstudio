@@ -1,7 +1,7 @@
 /*
  * Header.hpp
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -37,9 +37,9 @@ struct Header
    
    static Header connectionClose() { return Header("Connection", "close"); }
 };
-   
-typedef std::vector<Header> Headers ;
-   
+
+typedef std::vector<Header> Headers;
+
 class HeaderNamePredicate
 {
 public:
@@ -49,20 +49,20 @@ public:
    }
    bool operator()(const Header& header) const;
 private:
-   std::string name_ ;
+   std::string name_;
 };
-   
+
 bool containsHeader(const Headers& headers, const std::string& name);
-   
-Headers::const_iterator findHeader(const Headers& headers, 
+
+Headers::const_iterator findHeader(const Headers& headers,
                                    const std::string& name);
-   
+
 std::string headerValue(const Headers& headers, const std::string& name);
-   
+std::vector<std::string> headerValues(const Headers& headers, const std::string& name);
+
 bool parseHeader(const std::string& line, Header* pHeader);
-   
+
 void parseHeaders(std::istream& is, Headers* pHeaders);
-   
 
 
 } // namespace http

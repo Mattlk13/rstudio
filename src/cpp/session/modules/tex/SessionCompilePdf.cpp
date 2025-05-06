@@ -1,7 +1,7 @@
 /*
  * SessionCompilePdf.cpp
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -628,7 +628,7 @@ private:
       }
       else if (prefs::userPrefs().useTinytex())
       {
-         runTinytex();
+         runTinytex(targetFilePath_);
       }
       else
       {
@@ -642,7 +642,19 @@ private:
    void onWeaveCompleted(const rnw_weave::Result& result)
    {
       if (result.succeeded)
-         runLatexCompiler(true, result.concordances);
+      {
+         if (prefs::userPrefs().useTinytex())
+         {
+            // compute tex file path
+            std::string texFileName = targetFilePath_.getStem() + ".tex";
+            FilePath texFilePath = targetFilePath_.getParent().completePath(texFileName);
+            runTinytex(texFilePath);
+         }
+         else
+         {
+            runLatexCompiler(true, result.concordances);
+         }
+      }
       else if (!result.errorLogEntries.empty())
          terminateWithErrorLogEntries(result.errorLogEntries);
       else
@@ -659,13 +671,15 @@ private:
       onLatexCompileCompleted(status, targetFilePath_);
    }
    
-   void runTinytex()
+   void runTinytex(const FilePath& latexFilePath)
    {
+      Error error;
+
       // build arguments
       using Argument = std::pair<std::string, std::string>;
       std::vector<Argument> latexmkArgs;
       
-      std::string file = string_utils::utf8ToSystem(targetFilePath_.getAbsolutePathNative());
+      std::string file = latexFilePath.getAbsolutePath();
       latexmkArgs.push_back({std::string(), shell_utils::escape(file)});
       
       std::string engine = string_utils::toLower(prefs::userPrefs().defaultLatexProgram());
@@ -692,10 +706,20 @@ private:
                ", ",
                collapse);
       
-      std::string code = "cat(\"Compiling document with tinytex ... \"); invisible(tinytex::latexmk(" + arguments + "))";
-      
+      std::string code =
+            "cat('Compiling document with tinytex ... ');"
+            "invisible(tinytex::latexmk(" + arguments + "))";
+
+      codePath_ = module_context::tempFile("tinytex-runner-", ".R");
+      error = writeStringToFile(codePath_, code);
+      if (error)
+      {
+         terminateWithError(error.getSummary());
+         return;
+      }
+
       FilePath rScriptPath;
-      Error error = module_context::rScriptPath(&rScriptPath);
+      error = module_context::rScriptPath(&rScriptPath);
       if (error)
       {
          terminateWithError(error.getSummary());
@@ -703,15 +727,15 @@ private:
       }
       
       std::vector<std::string> args;
-      args.push_back("--slave");
-      args.push_back("-e");
-      args.push_back(code);
+      args.push_back("-s");
+      args.push_back("-f");
+      args.push_back(string_utils::utf8ToSystem(codePath_.getAbsolutePath()));
       
       error = compile_pdf_supervisor::runProgram(
                rScriptPath,
                args,
                tex::utils::rTexInputsEnvVars(),
-               targetFilePath_.getParent(),
+               latexFilePath.getParent(),
                boost::bind(
                   &AsyncPdfCompiler::onTinytexOutput,
                   AsyncPdfCompiler::shared_from_this(),
@@ -807,6 +831,9 @@ private:
                                 const FilePath& texFilePath,
                                 const rnw_concordance::Concordances& concords = rnw_concordance::Concordances())
    {
+      // remove code file if we had one
+      codePath_.removeIfExists();
+
       // collect errors from the log
       core::tex::LogEntries logEntries;
       getLogEntries(texFilePath, &logEntries);
@@ -895,6 +922,7 @@ private:
 
 private:
    FilePath targetFilePath_;
+   FilePath codePath_;
    std::string encoding_;
    json::Object sourceLocation_;
    const boost::function<void()> onCompleted_;

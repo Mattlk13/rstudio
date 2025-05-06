@@ -1,7 +1,7 @@
 /*
  * RSConnectDeployDialog.java
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -178,6 +178,5 @@ public class RSConnectDeployDialog
    private RSConnectAccount defaultAccount_;
    
    // Map of app URL to the deployment made to that URL
-   private Map<String, RSConnectDeploymentRecord> deployments_ = 
-         new HashMap<String, RSConnectDeploymentRecord>();
+   private Map<String, RSConnectDeploymentRecord> deployments_ = new HashMap<>();
 }

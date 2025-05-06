@@ -1,7 +1,7 @@
 /*
  * markdown_highlight_rules.js
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * The Initial Developer of the Original Code is
  * Ajax.org B.V.
@@ -62,6 +62,19 @@ var RMarkdownHighlightRules = function() {
       this.$reChunkEndString,
       ["start", "listblock", "allowBlock"]
    );
+
+   // Embed R highlight rules for inline chunks
+   // NOTE: disabled for now as we need to do more work to ensure
+   // such inline chunks are properly disambiguated from regular chunks
+   // Utils.embedRules(
+   //    this,
+   //    RHighlightRules,
+   //    "r-inline",
+   //    "`r ",
+   //    "`",
+   //    ["start", "listblock", "allowBlock"]
+   // );
+
 
    // Embed C++ highlight rules
    Utils.embedRules(
@@ -189,7 +202,7 @@ oop.inherits(RMarkdownHighlightRules, TextHighlightRules);
    this.$reChunkEndString =
       "^(?:[ ]{4})?`{3,}\\s*$";
 
-   this.$reCppChunkStartString        = engineRegex("(?:[rR][cC]pp|[cC](?:pp)?)");
+   this.$reCppChunkStartString        = engineRegex("(?:[rR][cC]pp|[cC](?:pp)?)\\d*");
    this.$reMarkdownChunkStartString   = engineRegex("block");
    this.$rePerlChunkStartString       = engineRegex("perl");
    this.$rePythonChunkStartString     = engineRegex("python");

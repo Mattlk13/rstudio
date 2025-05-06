@@ -1,7 +1,7 @@
 /*
  * GwtFileHandler.cpp
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -42,11 +42,7 @@ struct FileRequestOptions
    std::string initJs;
    std::string gwtPrefix;
    bool useEmulatedStack;
-   struct CookieOptions
-   {
-      bool useSecureCookies;
-      bool iFrameLegacyCookies;
-   } cookies;
+   std::string serverHomepagePath;
    std::string frameOptions;
 };
 
@@ -89,7 +85,7 @@ void handleFileRequest(const FileRequestOptions& options,
       {
          // if the filter returns false it means we should stop processing
          if (!options.mainPageFilter(request, pResponse))
-            return ;
+            return;
       }
 
       // apply browser compatibility headers
@@ -133,13 +129,8 @@ void handleFileRequest(const FileRequestOptions& options,
                          (request.queryParamValue("emulatedStack") == "1");
       vars["compiler_stack_mode"] = useEmulatedStack ? "emulated" : "native";
 
-      // polyfill for IE11 (only)
-      std::string polyfill = "<script type=\"text/javascript\" language=\"javascript\" src=\"js/core-js/minified.js\"></script>\n";
-      if (regex_utils::match(request.userAgent(), boost::regex(".*Trident.*"))) {
-         vars["head_tags"] = polyfill;
-      } else {
-         vars["head_tags"] = std::string();
-      }
+      // initialize head_tags
+      vars["head_tags"] = std::string();
 
       // check for initJs
       if (!options.initJs.empty())
@@ -154,8 +145,11 @@ void handleFileRequest(const FileRequestOptions& options,
       vars["viewport_tag"] = std::string();
 #endif
 
+      // pass link to server homepage (will be empty if homepage isn't active)
+      vars["server_homepage"] = options.serverHomepagePath;
+
       // read existing CSRF token
-      std::string csrfToken = request.cookieValue(kCSRFTokenCookie, options.cookies.iFrameLegacyCookies);
+      std::string csrfToken = request.cookieValue(kCSRFTokenCookie);
       vars["csrf_token"] = string_utils::htmlEscape(csrfToken, true /* isAttribute */);
 
       // don't allow main page to be framed by other domains (clickjacking
@@ -169,8 +163,8 @@ void handleFileRequest(const FileRequestOptions& options,
    // case: normal cacheable file
    else
    {
-      // since these are application components we force revalidation
-      pResponse->setCacheWithRevalidationHeaders();
+      // since these are application components we force revalidation (default behavior of
+      // setCacheableFile)
       pResponse->setCacheableFile(filePath, request);
    }
 }
@@ -179,21 +173,17 @@ void handleFileRequest(const FileRequestOptions& options,
    
 http::UriHandlerFunction fileHandlerFunction(
                                        const std::string& wwwLocalPath,
-                                       bool useSecureCookies,
-                                       bool iFrameLegacyCookies,
                                        const std::string& baseUri,
                                        http::UriFilterFunction mainPageFilter,
                                        const std::string& initJs,
                                        const std::string& gwtPrefix,
                                        bool useEmulatedStack,
+                                       const std::string& serverHomepagePath,
                                        const std::string& frameOptions)
 {
    FileRequestOptions options { wwwLocalPath, baseUri, mainPageFilter, initJs,
-                                gwtPrefix, useEmulatedStack, 
-                                FileRequestOptions::CookieOptions {
-                                   useSecureCookies,
-                                   iFrameLegacyCookies
-                                }, frameOptions };
+                                gwtPrefix, useEmulatedStack, serverHomepagePath,
+                                frameOptions };
 
    return boost::bind(handleFileRequest,
                       options,

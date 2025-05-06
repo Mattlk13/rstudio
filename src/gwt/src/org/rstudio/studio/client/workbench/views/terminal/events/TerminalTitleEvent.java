@@ -1,7 +1,7 @@
 /*
  * TerminalTitleEvent.java
  *
- * Copyright (C) 2009-18 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -22,7 +22,7 @@ import com.google.gwt.event.shared.EventHandler;
 import com.google.gwt.event.shared.GwtEvent;
 
 /**
- * Send by an XTermSession that has processed an xterm.js title-change event 
+ * Send by an XTermSession that has processed an xterm.js title-change event
  * and updated its title property.
  */
 public class TerminalTitleEvent extends GwtEvent<Handler>
@@ -35,7 +35,7 @@ public class TerminalTitleEvent extends GwtEvent<Handler>
        */
       void onTerminalTitle(TerminalTitleEvent event);
    }
-   
+
    public TerminalTitleEvent(TerminalSession terminalSession)
    {
       terminalSession_ = terminalSession;
@@ -52,13 +52,13 @@ public class TerminalTitleEvent extends GwtEvent<Handler>
    {
       handler.onTerminalTitle(this);
    }
-   
+
    public TerminalSession getTerminalSession()
    {
       return terminalSession_;
    }
-  
+
    private TerminalSession terminalSession_;
-   
+
    public static final Type<Handler> TYPE = new Type<>();
 }

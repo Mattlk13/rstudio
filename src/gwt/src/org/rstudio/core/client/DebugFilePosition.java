@@ -1,7 +1,7 @@
 /*
  * DebugFilePosition.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -26,7 +26,7 @@ public class DebugFilePosition extends JavaScriptObject
          int column,
          int endColumn) /*-{
       return {
-         line: line, 
+         line: line,
          end_line: endLine,
          column: column,
          end_column: endColumn
@@ -40,13 +40,13 @@ public class DebugFilePosition extends JavaScriptObject
    public native final int getColumn() /*-{
       return this.column;
    }-*/;
-   
+
    public native final int getEndLine() /*-{
       return this.end_line;
    }-*/;
-   
+
    public native final int getEndColumn() /*-{
-      return this.end_column; 
+      return this.end_column;
    }-*/;
 
    public final int compareTo(DebugFilePosition other)
@@ -60,14 +60,14 @@ public class DebugFilePosition extends JavaScriptObject
 
       return getColumn() - other.getColumn();
    }
-   
+
    public native final DebugFilePosition functionRelativePosition(
-         int startLine) /*-{    
+         int startLine) /*-{
       return {
-         line: this.line - startLine, 
+         line: this.line - startLine,
          column: this.column,
          end_line: this.end_line - startLine,
          end_column: this.end_column
-      }      
+      }
    }-*/;
 }

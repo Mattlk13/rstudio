@@ -1,7 +1,7 @@
 /*
  * PanmirrorThemeCreator.java
  *
- * Copyright (C) 2009-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -16,6 +16,8 @@
 package org.rstudio.studio.client.panmirror.theme;
 
 import org.rstudio.core.client.BrowseCap;
+import org.rstudio.core.client.StringUtil;
+import org.rstudio.core.client.ColorUtil.RGBColor;
 import org.rstudio.core.client.dom.DomUtils;
 import org.rstudio.core.client.theme.ThemeColors;
 import org.rstudio.core.client.theme.ThemeFonts;
@@ -34,8 +36,14 @@ public class PanmirrorThemeCreator
       
       // set mode info
       theme.darkMode = aceTheme.isDark();
+      theme.solarizedMode = aceTheme.isSolarizedLight();
       
-      theme.cursorColor = DomUtils.extractCssValue("ace_cursor", "color");
+      // get cursor color (work around themes that don't set the ace_cursor color
+      // but instead style the cursor via a border styling)
+      String cursorColor = DomUtils.extractCssValue("ace_cursor", "color");
+      if (aceTheme.isDark() && StringUtil.equals(cursorColor, "rgb(0, 0, 0)"))
+         cursorColor = "white";
+      theme.cursorColor = cursorColor;
       
       // selection color
       if (aceTheme.isDark())
@@ -69,6 +77,9 @@ public class PanmirrorThemeCreator
       theme.lightTextColor = DomUtils.extractCssValue("ace_support ace_function", "color");
       theme.linkTextColor = DomUtils.extractCssValue("ace_keyword", "color");
       theme.markupTextColor = DomUtils.extractCssValue("ace_markup ace_list ace_string", "color");
+      
+      theme.placeholderTextColor = theme.darkMode ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.3)";
+      theme.invisibleTextColor = DomUtils.extractCssValue("ace_invisible", "color");
       
       theme.commentColor = DomUtils.extractCssValue("ace_comment-highlight", "color");
       theme.commentBackgroundColor = DomUtils.extractCssValue("ace_comment-highlight", "backgroundColor");
@@ -122,6 +133,16 @@ public class PanmirrorThemeCreator
       code.linkColor = theme.linkTextColor;
       code.errorColor = DomUtils.extractCssValue(AceTheme.getThemeErrorClass(aceTheme), "color"); 
       theme.code = code;
+      
+      // in dark mode, derive theh find text background color from an alpha of the
+      // string highlight color (w/o that it tends to be hard to pick up, especially
+      // with other text (e.g. inline code) having it's down background highlight)
+      if (aceTheme.isDark())
+      {
+         RGBColor rgbString = RGBColor.fromCss(code.stringColor);
+         theme.findTextBackgroundColor = rgbString.withAlpha(0.1).asRgb();
+         theme.findTextBorderColor = rgbString.withAlpha(0.5).asRgb();
+      }
       
       return theme;
    }

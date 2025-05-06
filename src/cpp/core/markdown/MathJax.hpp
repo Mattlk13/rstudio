@@ -1,7 +1,7 @@
 /*
  * MathJax.hpp
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -12,6 +12,9 @@
  * AGPL (http://www.gnu.org/licenses/agpl-3.0.txt) for more details.
  *
  */
+
+#ifndef CORE_MARKDOWN_MATHJAX_HPP
+#define CORE_MARKDOWN_MATHJAX_HPP
 
 #include <string>
 #include <vector>
@@ -84,7 +87,5 @@ bool requiresMathjax(const std::string& htmlOutput);
 } // namespace markdown
 } // namespace core
 } // namespace rstudio
-   
 
-
-
+#endif /* CORE_MARKDOWN_MATHJAX_HPP*/

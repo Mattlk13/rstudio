@@ -1,7 +1,7 @@
 /*
  * LaunchPlumberAPIEvent.java
  *
- * Copyright (C) 2009-18 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -30,7 +30,7 @@ public class LaunchPlumberAPIEvent
    }
 
    public static final GwtEvent.Type<LaunchPlumberAPIEvent.Handler> TYPE =
-      new GwtEvent.Type<LaunchPlumberAPIEvent.Handler>();
+      new GwtEvent.Type<>();
    
    public LaunchPlumberAPIEvent()
    {

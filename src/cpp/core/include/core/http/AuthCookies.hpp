@@ -1,7 +1,7 @@
 /*
  * AuthCookies.hpp
  *
- * Copyright (C) 2009-2020 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -19,5 +19,15 @@
 #define kUserIdCookie      "user-id"
 #define kUserListCookie    "user-list-id"
 #define kPersistAuthCookie "persist-auth"
+
+#define kSameSiteOmitOption ""
+#define kSameSiteNoneOption "none"
+#define kSameSiteLaxOption  "lax"
+// Strict is **too strict** and may confuse customers. Better not have it unless explicitly requested.
+// If we were to have this option, selecting it would cause the browser to omit existing cookies when:
+// - Visiting from email links to RStudio, what would **always** require a new sign-in.
+// - Visiting links on other sites to RStudio, what would **always** require a new sign-in.
+// That's because `SameSite=Strict` requires that even the `referal` header points to the same site.
+//#define kSameSiteStrictOption  "strict"
 
 #endif // AUTH_COOKIES_HPP

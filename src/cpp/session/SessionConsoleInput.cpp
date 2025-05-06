@@ -1,7 +1,7 @@
 /*
  * SessionConsoleInput.cpp
  *
- * Copyright (C) 2009-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -44,7 +44,7 @@ namespace console_input {
 namespace {
 
 // queue of pending console input
-using ConsoleInputQueue = std::queue<rstudio::r::session::RConsoleInput>;
+using ConsoleInputQueue = std::deque<rstudio::r::session::RConsoleInput>;
 ConsoleInputQueue s_consoleInputBuffer;
 
 // manage global state indicating whether R is processing input
@@ -62,8 +62,10 @@ void setExecuting(bool executing)
 void enqueueConsoleInput(const rstudio::r::session::RConsoleInput& input)
 {
    json::Object data;
-   data[kConsoleText] = input.text + "\n";
-   data[kConsoleId]   = input.console;
+   data[kConsoleText]  = input.text + "\n";
+   data[kConsoleId]    = input.console;
+   data[kConsoleFlags] = input.flags;
+   
    ClientEvent inputEvent(client_events::kConsoleWriteInput, data);
    clientEventQueue().add(inputEvent);
 }
@@ -74,8 +76,8 @@ void consolePrompt(const std::string& prompt, bool addToHistory)
    s_lastPrompt = prompt;
 
    // enque the event
-   json::Object data ;
-   data["prompt"] = prompt ;
+   json::Object data;
+   data["prompt"] = prompt;
    data["history"] = addToHistory;
    bool isDefaultPrompt = 
       prompt == rstudio::r::options::getOption<std::string>("prompt");
@@ -86,7 +88,7 @@ void consolePrompt(const std::string& prompt, bool addToHistory)
    clientEventQueue().add(consolePromptEvent);
    
    // allow modules to detect changes after execution of previous REPL
-   module_context::events().onDetectChanges(module_context::ChangeSourceREPL);   
+   module_context::events().onDetectChanges(module_context::ChangeSourceREPL);
 
    // call prompt hook
    module_context::events().onConsolePrompt(prompt);
@@ -107,43 +109,23 @@ bool canSuspend(const std::string& prompt)
 // extract console input -- can be either null (user hit escape) or a string
 Error extractConsoleInput(const json::JsonRpcRequest& request)
 {
-   if (request.params.getSize() == 2)
-   {
-      // ensure the caller specified the requesting console
-      std::string console;
-      if (request.params[1].getType() == json::Type::STRING)
-      {
-         console = request.params[1].getString();
-      }
-      else
-      {
-         return Error(json::errc::ParamTypeMismatch, ERROR_LOCATION);
-      }
-
-      // extract the requesting console
-      if (request.params[0].isNull())
-      {
-         addToConsoleInputBuffer(rstudio::r::session::RConsoleInput(console));
-         return Success();
-      }
-      else if (request.params[0].getType() == json::Type::STRING)
-      {
-         // get console input to return to R
-         std::string text = request.params[0].getString();
-         addToConsoleInputBuffer(rstudio::r::session::RConsoleInput(text, console));
-
-         // return success
-         return Success();
-      }
-      else
-      {
-         return Error(json::errc::ParamTypeMismatch, ERROR_LOCATION);
-      }
-   }
-   else
-   {
-      return Error(json::errc::ParamMissing, ERROR_LOCATION);
-   }
+   std::string text;
+   std::string console;
+   int flags = 0;
+   
+   Error error = core::json::readParams(
+            request.params,
+            &text,
+            &console,
+            &flags);
+   
+   if (error)
+      return error;
+   
+   using namespace r::session;
+   addToConsoleInputBuffer(RConsoleInput(text, console, flags));
+   
+   return Success();
 }
 
 bool executing()
@@ -171,11 +153,13 @@ namespace {
 // code is going to be sent to the reticulate Python REPL.
 void fixupPendingConsoleInput()
 {
+   using namespace r::session;
+   
    // get next input
    auto input = s_consoleInputBuffer.front();
    
    // nothing to do if this is a cancel
-   if (input.cancel)
+   if (input.isCancel() || input.isEof())
       return;
    
    // if this has no newlines, then nothing to do
@@ -188,15 +172,21 @@ void fixupPendingConsoleInput()
    bool pyReplActive = modules::reticulate::isReplActive();
    
    // pop off current input (we're going to split and re-push now)
-   s_consoleInputBuffer.pop();
+   s_consoleInputBuffer.pop_front();
    
    // does this Python line start an indented block?
    // NOTE: should consider using tokenizer here
    boost::regex reBlockStart(":\\s*(?:#|$)");
    
+   // used to detect whitespace-only lines
+   boost::regex reWhitespace("^\\s*$");
+   
    // keep track of the indentation used for the current block
    // of Python code (default to no indent)
    std::string blockIndent;
+   
+   // pending console input (we'll need to push this to the front of the queue)
+   std::vector<RConsoleInput> pendingInputs;
    
    // split input into list of commands
    std::vector<std::string> lines = core::algorithm::split(input.text, "\n");
@@ -209,7 +199,9 @@ void fixupPendingConsoleInput()
       if (pyReplActive)
       {
          // if the line is empty, then replace it with the appropriate indent
-         if (line.empty())
+         // (exclude last line in selection so that users submitting a whole
+         // 'block' will see that block 'closed')
+         if (line.empty() && i != n - 1)
          {
             line = blockIndent;
          }
@@ -224,12 +216,22 @@ void fixupPendingConsoleInput()
          // if it looks like we're starting a new Python block,
          // then update our indent. perform a lookahead for the
          // next non-blank line, and use that line's indent
-         else if (boost::regex_search(line, reBlockStart))
+         else if (regex_utils::search(line, reBlockStart))
          {
             for (std::size_t j = i + 1; j < n; j++)
             {
                const std::string& lookahead = lines[j];
-               if (lookahead.empty())
+               
+               // skip blank / whitespace-only lines, to allow
+               // for cases like:
+               //
+               //    def foo():
+               //
+               //        x = 1
+               //
+               // where there might be empty whitespace between
+               // the function definition and the start of its body
+               if (regex_utils::match(lookahead, reWhitespace))
                   continue;
                
                blockIndent = string_utils::extractIndent(lookahead);
@@ -246,7 +248,7 @@ void fixupPendingConsoleInput()
          //    "foo"         <--
          //
          // so update the indent in that case
-         else
+         else if (!regex_utils::match(line, reWhitespace))
          {
             std::string lineIndent = string_utils::extractIndent(line);
             if (lineIndent.length() < blockIndent.length())
@@ -264,8 +266,17 @@ void fixupPendingConsoleInput()
       }
    
       // add to buffer
-      s_consoleInputBuffer.push(rstudio::r::session::RConsoleInput(line, input.console));
+      pendingInputs.push_back(
+               RConsoleInput(line, input.console, input.flags));
       
+   }
+   
+   // now push the pending inputs to the front of the queue
+   for (auto it = pendingInputs.rbegin();
+        it != pendingInputs.rend();
+        it++)
+   {
+      s_consoleInputBuffer.push_front(*it);
    }
 }
 
@@ -273,7 +284,7 @@ void popConsoleInput(rstudio::r::session::RConsoleInput* pConsoleInput)
 {
    fixupPendingConsoleInput();
    *pConsoleInput = s_consoleInputBuffer.front();
-   s_consoleInputBuffer.pop();
+   s_consoleInputBuffer.pop_front();
 }
 
 } // end anonymous namespace
@@ -309,7 +320,7 @@ bool rConsoleRead(const std::string& prompt,
          consolePrompt(prompt, addToHistory);
 
       // wait for console_input
-      json::JsonRpcRequest request ;
+      json::JsonRpcRequest request;
       bool succeeded = http_methods::waitForMethod(
                         kConsoleInput,
                         boost::bind(consolePrompt, prompt, addToHistory),
@@ -327,7 +338,7 @@ bool rConsoleRead(const std::string& prompt,
       if (error)
       {
          LOG_ERROR(error);
-         *pConsoleInput = rstudio::r::session::RConsoleInput("", "");
+         *pConsoleInput = rstudio::r::session::RConsoleInput();
       }
       else
       {
@@ -336,7 +347,7 @@ bool rConsoleRead(const std::string& prompt,
    }
 
    // fire onBeforeExecute and onConsoleInput events if this isn't a cancel
-   if (!pConsoleInput->cancel)
+   if (!pConsoleInput->isCancel())
    {
       module_context::events().onBeforeExecute();
       module_context::events().onConsoleInput(pConsoleInput->text);
@@ -348,8 +359,9 @@ bool rConsoleRead(const std::string& prompt,
    // ensure that output resulting from this input goes to the correct console
    if (clientEventQueue().setActiveConsole(pConsoleInput->console))
    {
-      module_context::events().onActiveConsoleChanged(pConsoleInput->console,
-            pConsoleInput->text);
+      module_context::events().onActiveConsoleChanged(
+               pConsoleInput->console,
+               pConsoleInput->text);
    }
 
    ClientEvent promptEvent(client_events::kConsoleWritePrompt, prompt);
@@ -362,7 +374,7 @@ bool rConsoleRead(const std::string& prompt,
 
 void addToConsoleInputBuffer(const rstudio::r::session::RConsoleInput& consoleInput)
 {
-   s_consoleInputBuffer.push(consoleInput);
+   s_consoleInputBuffer.push_back(consoleInput);
 }
 
 } // namespace console_input 

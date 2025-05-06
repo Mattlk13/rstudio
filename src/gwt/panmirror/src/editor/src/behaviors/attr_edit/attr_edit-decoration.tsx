@@ -1,7 +1,7 @@
 /*
  * attr_edit-decoration.tsx
  *
- * Copyright (C) 2019-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -16,18 +16,18 @@
 import { Plugin, PluginKey, Transaction, EditorState } from 'prosemirror-state';
 import { DecorationSet, EditorView, Decoration } from 'prosemirror-view';
 
-import { findParentNodeOfType } from 'prosemirror-utils';
-
 import * as React from 'react';
 
 import { EditorUI } from '../../api/ui';
 import { AttrEditOptions } from '../../api/attr_edit';
+import { ImageButton } from '../../api/widgets/button';
 import { CommandFn } from '../../api/command';
-import { AttrProps } from '../../api/ui';
+import { AttrProps } from '../../api/ui-dialogs';
 import { WidgetProps, reactRenderForEditorView } from '../../api/widgets/react';
+import { PandocExtensions } from '../../api/pandoc';
 
 import { kEditAttrShortcut } from './attr_edit';
-import { attrEditCommandFn } from './attr_edit-command';
+import { attrEditNodeCommandFn } from './attr_edit-command';
 
 import './attr_edit-decoration.css';
 
@@ -42,7 +42,7 @@ interface AttrEditDecorationProps extends WidgetProps {
 const AttrEditDecoration: React.FC<AttrEditDecorationProps> = props => {
   const buttonTitle = `${props.ui.context.translateText('Edit Attributes')} (${kEditAttrShortcut})`;
 
-  const onClick = (e: React.MouseEvent) => {
+  const onClick = () => {
     props.editFn(props.view.state, props.view.dispatch, props.view);
   };
 
@@ -61,13 +61,15 @@ const AttrEditDecoration: React.FC<AttrEditDecorationProps> = props => {
             );
           })
         : null}
-      <span
-        className="attr-edit-button attr-edit-widget pm-block-border-color pm-border-background-color"
-        title={buttonTitle}
-        onClick={onClick}
-      >
-        <span className="attr-edit-button-ellipsis">&#x2022;&#x2022;&#x2022;</span>
-      </span>
+      {props.editFn(props.view.state) ? (
+        <ImageButton
+          classes={['attr-edit-button']}
+          image={props.ui.prefs.darkMode() ? props.ui.images.properties_deco_dark! : props.ui.images.properties_deco!}
+          title={buttonTitle}
+          tabIndex={-1}
+          onClick={onClick}
+        />
+      ) : null}
     </div>
   );
 };
@@ -75,7 +77,7 @@ const AttrEditDecoration: React.FC<AttrEditDecorationProps> = props => {
 const key = new PluginKey<DecorationSet>('attr_edit_decoration');
 
 export class AttrEditDecorationPlugin extends Plugin<DecorationSet> {
-  constructor(ui: EditorUI, editors: AttrEditOptions[]) {
+  constructor(ui: EditorUI, pandocExtensions: PandocExtensions, editors: AttrEditOptions[]) {
     super({
       key,
       state: {
@@ -85,13 +87,30 @@ export class AttrEditDecorationPlugin extends Plugin<DecorationSet> {
         apply: (tr: Transaction, old: DecorationSet, _oldState: EditorState, newState: EditorState) => {
           // node types
           const schema = newState.schema;
-          const nodeTypes = editors.map(editor => editor.type(schema));
+          const nodeTypes = editors.map(ed => ed.type(schema));
 
-          // provide decoration if selection is contained within a heading, div, or code block
-          const parentWithAttrs = findParentNodeOfType(nodeTypes)(tr.selection);
-          if (parentWithAttrs) {
-            // get editor options + provide defaults
+          // decorations to return
+          const decorations: Decoration[] = [];
+
+          // start from current selection
+          const $head = tr.selection.$head;
+
+          for (let i=1; i<=$head.depth; i++) {
+
+            const parentWithAttrs = { node: $head.node(i), pos: $head.before(i) };
+            if (!nodeTypes.includes(parentWithAttrs.node.type)) {
+              continue;
+            }
+
+            // get editor
             const editor = editors.find(ed => ed.type(schema) === parentWithAttrs.node.type)!;
+
+            // screen for noDecorator
+            if (editor.noDecorator) {
+              continue;
+            }
+
+            // provide some editor defaults
             editor.tags =
               editor.tags ||
               (editorNode => {
@@ -100,14 +119,14 @@ export class AttrEditDecorationPlugin extends Plugin<DecorationSet> {
                   attrTags.push(`#${editorNode.attrs.id}`);
                 }
                 if (editorNode.attrs.classes && editorNode.attrs.classes.length) {
-                  attrTags.push(`.${editorNode.attrs.classes[0]}`);
+                  attrTags.push(`${editorNode.attrs.classes.map((clz: string) => '.' + clz).join(' ')}`);
                 }
                 return attrTags;
               });
             editor.offset = editor.offset || { top: 0, right: 0 };
 
             // get editFn
-            const editFn = (editorUI: EditorUI) => attrEditCommandFn(editorUI, editors);
+            const editFn = (editorUI: EditorUI) => attrEditNodeCommandFn(parentWithAttrs, editorUI, pandocExtensions, editors);
 
             // get attrs/tags
             const node = parentWithAttrs.node;
@@ -169,11 +188,12 @@ export class AttrEditDecorationPlugin extends Plugin<DecorationSet> {
               },
             );
 
-            // return decorations
-            return DecorationSet.create(tr.doc, [attrEditDecoration]);
-          } else {
-            return DecorationSet.empty;
+            decorations.push(attrEditDecoration);
           }
+
+         
+          // return decorations
+          return DecorationSet.create(tr.doc, decorations);
         },
       },
       props: {

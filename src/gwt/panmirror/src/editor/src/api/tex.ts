@@ -1,7 +1,7 @@
 /*
  * tex.ts
  *
- * Copyright (C) 2019-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -18,6 +18,13 @@
 //   0: Not tex content
 //  >1: Length of valid tex string
 export function texLength(text: string) {
+
+  // if tex includes newlines it's auto-valid (could be math)
+  if (text.includes('\n')) {
+    return text.length;
+  }
+  
+
   let braceLevel = 0;
   let bracketLevel = 0;
 
@@ -34,10 +41,10 @@ export function texLength(text: string) {
       return 0;
     }
 
-    // only letters and open brace/bracket allowed (unless we are in braces or brackets)
+    // only letters, backslashes, and open brace/bracket allowed (unless we are in braces or brackets)
     const inBraces = braceLevel >= 1;
     const inBrackets = bracketLevel >= 1;
-    if (i > 0 && !isLetter(ch) && ch !== '{' && ch !== '[' && !inBraces && !inBrackets) {
+    if (i > 0 && !isLetter(ch) && ch !== '\\' && ch !== '{' && ch !== '[' && !inBraces && !inBrackets) {
       return i;
     }
 

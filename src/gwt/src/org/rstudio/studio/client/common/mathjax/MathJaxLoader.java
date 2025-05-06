@@ -1,7 +1,7 @@
 /*
  * MathJaxLoader.java
  *
- * Copyright (C) 2009-16 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -116,7 +116,8 @@ public class MathJaxLoader
          skipStartupTypeset: true,
          menuSettings: {
             zoom: "None",
-            context: "Browser"
+            context: "Browser",
+            inTabOrder: false,
          }
       };
 
@@ -136,7 +137,7 @@ public class MathJaxLoader
       return el;
    }
    
-   private static List<Callback> MATHJAX_CALLBACKS = new ArrayList<Callback>();
+   private static List<Callback> MATHJAX_CALLBACKS = new ArrayList<>();
    private static boolean MATHJAX_LOADED = false;
    private static int RETRY_COUNT = 0;
    

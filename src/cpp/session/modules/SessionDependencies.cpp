@@ -1,7 +1,7 @@
 /*
  * SessionDependencies.cpp
  *
- * Copyright (C) 2009-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -16,8 +16,8 @@
 #include "SessionDependencies.hpp"
 #include "SessionPackages.hpp"
 
-#include <boost/bind.hpp>
 #include <boost/algorithm/string/join.hpp>
+#include <boost/bind/bind.hpp>
 
 #include <shared_core/Error.hpp>
 #include <core/Exec.hpp>
@@ -36,6 +36,7 @@
 #include "jobs/ScriptJob.hpp"
 
 using namespace rstudio::core;
+using namespace boost::placeholders;
 
 namespace rstudio {
 namespace session {
@@ -354,7 +355,9 @@ std::string buildCombinedInstallScript(const std::vector<Dependency>& deps)
       }
    }
 
-   // Install the CRAN packages with a single call
+   // Install the CRAN packages with a single call. Note that we do not pass the repos option to
+   // install.packages() since default CRAN repos are already set in the session via
+   // an earlier call to .rs.CRANDownloadOptionsString().
    if (!cranPackages.empty())
    {
       std::string pkgList = boost::algorithm::join(cranPackages, ",");
@@ -365,10 +368,8 @@ std::string buildCombinedInstallScript(const std::vector<Dependency>& deps)
       }
       else
       {
-         cmd += "utils::install.packages(c(" + pkgList + "), " +
-                "repos = '"+ module_context::CRANReposURL() + "'";
-         cmd += ")\n\n";
-      }
+         cmd += "utils::install.packages(c(" + pkgList + ")\n\n";
+     }
    }
 
    // Install the CRAN source packages with a single call
@@ -382,8 +383,7 @@ std::string buildCombinedInstallScript(const std::vector<Dependency>& deps)
       }
       else
       {
-         cmd += "utils::install.packages(c(" + pkgList + "), " +
-                "repos = '"+ module_context::CRANReposURL() + "', ";
+         cmd += "utils::install.packages(c(" + pkgList + "), ";
          cmd += "type = 'source')\n\n";
       }
    }
@@ -635,7 +635,7 @@ Error initialize()
    // install handlers
    using boost::bind;
    using namespace session::module_context;
-   ExecBlock initBlock ;
+   ExecBlock initBlock;
    initBlock.addFunctions()
       (bind(sourceModuleRFile, "SessionDependencies.R"))
       (bind(registerRpcMethod, "unsatisfied_dependencies", unsatisfiedDependencies))

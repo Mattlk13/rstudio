@@ -1,7 +1,7 @@
 /*
  * FileTypeChangedEvent.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -14,25 +14,30 @@
  */
 package org.rstudio.studio.client.workbench.views.source.editors.text.events;
 
+import com.google.gwt.event.shared.EventHandler;
 import com.google.gwt.event.shared.GwtEvent;
 
-public class FileTypeChangedEvent extends GwtEvent<FileTypeChangedHandler>
+public class FileTypeChangedEvent extends GwtEvent<FileTypeChangedEvent.Handler>
 {
-   public static final Type<FileTypeChangedHandler> TYPE =
-         new Type<FileTypeChangedHandler>();
+   public static final Type<Handler> TYPE = new Type<>();
+
+   public interface Handler extends EventHandler
+   {
+      void onFileTypeChanged(FileTypeChangedEvent event);
+   }
 
    public FileTypeChangedEvent()
    {
    }
 
    @Override
-   public Type<FileTypeChangedHandler> getAssociatedType()
+   public Type<Handler> getAssociatedType()
    {
       return TYPE;
    }
 
    @Override
-   protected void dispatch(FileTypeChangedHandler handler)
+   protected void dispatch(Handler handler)
    {
       handler.onFileTypeChanged(this);
    }

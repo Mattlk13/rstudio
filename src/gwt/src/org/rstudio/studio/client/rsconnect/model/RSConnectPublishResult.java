@@ -1,7 +1,7 @@
 /*
  * RSConnectPublishResult.java
  *
- * Copyright (C) 2009-15 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -20,7 +20,7 @@ public class RSConnectPublishResult
 {
    public RSConnectPublishResult(RSConnectPublishSource source)
    {
-      ArrayList<String> deployFiles = new ArrayList<String>();
+      ArrayList<String> deployFiles = new ArrayList<>();
       deployFiles.add(source.getDeployFile());
       publishType_ = PUBLISH_RPUBS;
       appName_     = ""; 

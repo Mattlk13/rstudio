@@ -1,7 +1,7 @@
 /*
  * EditingTargetCodeExecution.java
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -70,6 +70,7 @@ public class EditingTargetCodeExecution
       docDisplay_ = display;
       codeExtractor_ = codeExtractor;
       docId_ = docId;
+      appendLinesAtEnd_ = true;
       inlineChunkExecutor_ = new EditingTargetInlineChunkExecution(
             display, docId);
       RStudioGinjector.INSTANCE.injectMembers(this);
@@ -90,16 +91,17 @@ public class EditingTargetCodeExecution
    public void executeSelection(boolean consoleExecuteWhenNotFocused,
                                 boolean moveCursorAfter)
    {
-      executeSelectionMaybeNoFocus(consoleExecuteWhenNotFocused,
+      executeSelectionMaybeNoFocus(
+            consoleExecuteWhenNotFocused,
             moveCursorAfter,
             null,
             false);
    }
    
    public void executeSelection(boolean consoleExecuteWhenNotFocused,
-         boolean moveCursorAfter,
-         String functionWrapper,
-         boolean onlyUseConsole)
+                                boolean moveCursorAfter,
+                                String functionWrapper,
+                                boolean onlyUseConsole)
    {
       // when executing LaTeX in R Markdown, show a popup preview
       if (executeLatex(false))
@@ -163,18 +165,7 @@ public class EditingTargetCodeExecution
       // advance if there is no current selection
       if (noSelection && moveCursorAfter)
       {
-         if (DocumentMode.isCursorInPythonMode(docDisplay_))
-         {
-            // don't skip empty / blank lines when executing Python line-by-line
-            Position nextPos = Position.create(
-                  docDisplay_.getCursorPosition().getRow() + 1,
-                  0);
-            docDisplay_.setCursorPosition(nextPos);
-         }
-         else
-         {
-            moveCursorAfterExecution(selectionRange, true);
-         }
+         moveCursorAfterExecution(selectionRange, true);
       }
    }
    
@@ -282,7 +273,9 @@ public class EditingTargetCodeExecution
       executeSelection(consoleExecuteWhenNotFocused, moveCursorAfter, functionWrapper, false);
    }
    
-   private void executeRange(Range range, String functionWrapper, boolean onlyUseConsole)
+   private void executeRange(Range range,
+                             String functionWrapper,
+                             boolean onlyUseConsole)
    {
       String code = codeExtractor_.extractCode(docDisplay_, range);
       String language = "R";
@@ -310,7 +303,7 @@ public class EditingTargetCodeExecution
       // if we're in a chunk with in-line output, execute it there instead
       if (!onlyUseConsole && docDisplay_.showChunkOutputInline())
       {
-         Scope scope = docDisplay_.getCurrentChunk(range.getStart());
+         Scope scope = docDisplay_.getChunkAtPosition(range.getStart());
          if (scope != null)
          {
             events_.fireEvent(new SendToChunkConsoleEvent(docId_, 
@@ -321,7 +314,14 @@ public class EditingTargetCodeExecution
       
       if (functionWrapper != null)
       {
-         code = functionWrapper + "({" + code + "})";
+         if (code.indexOf('#') != -1 || code.indexOf('\n') != -1)
+         {
+            code = functionWrapper + "({\n" + code + "\n})";
+         }
+         else
+         {
+            code = functionWrapper + "({" + code + "})";
+         }
       }
       
       // send to console
@@ -397,6 +397,17 @@ public class EditingTargetCodeExecution
       return range;
    }
    
+   /**
+    * Sets whether to append blank lines at the end of the document when the
+    * cursor is moved past the end of the document due to code execution.
+    * 
+    * @param append Whether to append blank lines
+    */
+   public void setAppendLinesAtEnd(boolean append)
+   {
+      appendLinesAtEnd_ = append;
+   }
+   
    public void executeLastCode()
    {
       if (lastExecutedCode_ != null)
@@ -409,7 +420,7 @@ public class EditingTargetCodeExecution
             Scope scope = null;
             if (docDisplay_.showChunkOutputInline())
             {
-               scope = docDisplay_.getCurrentChunk(
+               scope = docDisplay_.getChunkAtPosition(
                   lastExecutedCode_.getRange().getStart());
             }
 
@@ -536,7 +547,13 @@ public class EditingTargetCodeExecution
       docDisplay_.setCursorPosition(Position.create(
             selectionRange.getEnd().getRow(), 0));
       if (!docDisplay_.moveSelectionToNextLine(skipBlankLines))
-         docDisplay_.moveSelectionToBlankLine();
+      {
+         if (appendLinesAtEnd_)
+         {
+            // Create a new line if we have nowhere to go
+            docDisplay_.moveSelectionToBlankLine();
+         }
+      }
       docDisplay_.scrollCursorIntoViewIfNecessary(3);
    }
    
@@ -545,6 +562,8 @@ public class EditingTargetCodeExecution
    private final CodeExtractor codeExtractor_;
    private final String docId_;
    private final EditingTargetInlineChunkExecution inlineChunkExecutor_;
+   
+   private boolean appendLinesAtEnd_;
    private AnchoredSelection lastExecutedCode_;
    
    // Injected ----

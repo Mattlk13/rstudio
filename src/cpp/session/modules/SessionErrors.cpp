@@ -1,7 +1,7 @@
 /*
  * SessionErrors.cpp
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -22,7 +22,7 @@
 #include <r/RExec.hpp>
 #include <r/ROptions.hpp>
 
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
 #include <session/SessionModuleContext.hpp>
 #include <session/prefs/UserPrefs.hpp>
 #include <session/prefs/UserState.hpp>
@@ -30,6 +30,7 @@
 #include "SessionBreakpoints.hpp"
 
 using namespace rstudio::core;
+using namespace boost::placeholders;
 
 namespace rstudio {
 namespace session {
@@ -51,11 +52,6 @@ Error setErrHandler(const std::string& type, bool inMyCode,
 {
    // when setting the error handler to "custom", just leave it as it was
    if (type == kErrorHandlerTypeCustom)
-      return Success();
-
-   // this feature requires the source reference attribute; don't try to set
-   // the error handler if we don't have that.
-   if (!breakpoints::haveSrcrefAttribute())
       return Success();
 
    Error error = r::exec::RFunction(

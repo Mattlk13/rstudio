@@ -1,7 +1,7 @@
 /*
  * BuildToolsWebsitePanel.java
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -74,8 +74,8 @@ public class BuildToolsWebsitePanel extends BuildToolsPanel
          
          // get all available output formats
          JsArrayString formatsJson = buildContext.getWebsiteOutputFormats();
-         ArrayList<String> formatNames = new ArrayList<String>();
-         ArrayList<String> formats = new ArrayList<String>();
+         ArrayList<String> formatNames = new ArrayList<>();
+         ArrayList<String> formats = new ArrayList<>();
         
          // always include "All Formats"
          formatNames.add("(All Formats)");

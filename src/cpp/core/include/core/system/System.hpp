@@ -1,7 +1,7 @@
 /*
  * System.hpp
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -50,6 +50,7 @@ namespace rstudio {
 namespace core {
 
 class FileInfo;
+class FilePath;
 
 namespace system {
 
@@ -59,6 +60,9 @@ Error realPath(const std::string& path, FilePath* pRealPath);
 bool realPathsEqual(const FilePath& a, const FilePath& b);
 
 void addToSystemPath(const FilePath& path, bool prepend = false);
+
+Error findProgramOnPath(const std::string& program,
+                        core::FilePath* pProgramPath);
 
 #ifndef _WIN32
 Error closeAllFileDescriptors();
@@ -178,7 +182,7 @@ int exitFailure(const std::string& errMsg,
 // signals 
    
 // ignore selected signals
-Error ignoreTerminalSignals(); 
+Error ignoreTerminalSignals();
 Error ignoreChildExits();
    
 // reap children (better way to handle child exits than ignoreChildExits
@@ -221,7 +225,7 @@ private:
 core::Error clearSignalMask();
 
 core::Error handleSignal(SignalType signal, void (*handler)(int));
-core::Error ignoreSignal(SignalType signal);   
+core::Error ignoreSignal(SignalType signal);
 core::Error useDefaultSignalHandler(SignalType signal);
 
 void sendSignalToSelf(SignalType signal);
@@ -257,8 +261,8 @@ log::LoggerType loggerType(const std::string& logSection = "");
 log::LogLevel lowestLogLevel();
 
 // filesystem
-bool isHiddenFile(const FilePath& filePath) ;
-bool isHiddenFile(const FileInfo& fileInfo) ;
+bool isHiddenFile(const FilePath& filePath);
+bool isHiddenFile(const FileInfo& fileInfo);
 bool isReadOnly(const FilePath& filePath);
    
 // terminals

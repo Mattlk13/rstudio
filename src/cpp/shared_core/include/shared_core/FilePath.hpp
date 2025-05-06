@@ -1,7 +1,7 @@
 /*
  * FilePath.hpp
  *
- * Copyright (C) 2009-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant to the terms of a commercial license agreement
  * with RStudio, then this program is licensed to you under the following terms:
@@ -45,9 +45,9 @@ namespace system {
 
 class User;
 
-}
-}
-}
+} // namespace system
+} // namespace core
+} // namespace rstudio
 
 namespace rstudio {
 namespace core {
@@ -334,19 +334,21 @@ public:
     * @brief Copies this file path to the specified location.
     *
     * @param in_targetPath      The location to copy this file path to.
+    * @param overwrite          Whether to overwrite the file if one exists in target path.
     *
     * @return Success if the copy could be completed; Error otherwise.
     */
-   Error copy(const FilePath& in_targetPath) const;
+   Error copy(const FilePath& in_targetPath, bool overwrite = false) const;
 
    /**
     * @brief Copies this directory recursively to the specified location.
     *
     * @param in_targetPath      The location to which to copy this directory and its contents.
+    * @param overwrite          Whether to overwrite the file if one exists in target path.
     *
     * @return Success if the copy could be completed; Error otherwise.
     */
-   Error copyDirectoryRecursive(const FilePath& in_targetPath) const;
+   Error copyDirectoryRecursive(const FilePath& in_targetPath, bool overwrite = false) const;
 
    /**
     * @brief Creates the specified directory.
@@ -647,19 +649,21 @@ public:
     * @param in_targetPath      The location to which to move this directory.
     * @param in_type            The type of move to perform, direct or cross device. See MoveType for more details.
     *                           Default: MoveCrossDevice.
+    * @param overwrite          Whether to overwrite the file if one exists in target path.
     *
     * @return Success if this directory could be moved to the target; Error otherwise.
     */
-   Error move(const FilePath& in_targetPath, MoveType in_type = MoveCrossDevice) const;
+   Error move(const FilePath& in_targetPath, MoveType in_type = MoveCrossDevice, bool overwrite = false) const;
 
    /**
     * @brief Performs an indirect move by copying this directory to the target and then deleting this directory.
     *
     * @param in_targetPath     The location to which to move this directory.
+    * @param overwrite          Whether to overwrite the file if one exists in target path.
     *
     * @return Success if this directory could be moved to the target; Error otherwise.
     */
-   Error moveIndirect(const FilePath& in_targetPath) const;
+   Error moveIndirect(const FilePath& in_targetPath, bool overwrite = false) const;
 
    /**
     * @brief Opens this file for read.
@@ -719,7 +723,9 @@ public:
    /**
     * @brief Checks if a file can be written to by opening the file.
     *
-    * To be successful, the file must already exist on the system.
+    * To be successful, the file must be a regular file (not a directory, etc.) and already exist on
+    * the system.
+    *
     * If write access is not absolutely necessary, use isWriteable instead.
     *
     * @return Success if file can be written to; system error otherwise (e.g. EPERM, ENOENT, etc.)

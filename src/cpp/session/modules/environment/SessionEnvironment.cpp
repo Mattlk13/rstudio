@@ -1,7 +1,7 @@
 /*
  * SessionEnvironment.cpp
  *
- * Copyright (C) 2009-19 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -44,10 +44,18 @@ namespace session {
 namespace modules { 
 namespace environment {
 
+// which language is currently active on the front-end? this state is
+// synchronized between client and server so that we can tell when to
+// active environment monitors for different languages
+std::string s_environmentLanguage = kEnvironmentLanguageR;
+
 // allocate on the heap so we control timing of destruction (if we leave it
 // to the destructor we might release the underlying environment SEXP after
 // R has already shut down)
 EnvironmentMonitor* s_pEnvironmentMonitor = nullptr;
+
+// which Python module is currently being monitored, if any?
+std::string s_monitoredPythonModule;
 
 // is the browser currently active? we store this state
 // so that we can query this from R, without 'hiding' the
@@ -267,8 +275,7 @@ json::Array callFramesAsJson(LineDebugState* pLineDebugState)
       // debugging in the environment of the callee. note that there may be
       // multiple srcrefs on the stack for a given closure; in this case we
       // always want to take the first one as it's the most current/specific.
-      if (!r::context::isByteCodeContext(*context) &&
-          isValidSrcref(context->srcref()) &&
+      if (isValidSrcref(context->contextSourceRefs()) &&
           !context->nextcontext().isNull())
       {
          SEXP env = context->nextcontext().cloenv();
@@ -300,20 +307,24 @@ json::Array callFramesAsJson(LineDebugState* pLineDebugState)
          else
             srcContext = *context;
 
+         // extract source reference associated with source context
+         SEXP srcref = srcContext.contextSourceRefs();
+         
          // mark this as a source-equivalent function if it's evaluating user
          // code into the global environment
-         varFrame["is_source_equiv"] = context->cloenv() == R_GlobalEnv &&
-            isValidSrcref(srcContext.srcref());
+         varFrame["is_source_equiv"] =
+               context->cloenv() == R_GlobalEnv &&
+               isValidSrcref(srcref);
 
          std::string filename;
          error = srcContext.fileName(&filename);
          if (error)
             LOG_ERROR(error);
+         
          varFrame["file_name"] = filename;
          varFrame["aliased_file_name"] =
                module_context::createAliasedPath(FilePath(filename));
 
-         SEXP srcref = srcContext.srcref();
          if (isValidSrcref(srcref))
          {
             varFrame["real_sourceref"] = true;
@@ -355,8 +366,8 @@ json::Array callFramesAsJson(LineDebugState* pLineDebugState)
          // use this to compute the source location as an offset into the
          // function rather than as an absolute file position (useful when
          // we need to debug a copy of the function rather than the real deal).
-         SEXP srcRef = context->sourceRefs();
-         if (isValidSrcref(srcRef))
+         SEXP srcRef = context->callFunSourceRefs();
+         if (isValidSrcref(srcRef) && TYPEOF(srcRef) == INTSXP)
          {
             varFrame["function_line_number"] = INTEGER(srcRef)[0];
          }
@@ -485,9 +496,29 @@ Error setEnvironment(boost::shared_ptr<int> pContextDepth,
    if (error)
       return error;
 
-   error = setEnvironmentName(*pContextDepth,
-                              *pCurrentContext,
-                              environmentName);
+   s_monitoredPythonModule = std::string();
+   
+   if (s_environmentLanguage == kEnvironmentLanguageR)
+   {
+      error = setEnvironmentName(*pContextDepth,
+                                 *pCurrentContext,
+                                 environmentName);
+   }
+   else if (s_environmentLanguage == kEnvironmentLanguagePython)
+   {
+      if (environmentName != s_monitoredPythonModule)
+      {
+         s_monitoredPythonModule = environmentName;
+         
+         ClientEvent event(client_events::kEnvironmentRefresh);
+         module_context::enqueClientEvent(event);
+      }
+   }
+   else
+   {
+      LOG_WARNING_MESSAGE("Unexpected language '" + s_environmentLanguage + "'");
+   }
+   
    if (error)
       return error;
 
@@ -526,10 +557,12 @@ bool functionIsOutOfSync(const r::context::RCntxt& context,
    SEXP sexpCode = R_NilValue;
 
    // start by extracting the source code from the call site
-   error = r::exec::RFunction(".rs.deparseFunction",
-                              context.originalFunctionCall(),
-                              true, true)
+   error = r::exec::RFunction(".rs.deparseFunction")
+         .addParam(context.originalFunctionCall())
+         .addParam(true)
+         .addParam(true)
          .call(&sexpCode, &protect);
+   
    if (error)
    {
       LOG_ERROR(error);
@@ -549,7 +582,7 @@ bool functionIsOutOfSync(const r::context::RCntxt& context,
       return true;
    }
 
-   return functionDiffersFromSource(context.sourceRefs(), *pFunctionCode);
+   return functionDiffersFromSource(context.callFunSourceRefs(), *pFunctionCode);
 }
 
 // Returns a JSON array containing the names and associated call frame numbers
@@ -576,6 +609,33 @@ json::Value environmentNames(SEXP env)
       }
       return namesJson;
    }
+}
+
+json::Object pythonEnvironmentStateData(const std::string& environment)
+{
+   SEXP state = R_NilValue;
+   r::sexp::Protect protect;
+   Error error =
+         r::exec::RFunction(".rs.reticulate.environmentState")
+         .addParam(environment)
+         .call(&state, &protect);
+   
+   if (error)
+   {
+      LOG_ERROR(error);
+      return json::Object();
+   }
+   
+   json::Object jsonState;
+   error = r::json::jsonValueFromObject(state, &jsonState);
+   if (error)
+   {
+      LOG_ERROR(error);
+      return json::Object();
+   }
+   
+   jsonState["environment_monitoring"] = s_monitoring;
+   return jsonState;
 }
 
 // create a JSON object that contains information about the current environment;
@@ -720,16 +780,38 @@ Error setContextDepth(boost::shared_ptr<int> pContextDepth,
 
 Error getEnvironmentState(boost::shared_ptr<int> pContextDepth,
                           boost::shared_ptr<LineDebugState> pLineDebugState,
-                          const json::JsonRpcRequest&,
+                          const json::JsonRpcRequest& request,
                           json::JsonRpcResponse* pResponse)
 {
-   pResponse->setResult(commonEnvironmentStateData(*pContextDepth,
-                                                   true, // include contents
-                                                   pLineDebugState.get()));
+   std::string language = kEnvironmentLanguageR;
+   std::string environment = "R_GlobalEnv";
+   Error error = json::readParams(request.params, &language, &environment);
+   if (error)
+      LOG_ERROR(error);
+   
+   json::Object jsonState;
+   
+   if (language == kEnvironmentLanguageR)
+   {
+      jsonState = commonEnvironmentStateData(
+               *pContextDepth,
+               true,
+               pLineDebugState.get());
+   }
+   else if (language == kEnvironmentLanguagePython)
+   {
+      jsonState = pythonEnvironmentStateData(environment);
+   }
+   else
+   {
+      LOG_WARNING_MESSAGE("Unexpected language '" + language + "'");
+   }
+   
+   pResponse->setResult(jsonState);
    return Success();
 }
 
-void onDetectChanges(module_context::ChangeSource source)
+void onDetectChanges(module_context::ChangeSource /* source */)
 {
    // Prevent recursive calls to this function
    DROP_RECURSIVE_CALLS;
@@ -738,7 +820,21 @@ void onDetectChanges(module_context::ChangeSource source)
    if (!s_monitoring)
       return;
 
+   // Check for Python changes
+   if (s_environmentLanguage == kEnvironmentLanguagePython &&
+       !s_monitoredPythonModule.empty())
+   {
+      Error error =
+            r::exec::RFunction(".rs.reticulate.detectChanges")
+            .addParam(s_monitoredPythonModule)
+            .call();
+      
+      if (error)
+         LOG_ERROR(error);
+   }
+   
    s_pEnvironmentMonitor->checkForChanges();
+   
 }
 
 void onConsolePrompt(boost::shared_ptr<int> pContextDepth,
@@ -851,15 +947,57 @@ void onBeforeExecute()
 
 Error getEnvironmentNames(boost::shared_ptr<int> pContextDepth,
                           boost::shared_ptr<r::context::RCntxt> pCurrentContext,
-                          const json::JsonRpcRequest&,
+                          const json::JsonRpcRequest& request,
                           json::JsonRpcResponse* pResponse)
 {
-   // If looking at a non-toplevel context, start from there; otherwise, start
-   // from the global environment.
-   SEXP env = *pContextDepth > 0 ?
-                  pCurrentContext->cloenv() :
-                  R_GlobalEnv;
-   pResponse->setResult(environmentNames(env));
+   std::string language;
+   Error error = json::readParams(request.params, &language);
+   if (error)
+   {
+      LOG_ERROR(error);
+      return Success();
+   }
+   
+   if (language == kEnvironmentLanguagePython)
+   {
+      Error error;
+      
+      SEXP environments = R_NilValue;
+      r::sexp::Protect protect;
+      error = r::exec::RFunction(".rs.reticulate.listLoadedModules")
+            .call(&environments, &protect);
+      
+      if (error)
+      {
+         LOG_ERROR(error);
+         return Success();
+      }
+      
+      json::Value environmentsJson;
+      error = r::json::jsonValueFromObject(environments, &environmentsJson);
+      if (error)
+      {
+         LOG_ERROR(error);
+         return Success();
+      }
+      
+      pResponse->setResult(environmentsJson);
+      return Success();
+   }
+   else if (language == kEnvironmentLanguageR)
+   {
+      // If looking at a non-toplevel context, start from there; otherwise, start
+      // from the global environment.
+      SEXP env = *pContextDepth > 0 ?
+               pCurrentContext->cloenv() :
+               R_GlobalEnv;
+      pResponse->setResult(environmentNames(env));
+   }
+   else
+   {
+      LOG_WARNING_MESSAGE("Unexpected language '" + language + "'");
+   }
+   
    return Success();
 }
 
@@ -916,9 +1054,11 @@ Error removeObjects(const json::JsonRpcRequest& request,
    if (error)
       return error;
 
-   error = r::exec::RFunction(".rs.removeObjects",
-                        objectNames,
-                        s_pEnvironmentMonitor->getMonitoredEnvironment()).call();
+   error = r::exec::RFunction(".rs.removeObjects")
+         .addParam(objectNames)
+         .addParam(s_pEnvironmentMonitor->getMonitoredEnvironment())
+         .call();
+   
    if (error)
       return error;
 
@@ -927,16 +1067,18 @@ Error removeObjects(const json::JsonRpcRequest& request,
 
 // Remove all the objects from the currently monitored environment.
 Error removeAllObjects(const json::JsonRpcRequest& request,
-                       json::JsonRpcResponse* pResponse)
+                       json::JsonRpcResponse*)
 {
    bool includeHidden = false;
    Error error = json::readParam(request.params, 0, &includeHidden);
    if (error)
       return error;
 
-   error = r::exec::RFunction(".rs.removeAllObjects",
-                        includeHidden,
-                        s_pEnvironmentMonitor->getMonitoredEnvironment()).call();
+   error = r::exec::RFunction(".rs.removeAllObjects")
+         .addParam(includeHidden)
+         .addParam( s_pEnvironmentMonitor->getMonitoredEnvironment())
+         .call();
+   
    if (error)
       return error;
 
@@ -951,19 +1093,21 @@ Error getObjectContents(const json::JsonRpcRequest& request,
 
 {
    std::string objectName;
-   r::sexp::Protect protect;
-   SEXP objContents;
-   json::Value contents;
    Error error = json::readParam(request.params, 0, &objectName);
    if (error)
       return error;
-   error = r::exec::RFunction(".rs.getObjectContents",
-                              objectName,
-                              s_pEnvironmentMonitor->getMonitoredEnvironment())
-                              .call(&objContents, &protect);
+   
+   SEXP objContents;
+   r::sexp::Protect protect;
+   error = r::exec::RFunction(".rs.getObjectContents")
+         .addParam(objectName)
+         .addParam(s_pEnvironmentMonitor->getMonitoredEnvironment())
+          .call(&objContents, &protect);
+   
    if (error)
       return error;
 
+   json::Value contents;
    error = r::json::jsonValueFromObject(objContents, &contents);
    if (error)
       return error;
@@ -984,6 +1128,27 @@ Error requeryContext(boost::shared_ptr<int> pContextDepth,
 {
    onConsolePrompt(pContextDepth, pLineDebugState,
                    boost::make_shared<bool>(false), pCurrentContext);
+   return Success();
+}
+
+// Used by the client to inform the server what language is currently
+// being displayed in the Environment pane.
+Error environmentSetLanguage(const json::JsonRpcRequest& request,
+                             json::JsonRpcResponse*)
+{
+   std::string language = kEnvironmentLanguageR;
+   Error error = json::readParams(request.params, &language);
+   if (error)
+      LOG_ERROR(error);
+   
+   s_environmentLanguage = language;
+  
+   // reset Python module to 'main' after changing language
+   if (language == kEnvironmentLanguagePython)
+   {
+      s_monitoredPythonModule = "__main__";
+   }
+   
    return Success();
 }
 
@@ -1014,13 +1179,14 @@ void onConsoleOutput(boost::shared_ptr<LineDebugState> pLineDebugState,
 }
 
 
-SEXP rs_jumpToFunction(SEXP file, SEXP line, SEXP col) 
+SEXP rs_jumpToFunction(SEXP file, SEXP line, SEXP col, SEXP moveCursor)
 {
    json::Object funcLoc;
    FilePath path(r::sexp::safeAsString(file));
    funcLoc["file_name"] = module_context::createAliasedPath(path);
    funcLoc["line_number"] = r::sexp::asInteger(line);
    funcLoc["column_number"] = r::sexp::asInteger(col);
+   funcLoc["move_cursor"] = r::sexp::asLogical(moveCursor);
    ClientEvent jumpEvent(client_events::kJumpToFunction, funcLoc);
    module_context::enqueClientEvent(jumpEvent);
    return R_NilValue;
@@ -1030,12 +1196,17 @@ SEXP rs_jumpToFunction(SEXP file, SEXP line, SEXP col)
 
 json::Value environmentStateAsJson()
 {
+   if (s_environmentLanguage == kEnvironmentLanguagePython)
+      return pythonEnvironmentStateData(s_monitoredPythonModule);
+   
    int contextDepth = 0;
    r::context::getFunctionContext(BROWSER_FUNCTION, &contextDepth);
+   
    // If there's no browser on the stack, stay at the top level even if
    // there are functions on the stack--this is not a user debug session.
    if (!r::context::inBrowseContext())
       contextDepth = 0;
+   
    return commonEnvironmentStateData(contextDepth, 
          s_monitoring, // include contents if actively monitoring
          nullptr);
@@ -1045,6 +1216,31 @@ SEXP rs_isBrowserActive()
 {
    r::sexp::Protect protect;
    return r::sexp::create(s_browserActive, &protect);
+}
+
+SEXP rs_dumpContexts()
+{
+   using namespace r::context;
+   
+   r::sexp::Protect protect;
+   r::sexp::ListBuilder contextList(&protect);
+   
+   for (auto it = RCntxt::begin();
+        it != RCntxt::end();
+        ++it)
+   {
+      r::sexp::ListBuilder builder(&protect);
+      builder.add("callfun", it->callfun());
+      builder.add("callflag", it->callflag());
+      builder.add("call", it->call());
+      builder.add("srcref", it->srcref());
+      builder.add("cloenv", it->cloenv());
+      
+      SEXP elt = r::sexp::create(builder, &protect);
+      contextList.add(elt);
+   }
+   
+   return r::sexp::create(contextList, &protect);
 }
 
 bool isSuspendable()
@@ -1078,6 +1274,7 @@ Error initialize()
    RS_REGISTER_CALL_METHOD(rs_hasExternalPointer);
    RS_REGISTER_CALL_METHOD(rs_hasAltrep);
    RS_REGISTER_CALL_METHOD(rs_isAltrep);
+   RS_REGISTER_CALL_METHOD(rs_dumpContexts);
 
    // subscribe to events
    using boost::bind;
@@ -1113,7 +1310,7 @@ Error initialize()
 
    initEnvironmentMonitoring();
 
-   ExecBlock initBlock ;
+   ExecBlock initBlock;
    initBlock.addFunctions()
       (bind(registerRBrowseFileHandler, handleRBrowseEnv))
       (bind(registerRpcMethod, "list_environment", listEnv))
@@ -1126,6 +1323,7 @@ Error initialize()
       (bind(registerRpcMethod, "get_environment_state", getEnv))
       (bind(registerRpcMethod, "get_object_contents", getObjectContents))
       (bind(registerRpcMethod, "requery_context", requeryCtx))
+      (bind(registerRpcMethod, "environment_set_language", environmentSetLanguage))
       (bind(registerRpcMethod, "set_environment_monitoring", setEnvironmentMonitoring))
       (bind(sourceModuleRFile, "SessionEnvironment.R"));
 

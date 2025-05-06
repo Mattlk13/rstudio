@@ -1,7 +1,7 @@
 /*
  * FileLogDestination.cpp
  * 
- * Copyright (C) 2020 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant to the terms of a commercial license agreement
  * with RStudio, then this program is licensed to you under the following terms:
@@ -155,11 +155,20 @@ struct FileLogDestination::Impl
                return false;
 
             // Now re-open the log file.
-            openLogFile();
+            if (!openLogFile())
+               return false;
          }
-      }
 
-      return LogFile.getSize() < maxSize;
+         // we only sucessfully rotated (and thus are safe to log) if the
+         // file size is now lower than the limit
+         return LogFile.getSize() < maxSize;
+      }
+      else
+      {
+         // we are configured not to rotate logs, which means the log file can grow unboundedly large
+         // thus, we are safe to log
+         return true;
+      }
    }
 
    FileLogOptions LogOptions;
@@ -192,6 +201,11 @@ unsigned int FileLogDestination::getId() const
    return m_impl->Id;
 }
 
+void FileLogDestination::reload()
+{
+   m_impl->closeLogFile();
+}
+
 void FileLogDestination::writeLog(LogLevel in_logLevel, const std::string& in_message)
 {
    // Don't write logs that are more detailed than the configured maximum.
@@ -199,16 +213,36 @@ void FileLogDestination::writeLog(LogLevel in_logLevel, const std::string& in_me
       return;
 
    // Lock the mutex before attempting to write.
-   boost::unique_lock<boost::mutex> lock(m_impl->Mutex);
+   try
+   {
+      boost::lock_guard<boost::mutex> lock(m_impl->Mutex);
 
-   // Open the log file if it's not open. If it fails to open, log nothing.
-   if (!m_impl->LogOutputStream && !m_impl->openLogFile())
-      return;
+      // Open the log file if it's not open. If it fails to open, log nothing.
+      if (!m_impl->openLogFile())
+         return;
 
-   // Rotate the log file if necessary.
-   m_impl->rotateLogFile();
-   (*m_impl->LogOutputStream) << in_message;
-   m_impl->LogOutputStream->flush();
+      // Rotate the log file if necessary. If it fails to rotate, log nothing.
+      if (!m_impl->rotateLogFile())
+         return;
+
+      (*m_impl->LogOutputStream) << in_message;
+      m_impl->LogOutputStream->flush();
+
+      // If the output stream has bad state after writing, it might have been closed. Try re-opening it and writing the
+      // message again. Often it is not possible to tell that a stream has failed until a write is attempted.
+      if (!m_impl->LogOutputStream->good())
+      {
+         if (!m_impl->openLogFile())
+            return;
+
+         (*m_impl->LogOutputStream) << in_message;
+         m_impl->LogOutputStream->flush();
+      }
+   }
+   catch (...)
+   {
+      // Swallow exceptions because we'd trigger recursive logging otherwise.
+   }
 }
 
 } // namespace log

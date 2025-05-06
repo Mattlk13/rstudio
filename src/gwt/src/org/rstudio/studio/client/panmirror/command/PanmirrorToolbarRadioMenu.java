@@ -1,7 +1,7 @@
 /*
  * PanmirrorToolbarRadioMenu.java
  *
- * Copyright (C) 2009-20 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -83,6 +83,6 @@ public class PanmirrorToolbarRadioMenu extends ToolbarMenuButton implements Panm
    private final String defaultText_;
    private int minWidth_ = 0;
    private final PanmirrorToolbarMenu menu_;
-   private final ArrayList<String> commandIds_ = new ArrayList<String>();
+   private final ArrayList<String> commandIds_ = new ArrayList<>();
    private final PanmirrorToolbarCommands commands_;
 }

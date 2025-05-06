@@ -1,7 +1,7 @@
 /*
  * Request.hpp
  *
- * Copyright (C) 2009-12 by RStudio, PBC
+ * Copyright (C) 2021 by RStudio, PBC
  *
  * Unless you have received this program directly from RStudio pursuant
  * to the terms of a commercial license agreement with RStudio, then
@@ -20,15 +20,23 @@
 #include "Util.hpp"
 #include "Cookie.hpp"
 
+#define kRequestDefaultRootPath "/"
+#define kVirtualPathHeader "X-RStudio-Virtual-Path"
+
 namespace rstudio {
 namespace core {
 namespace http {
 
+enum class BaseUriUse {
+   Internal, // The default, includes internal addresses
+   External  // Omit internal addresses, returning blank
+};
+
 class Request : public Message
 {
 public:
-   Request() ; 
-   virtual ~Request() ;
+   Request();
+   virtual ~Request();
    // COPYING: boost::noncopyable
 
    void assign(const Request& request, const Headers& extraHeaders = Headers())
@@ -50,13 +58,44 @@ public:
 public:
    const std::string& method() const { return method_; }
    void setMethod(const std::string& method) { method_ = method; }
+
+   // Use this URI to obtain the internally visited path
+   // The path of this URI does not contain other components
+   // defined during processing such as virtual or root paths
    const std::string& uri() const { return uri_; }
    void setUri(const std::string& uri) { uri_ = uri; }
 
+   // Whether or not the request is server via HTTPS
+   // either directly by the server or via a proxy
    bool isSecure() const;
-   std::string absoluteUri() const;
+
+   // Use the proxied URI when you need the closest guessing
+   // of the address shown in the browser's address bar.
+   // The host/port/protocol information returned here is always
+   // correct but to get the path 100% right, a root path must
+   // have been defined in the request or in an external header
    std::string proxiedUri() const;
+
+   // The base URI will return:
+   // - The internal URI when the root path is the default ("/")
+   //   Empty is returned when `use = BaseUriUse::External`
+   // - The proxied URI when the root path is defined as something else
+   std::string baseUri(BaseUriUse use = BaseUriUse::Internal) const;
+
+   // The path of the server as seen by the browsers, by default "/"
+   // This is the path to be used for cookies or along with other path
+   std::string rootPath() const;
+   void setRootPath(const std::string& path) { rootPath_ = path; }
    
+   // Virtual path of the request as seen by the browsers, by default empty
+   // This path can be used for separating distinct contexts under a sub path
+   // Note: Affects the proxied URI or the base URI (when root path is set)
+   // For example, if the virtual path is `/s/1234567890` and RStudio is served on
+   // `example.com` then the proxied URI could be `http://example.com/s/1234567890`
+   // Implemented as a header so it carries over when proxied downstream
+   std::string virtualPath() const { return headerValue(kVirtualPathHeader); }
+   void setVirtualPath(const std::string& path) { setHeader(kVirtualPathHeader, path); }
+
    bool acceptsContentType(const std::string& contentType) const;
 
    std::string acceptEncoding() const { return headerValue("Accept-Encoding"); }
@@ -92,8 +131,7 @@ public:
       return http::util::fieldValue(queryParams(), name, validator, pValue);
    }
    
-
-   std::string cookieValue(const std::string& name, bool iFrameLegacyCookies) const;
+   std::string cookieValue(const std::string& name) const;
    std::string cookieValueFromHeader(const std::string& headerName) const;
    void addCookie(const std::string& name, const std::string& value);
    
@@ -123,8 +161,11 @@ public:
    void debugPrintUri(const std::string& caption) const;
 
 private:
+   // Use the internal URI when you need the "behind the proxy" URI
+   std::string internalUri() const;
+
    virtual void appendFirstLineBuffers(
-         std::vector<boost::asio::const_buffer>& buffers) const ;
+         std::vector<boost::asio::const_buffer>& buffers) const;
    
    virtual void resetMembers();
 
@@ -134,6 +175,7 @@ private:
                             const std::string& value) const;
 
 private:
+   std::string rootPath_;
 
    // IMPORTANT NOTE: when adding data members be sure to update
    // the implementation of the assign method!!!!!
@@ -144,20 +186,20 @@ private:
    int remoteUid_;
    
    // cookies, form fields, and query string are parsed on demand
-   mutable bool parsedCookies_ ;
-   mutable Fields cookies_ ;
-   mutable bool parsedFormFields_ ;
+   mutable bool parsedCookies_;
+   mutable Fields cookies_;
+   mutable bool parsedFormFields_;
    mutable Fields formFields_;
    mutable Files files_;
    File emptyFile_;
    mutable bool parsedQueryParams_;
    mutable Fields queryParams_;
 
-   friend class RequestParser ;
+   friend class RequestParser;
    friend class LocalStreamAsyncServer;
 };
 
-std::ostream& operator << (std::ostream& stream, const Request& r) ;
+std::ostream& operator << (std::ostream& stream, const Request& r);
 
 } // namespace http
 } // namespace core
